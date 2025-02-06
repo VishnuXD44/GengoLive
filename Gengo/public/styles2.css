@@ -44,7 +44,7 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
-    justify-content: center;
+    justify-content: flex-end; 
     padding: 1rem 2rem;
     background-color: transparent;
     z-index: 1000;
