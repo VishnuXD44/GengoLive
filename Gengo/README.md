@@ -1,4 +1,4 @@
-# WebRTC Language Match Application
+# GENGO - Language InterExchange
 
 This project is a WebRTC-based web application that connects users based on their chosen language and role (practice or coach). Users selecting the same language from both options will be matched and connected for video chat sessions.
 
