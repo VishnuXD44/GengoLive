@@ -1,0 +1,25 @@
+{
+  "name": "webrtc-language-app",
+  "version": "1.0.0",
+  "description": "A WebRTC application for language practice and coaching based on user preferences.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  },
+  "keywords": [
+    "webrtc",
+    "language",
+    "practice",
+    "coaching"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
