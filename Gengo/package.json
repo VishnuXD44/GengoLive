@@ -1,5 +1,5 @@
 {
-  "name": "webrtc-language-app",
+  "name": "gengo",
   "version": "1.0.0",
   "description": "A WebRTC application for language practice and coaching based on user preferences.",
   "main": "src/server.js",
