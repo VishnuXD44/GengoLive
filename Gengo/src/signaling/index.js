@@ -7,26 +7,40 @@ function handleSignaling(socket, io) {
         if (users[key]) {
             const otherSocket = users[key];
             delete users[key];
-            socket.emit('match', { offer: true });
-            otherSocket.emit('match', { offer: false });
+            const room = `${language}-${Date.now()}`;
+            socket.join(room);
+            otherSocket.join(room);
+            socket.emit('match', { offer: true, room });
+            otherSocket.emit('match', { offer: false, room });
         } else {
             users[`${language}-${role}`] = socket;
         }
     });
 
-    socket.on('offer', (offer) => {
+    socket.on('offer', (offer, room) => {
         console.log('Received offer');
-        socket.broadcast.emit('offer', offer);
+        socket.to(room).emit('offer', offer);
     });
 
-    socket.on('answer', (answer) => {
+    socket.on('answer', (answer, room) => {
         console.log('Received answer');
-        socket.broadcast.emit('answer', answer);
+        socket.to(room).emit('answer', answer);
     });
 
-    socket.on('candidate', (candidate) => {
+    socket.on('candidate', (candidate, room) => {
         console.log('Received candidate');
-        socket.broadcast.emit('candidate', candidate);
+        socket.to(room).emit('candidate', candidate);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+        // Remove the user from the users object
+        for (const key in users) {
+            if (users[key] === socket) {
+                delete users[key];
+                break;
+            }
+        }
     });
 }
 

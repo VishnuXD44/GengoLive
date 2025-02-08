@@ -1,5 +1,3 @@
-// This file contains utility functions for managing WebRTC connections.
-
 const configuration = {
     iceServers: [
         {
@@ -66,5 +64,5 @@ export const handleIceCandidate = (candidate) => {
 };
 
 const sendSignal = (type, data) => {
-    // Implement signaling logic to send data to the remote peer
+    socket.emit(type, data); // Implement signaling logic to send data to the remote peer
 };

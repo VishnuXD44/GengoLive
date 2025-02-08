@@ -1,4 +1,5 @@
-// filepath: /c:/Users/vishn/Gengo/Gengo/public/scripts/main.js
+import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate } from '../utils/webrtc.js';
+
 const socket = io('https://www.gengo.live');
 
 document.getElementById('connect').addEventListener('click', async () => {
@@ -8,7 +9,7 @@ document.getElementById('connect').addEventListener('click', async () => {
     socket.emit('join', { language, role });
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await startLocalStream();
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = stream;
 
@@ -31,48 +32,28 @@ document.getElementById('leave').addEventListener('click', () => {
 
 socket.on('match', async (data) => {
     console.log('Matched with another user');
-    const localVideo = document.getElementById('localVideo');
-    const remoteVideo = document.getElementById('remoteVideo');
-    const peerConnection = new RTCPeerConnection();
+    const peerConnection = createPeerConnection();
 
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            console.log('Sending ICE candidate');
-            socket.emit('candidate', event.candidate);
-        }
-    };
-
-    peerConnection.ontrack = event => {
-        remoteVideo.srcObject = event.streams[0];
-    };
-
-    try {
-        const stream = localVideo.srcObject;
-        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-
-        if (data.offer) {
-            console.log('Creating answer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer);
-        } else {
-            console.log('Creating offer');
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('offer', offer);
-        }
-
-        socket.on('answer', async (answer) => {
-            console.log('Received answer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        });
-
-        socket.on('candidate', async (candidate) => {
-            console.log('Received ICE candidate');
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        });
-    } catch (error) {
-        console.error('Error during WebRTC connection setup.', error);
+    if (data.offer) {
+        console.log('Creating answer');
+        await handleOffer(data.offer);
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('answer', answer, data.room);
+    } else {
+        console.log('Creating offer');
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('offer', offer, data.room);
     }
+
+    socket.on('answer', async (answer) => {
+        console.log('Received answer');
+        await handleAnswer(answer);
+    });
+
+    socket.on('candidate', async (candidate) => {
+        console.log('Received ICE candidate');
+        await handleIceCandidate(candidate);
+    });
 });
