@@ -10,7 +10,9 @@ const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
         origin: "https://www.gengo.live", // Replace with your domain
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type"],
+        credentials: true
     }
 });
 
@@ -19,7 +21,10 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Enable CORS
 app.use(cors({
-    origin: "https://www.gengo.live" // Replace with your domain
+    origin: "https://www.gengo.live", // Replace with your domain
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+    credentials: true
 }));
 
 io.on('connection', (socket) => {
