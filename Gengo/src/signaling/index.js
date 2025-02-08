@@ -1,4 +1,3 @@
-// filepath: /c:/Users/vishn/Gengo/Gengo/src/signaling/index.js
 const users = {};
 
 function handleSignaling(socket, io) {

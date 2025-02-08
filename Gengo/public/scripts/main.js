@@ -1,5 +1,5 @@
 // filepath: /c:/Users/vishn/Gengo/Gengo/public/scripts/main.js
-const socket = io();
+const socket = io('https://www.gengo.live');
 
 document.getElementById('connect').addEventListener('click', async () => {
     const language = document.getElementById('language').value;
