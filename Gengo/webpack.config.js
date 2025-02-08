@@ -8,12 +8,10 @@ module.exports = {
         main: './public/scripts/main.js',
     },
     output: {
-        filename: 'bundle.js',
+        filename: 'scripts/[name].js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: process.env.NODE_ENV === 'production' 
-            ? 'https://www.gengo.live/' 
-            : '/'
+        publicPath: '/'
     },
     resolve: {
         alias: {
@@ -40,6 +38,9 @@ module.exports = {
             {
                 test: /\.(png|jpg|jpeg|gif)$/i,
                 type: 'asset/resource',
+                generator: {
+                    filename: 'assets/[name][ext]'
+                }
             },
         ],
     },
@@ -66,25 +67,75 @@ module.exports = {
             patterns: [
                 { 
                     from: 'public/styles.css',
-                    to: 'styles.css'
+                    to: 'styles.css',
+                    force: true
                 },
                 { 
                     from: 'public/styles2.css',
-                    to: 'styles2.css'
+                    to: 'styles2.css',
+                    force: true
                 },
                 { 
                     from: 'public/assets',
-                    to: 'assets'
+                    to: 'assets',
+                    force: true
                 },
                 { 
                     from: 'public/scripts/language-animation.js',
-                    to: 'scripts/language-animation.js'
+                    to: 'scripts/language-animation.js',
+                    force: true
                 },
                 { 
                     from: 'src/utils/webrtc.js',
-                    to: 'utils/webrtc.js'
+                    to: 'utils/webrtc.js',
+                    force: true
                 }
             ]
         })
-    ]
+    ],
+    devServer: {
+        static: {
+            directory: path.join(__dirname, 'dist'),
+            publicPath: '/',
+        },
+        compress: true,
+        port: 9000,
+        hot: true,
+        historyApiFallback: true,
+        proxy: {
+            '/socket.io': {
+                target: 'http://localhost:3000',
+                ws: true,
+                changeOrigin: true
+            },
+            '/api': {
+                target: 'http://localhost:3000',
+                changeOrigin: true
+            }
+        }
+    },
+    optimization: {
+        moduleIds: 'deterministic',
+        runtimeChunk: 'single',
+        splitChunks: {
+            cacheGroups: {
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: 'vendors',
+                    chunks: 'all',
+                }
+            }
+        }
+    },
+    performance: {
+        hints: process.env.NODE_ENV === 'production' ? 'warning' : false,
+        maxEntrypointSize: 512000,
+        maxAssetSize: 512000
+    },
+    stats: {
+        colors: true,
+        modules: true,
+        reasons: true,
+        errorDetails: true
+    }
 };
