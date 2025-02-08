@@ -3,15 +3,17 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-    mode: 'development', // Explicitly set the mode
+    mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     entry: {
-        main: './public/scripts/main.js'
+        main: './public/scripts/main.js',
     },
     output: {
-        filename: '[name].bundle.js', // Changed from bundle.js to [name].bundle.js
+        filename: 'bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/'
+        publicPath: process.env.NODE_ENV === 'production' 
+            ? 'https://www.gengo.live/' 
+            : '/'
     },
     resolve: {
         alias: {
@@ -45,17 +47,20 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main']
+            chunks: ['main'],
+            inject: 'body'
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main']
+            chunks: ['main'],
+            inject: 'body'
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main']
+            chunks: ['main'],
+            inject: 'body'
         }),
         new CopyWebpackPlugin({
             patterns: [
@@ -81,12 +86,5 @@ module.exports = {
                 }
             ]
         })
-    ],
-    optimization: {
-        runtimeChunk: 'single',
-        splitChunks: {
-            chunks: 'all',
-            name: false
-        }
-    }
+    ]
 };

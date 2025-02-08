@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "webpack --mode production",
+    "build": "webpack --mode development",
+    "build:prod": "cross-env NODE_ENV=production webpack --mode production",
     "serve": "webpack serve --mode development"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.16.4",
     "babel-loader": "^8.2.3",
+    "cross-env": "^7.0.3",
     "css-loader": "^6.5.1",
     "html-webpack-plugin": "^5.5.0",
     "nodemon": "^2.0.7",
