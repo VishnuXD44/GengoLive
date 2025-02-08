@@ -4,11 +4,9 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-    entry: {
-        main: './public/scripts/main.js',
-    },
+    entry: './public/scripts/main.js',
     output: {
-        filename: 'scripts/[name].js',
+        filename: 'bundle.js', // Changed back to bundle.js
         path: path.resolve(__dirname, 'dist'),
         clean: true,
         publicPath: '/'
@@ -48,47 +46,39 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main'],
-            inject: 'body'
+            inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main'],
-            inject: 'body'
+            inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main'],
-            inject: 'body'
+            inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
                 { 
                     from: 'public/styles.css',
-                    to: 'styles.css',
-                    force: true
+                    to: 'styles.css'
                 },
                 { 
                     from: 'public/styles2.css',
-                    to: 'styles2.css',
-                    force: true
+                    to: 'styles2.css'
                 },
                 { 
                     from: 'public/assets',
-                    to: 'assets',
-                    force: true
+                    to: 'assets'
                 },
                 { 
                     from: 'public/scripts/language-animation.js',
-                    to: 'scripts/language-animation.js',
-                    force: true
+                    to: 'scripts/language-animation.js'
                 },
                 { 
                     from: 'src/utils/webrtc.js',
-                    to: 'utils/webrtc.js',
-                    force: true
+                    to: 'utils/webrtc.js'
                 }
             ]
         })
@@ -96,12 +86,11 @@ module.exports = {
     devServer: {
         static: {
             directory: path.join(__dirname, 'dist'),
-            publicPath: '/',
+            publicPath: '/'
         },
         compress: true,
         port: 9000,
         hot: true,
-        historyApiFallback: true,
         proxy: {
             '/socket.io': {
                 target: 'http://localhost:3000',
@@ -113,29 +102,5 @@ module.exports = {
                 changeOrigin: true
             }
         }
-    },
-    optimization: {
-        moduleIds: 'deterministic',
-        runtimeChunk: 'single',
-        splitChunks: {
-            cacheGroups: {
-                vendor: {
-                    test: /[\\/]node_modules[\\/]/,
-                    name: 'vendors',
-                    chunks: 'all',
-                }
-            }
-        }
-    },
-    performance: {
-        hints: process.env.NODE_ENV === 'production' ? 'warning' : false,
-        maxEntrypointSize: 512000,
-        maxAssetSize: 512000
-    },
-    stats: {
-        colors: true,
-        modules: true,
-        reasons: true,
-        errorDetails: true
     }
 };
