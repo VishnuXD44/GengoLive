@@ -1,6 +1,7 @@
-import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate } from '../utils/webrtc.js';
+import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, initializeSocket } from '../utils/webrtc.js';
 
 const socket = io('https://www.gengo.live');
+initializeSocket(socket);
 
 document.getElementById('connect').addEventListener('click', async () => {
     const language = document.getElementById('language').value;
