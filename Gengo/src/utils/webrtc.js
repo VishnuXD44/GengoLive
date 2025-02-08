@@ -8,6 +8,11 @@ const configuration = {
 
 let localStream;
 let peerConnection;
+let socket;
+
+export const initializeSocket = (io) => {
+    socket = io;
+};
 
 export const startLocalStream = async () => {
     try {
@@ -28,7 +33,7 @@ export const createPeerConnection = () => {
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
             // Send the candidate to the remote peer
-            sendSignal('ice-candidate', event.candidate);
+            sendSignal('candidate', event.candidate);
         }
     };
 
@@ -64,5 +69,9 @@ export const handleIceCandidate = (candidate) => {
 };
 
 const sendSignal = (type, data) => {
-    socket.emit(type, data); // Implement signaling logic to send data to the remote peer
+    if (socket) {
+        socket.emit(type, data);
+    } else {
+        console.error('Socket is not initialized.');
+    }
 };
