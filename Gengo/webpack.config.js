@@ -4,9 +4,12 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-    entry: './public/scripts/main.js',
+    entry: {
+        bundle: './public/scripts/main.js',
+        main: './public/scripts/main.js'
+    },
     output: {
-        filename: 'bundle.js', // Changed back to bundle.js
+        filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
         publicPath: '/'
@@ -46,16 +49,19 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
+            chunks: ['runtime', 'bundle', 'main'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
+            chunks: ['runtime', 'bundle', 'main'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
+            chunks: ['runtime', 'bundle', 'main'],
             inject: true
         }),
         new CopyWebpackPlugin({
@@ -83,6 +89,12 @@ module.exports = {
             ]
         })
     ],
+    optimization: {
+        runtimeChunk: 'single',
+        splitChunks: {
+            chunks: 'all',
+        }
+    },
     devServer: {
         static: {
             directory: path.join(__dirname, 'dist'),
