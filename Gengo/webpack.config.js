@@ -9,7 +9,9 @@ module.exports = {
         main: './public/scripts/main.js'
     },
     output: {
-        filename: '[name].js',
+        filename: (pathData) => {
+            return pathData.chunk.name === 'bundle' ? 'bundle.js' : 'scripts/[name].js';
+        },
         path: path.resolve(__dirname, 'dist'),
         clean: true,
         publicPath: '/'
@@ -90,9 +92,12 @@ module.exports = {
         })
     ],
     optimization: {
-        runtimeChunk: 'single',
+        runtimeChunk: {
+            name: 'runtime'
+        },
         splitChunks: {
             chunks: 'all',
+            name: false
         }
     },
     devServer: {
