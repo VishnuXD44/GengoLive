@@ -1,4 +1,5 @@
-import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, initializeSocket } from '../utils/webrtc.js';
+import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, initializeSocket } from '../../src/utils/webrtc.js';
+import io from 'socket.io-client';
 
 const socket = io('https://www.gengo.live');
 initializeSocket(socket);
