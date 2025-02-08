@@ -1,61 +1,72 @@
-import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, initializeSocket } from '../../src/utils/webrtc.js';
-import io from 'socket.io-client';
+import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate } from '../utils/webrtc.js';
 
-const socket = io('https://www.gengo.live');
-initializeSocket(socket);
+let socket;
+let currentRoom;
 
-document.getElementById('connect').addEventListener('click', async () => {
+// Initialize Socket.IO connection
+function initializeSocket() {
+    socket = io('https://www.gengo.live', {
+        withCredentials: true,
+        transports: ['websocket']
+    });
+
+    socket.on('match', ({ offer, room }) => {
+        console.log('Matched with a peer');
+        currentRoom = room;
+        if (offer) {
+            createPeerConnection()
+                .then(offerDescription => {
+                    socket.emit('offer', offerDescription, room);
+                })
+                .catch(err => console.error('Error creating offer:', err));
+        }
+    });
+
+    socket.on('offer', (offer) => {
+        console.log('Received offer');
+        createPeerConnection()
+            .then(() => handleOffer(offer))
+            .then(answer => {
+                socket.emit('answer', answer, currentRoom);
+            })
+            .catch(err => console.error('Error handling offer:', err));
+    });
+
+    socket.on('answer', (answer) => {
+        console.log('Received answer');
+        handleAnswer(answer)
+            .catch(err => console.error('Error handling answer:', err));
+    });
+
+    socket.on('candidate', (candidate) => {
+        console.log('Received ICE candidate');
+        handleIceCandidate(candidate)
+            .catch(err => console.error('Error handling ICE candidate:', err));
+    });
+
+    return socket;
+}
+
+// Connect button click handler
+document.getElementById('connect')?.addEventListener('click', () => {
     const language = document.getElementById('language').value;
     const role = document.getElementById('role').value;
-    console.log(`Connecting with language: ${language}, role: ${role}`);
-    socket.emit('join', { language, role });
 
-    try {
-        const stream = await startLocalStream();
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = stream;
-
-        // Change the state of the page
-        document.getElementById('selection-container').style.display = 'none';
-        document.getElementById('video-container').style.display = 'block';
-    } catch (error) {
-        console.error('Error accessing media devices.', error);
-    }
+    startLocalStream()
+        .then(() => {
+            socket = initializeSocket();
+            socket.emit('join', { language, role });
+            document.getElementById('selection-container').style.display = 'none';
+            document.getElementById('video-container').style.display = 'block';
+        })
+        .catch(err => console.error('Error starting local stream:', err));
 });
 
-document.getElementById('leave').addEventListener('click', () => {
-    // Change the state of the page
-    document.getElementById('selection-container').style.display = 'block';
+// Leave button click handler
+document.getElementById('leave')?.addEventListener('click', () => {
+    if (socket) {
+        socket.disconnect();
+    }
     document.getElementById('video-container').style.display = 'none';
-
-    // Reload the page to reset the state
-    window.location.href = 'main.html';
-});
-
-socket.on('match', async (data) => {
-    console.log('Matched with another user');
-    const peerConnection = createPeerConnection();
-
-    if (data.offer) {
-        console.log('Creating answer');
-        await handleOffer(data.offer);
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', answer, data.room);
-    } else {
-        console.log('Creating offer');
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('offer', offer, data.room);
-    }
-
-    socket.on('answer', async (answer) => {
-        console.log('Received answer');
-        await handleAnswer(answer);
-    });
-
-    socket.on('candidate', async (candidate) => {
-        console.log('Received ICE candidate');
-        await handleIceCandidate(candidate);
-    });
+    document.getElementById('selection-container').style.display = 'block';
 });
