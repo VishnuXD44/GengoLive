@@ -1,5 +1,5 @@
 import io from 'socket.io-client';
-import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, cleanup } from '../../src/utils/webrtc.js';
+import { startLocalStream, createPeerConnection, handleOffer as webrtcHandleOffer, handleAnswer as webrtcHandleAnswer, handleIceCandidate, cleanup as webrtcCleanup } from '../../src/utils/webrtc.js';
 
 const configuration = {
     iceServers: [
@@ -62,31 +62,6 @@ function handleMediaError() {
     enableControls();
 }
 
-async function startLocalStream() {
-    try {
-        const constraints = {
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: true
-        };
-
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            localVideo.classList.add('active');
-            showMessage('Camera and microphone activated', 'success');
-        }
-        return localStream;
-    } catch (err) {
-        console.error('Error accessing media devices:', err);
-        handleMediaError();
-        throw err;
-    }
-}
-
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
@@ -126,12 +101,12 @@ function initializeSocket() {
 
         socketIo.on('offer', async (offer) => {
             console.log('Received offer');
-            await handleOffer(offer);
+            await webrtcHandleOffer(offer);
         });
 
         socketIo.on('answer', async (answer) => {
             console.log('Received answer');
-            await handleAnswer(answer);
+            await webrtcHandleAnswer(answer);
         });
 
         socketIo.on('candidate', async (candidate) => {
@@ -218,45 +193,6 @@ async function createAndSendOffer() {
     }
 }
 
-async function handleOffer(offer) {
-    try {
-        if (!peerConnection) {
-            throw new Error('No peer connection available');
-        }
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', answer, currentRoom);
-    } catch (err) {
-        console.error('Error handling offer:', err);
-        handleConnectionError();
-    }
-}
-
-async function handleAnswer(answer) {
-    try {
-        if (!peerConnection) {
-            throw new Error('No peer connection available');
-        }
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (err) {
-        console.error('Error handling answer:', err);
-        handleConnectionError();
-    }
-}
-
-async function handleIceCandidate(candidate) {
-    try {
-        if (!peerConnection) {
-            throw new Error('No peer connection available');
-        }
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-        console.error('Error handling ICE candidate:', err);
-        handleConnectionError();
-    }
-}
-
 async function startCall() {
     try {
         console.log('Starting call process');
@@ -339,3 +275,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.startCall = startCall;
 window.handleConnectionError = handleConnectionError;
 window.cleanup = cleanup;
+window.webrtcCleanup = webrtcCleanup;
