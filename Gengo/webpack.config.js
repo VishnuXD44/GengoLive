@@ -1,16 +1,22 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
 module.exports = {
-  mode: 'development',
+  mode: 'production',
   entry: {
     main: './public/scripts/main.js',
-    'language-animation': './public/scripts/language-animation.js'
+    'language-animation': './public/scripts/language-animation.js',
+    bundle: './public/scripts/main.js'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    publicPath: '/'
+    filename: 'scripts/[name].[contenthash].js',
+    publicPath: '/',
+    clean: true
   },
   module: {
     rules: [
@@ -26,7 +32,17 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader']
+        use: [
+          MiniCssExtractPlugin.loader, 
+          'css-loader'
+        ]
+      },
+      {
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/[name].[contenthash][ext]'
+        }
       }
     ]
   },
@@ -34,53 +50,58 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/main.html',
       filename: 'main.html',
-      chunks: ['main', 'language-animation']
+      chunks: ['main', 'language-animation', 'bundle']
     }),
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'index.html',
-      chunks: ['main']
+      chunks: ['main', 'bundle']
     }),
     new HtmlWebpackPlugin({
       template: './public/about.html',
       filename: 'about.html',
-      chunks: ['main']
+      chunks: ['main', 'bundle']
     }),
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: 'public/styles',
-          to: 'styles'
-        },
-        {
-          from: 'public/scripts',
-          to: 'scripts'
+          from: 'public/assets',
+          to: 'assets'
         }
       ]
+    }),
+    new MiniCssExtractPlugin({
+      filename: 'styles/[name].[contenthash].css'
     })
   ],
-  devServer: {
-    port: 9000,
-    static: {
-      directory: path.join(__dirname, 'dist'),
-    },
-    historyApiFallback: true,
-    hot: true,
-    compress: true,
-    open: true,
-    proxy: {
-      '/socket.io': {
-        target: 'http://localhost:3000',
-        ws: true
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: {
+            drop_console: true
+          }
+        }
+      }),
+      new CssMinimizerPlugin()
+    ],
+    splitChunks: {
+      chunks: 'all',
+      maxInitialRequests: Infinity,
+      minSize: 0,
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        }
       }
     }
   },
-  resolve: {
-    extensions: ['.js']
-  },
-  optimization: {
-    splitChunks: {
-      chunks: 'all'
-    }
+  performance: {
+    hints: false,
+    maxEntrypointSize: 512000,
+    maxAssetSize: 512000
   }
 };
