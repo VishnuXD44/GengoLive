@@ -63,7 +63,7 @@ function handleMediaError() {
 }
 
 function initializeSocket() {
-    try {
+    try {   
         console.log('Initializing socket connection');
         const socketUrl = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
