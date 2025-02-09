@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// Cors Configuration
+// CORS configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
         ? ['https://www.gengo.live', 'https://gengo.live']
@@ -23,8 +23,8 @@ app.use(express.json());
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../dist'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.js')) {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
             res.setHeader('Content-Type', 'application/javascript');
         }
     }
@@ -34,10 +34,7 @@ app.use(express.static(path.join(__dirname, '../dist'), {
 const io = new Server(server, {
     cors: corsOptions,
     path: '/socket.io/',
-    serveClient: false,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['polling', 'websocket']
+    serveClient: false
 });
 
 // Signaling logic

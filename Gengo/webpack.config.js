@@ -11,9 +11,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'scripts/[name].[contenthash].js',
-        clean: {
-            keep: /assets\// // Preserve assets directory
-        },
+        clean: true,
         publicPath: '/'
     },
     devServer: {
@@ -25,7 +23,8 @@ module.exports = {
         proxy: {
             '/socket.io': {
                 target: 'http://localhost:3000',
-                ws: true
+                ws: true,
+                changeOrigin: true
             }
         }
     },
@@ -51,13 +50,6 @@ module.exports = {
                 generator: {
                     filename: 'assets/images/[name].[hash][ext]'
                 }
-            },
-            {
-                test: /\.(woff|woff2|eot|ttf|otf)$/i,
-                type: 'asset/resource',
-                generator: {
-                    filename: 'assets/fonts/[name].[hash][ext]'
-                }
             }
         ]
     },
@@ -65,20 +57,17 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main'],
-            inject: 'body'
+            chunks: ['main', 'language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['language-animation'],
-            inject: 'body'
+            chunks: ['language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['language-animation'],
-            inject: 'body'
+            chunks: ['language-animation', 'styles2']
         }),
         new CopyWebpackPlugin({
             patterns: [
@@ -89,14 +78,6 @@ module.exports = {
                 {
                     from: 'public/styles2.css',
                     to: 'styles2.css'
-                },
-                {
-                    from: 'public/assets',
-                    to: 'assets',
-                    noErrorOnMissing: true,
-                    globOptions: {
-                        ignore: ['**/.DS_Store']
-                    }
                 }
             ]
         })
@@ -111,7 +92,6 @@ module.exports = {
         splitChunks: {
             chunks: 'all',
             name: false
-        },
-        runtimeChunk: 'single'
+        }
     }
 };
