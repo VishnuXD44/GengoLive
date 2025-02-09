@@ -25,8 +25,8 @@ module.exports = {
         },
         fallback: {
             "path": require.resolve("path-browserify")
-    },
-     caseSensitive: true,
+        },
+        caseSensitive: true,
     },
     module: {
         rules: [

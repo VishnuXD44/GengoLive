@@ -1,5 +1,6 @@
 // Import necessary modules
 import { io } from 'socket.io-client/dist/socket.io.js';
+
 // WebRTC Configuration
 const configuration = {
     iceServers: [
@@ -353,15 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Export functions for potential external use or testing
-export {
-    startCall,
-    initializeSocket,
-    startLocalStream,
-    handleConnectionError,
-    cleanup,
-    createAndSendOffer,
-    handleOffer,
-    handleAnswer,
-    handleIceCandidate
-};
+// Attach functions to the global window object
+window.startCall = startCall;
+window.handleConnectionError = handleConnectionError;
+window.cleanup = cleanup;
