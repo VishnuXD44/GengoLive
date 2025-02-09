@@ -7,8 +7,7 @@
    "start": "node src/server.js",
     "build": "webpack --mode production",
     "dev": "nodemon src/server.js",
-    "dev:client": "webpack serve --mode development",
-    "deploy": "npm run build && railway up"
+    "dev:client": "webpack serve --mode development"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.7",
