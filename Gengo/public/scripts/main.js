@@ -1,118 +1,107 @@
-// Global variables
-const socket = io; // Using globally available io from CDN
 let peerConnection;
 let localStream;
 let remoteStream;
+let socket;
 let currentRoom;
 
-// WebRTC Configuration
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
-// Initialize everything when the document loads
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connectButton');
-    const languageSelect = document.getElementById('languageSelect');
-    const roleSelect = document.getElementById('roleSelect');
-
     if (connectButton) {
+        console.log('Connect button found');
         connectButton.addEventListener('click', async () => {
+            console.log('Connect button clicked');
             try {
-                const language = languageSelect.value;
-                const role = roleSelect.value;
-                
-                if (!language || !role) {
-                    showMessage('Please select both language and role', 'error');
-                    return;
-                }
-
                 connectButton.disabled = true;
-                await startLocalStream();
-                initializeSocket();
-                socket.emit('join', { language, role });
-                showMessage('Connecting...', 'info');
-            } catch (err) {
-                console.error('Connection failed:', err);
+                await startCall();
+            } catch (error) {
+                console.error('Error in click handler:', error);
                 handleConnectionError();
-                connectButton.disabled = false;
             }
         });
+    } else {
+        console.error('Connect button not found in DOM');
     }
 });
 
-function initializeSocket() {
-    const socketInstance = io('https://www.gengo.live', {
-        withCredentials: true,
-        transports: ['websocket']
-    });
-
-    socketInstance.on('connect', () => {
-        console.log('Socket connected');
-        showMessage('Connected to server', 'success');
-    });
-
-    socketInstance.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+async function startCall() {
+    try {
+        console.log('Starting call process');
+        await startLocalStream();
+        console.log('Local stream started');
+        
+        socket = initializeSocket();
+        console.log('Socket initialized');
+        
+        peerConnection = await initializePeerConnection();
+        console.log('Peer connection initialized');
+        
+        if (!peerConnection || !socket) {
+            throw new Error('Failed to initialize connections');
+        }
+    } catch (error) {
+        console.error('Error starting call:', error);
         handleConnectionError();
-    });
+    }
+}
 
-    socketInstance.on('match', async ({ offer, room }) => {
-        console.log('Matched with a peer');
-        currentRoom = room;
-        showMessage('Found a match!', 'success');
+function initializeSocket() {
+    try {
+        console.log('Initializing socket connection');
+        const socketIo = io(window.location.origin, {
+            path: '/socket.io',
+            transports: ['websocket', 'polling']
+        });
 
-        try {
-            await initializePeerConnection();
+        socketIo.on('connect', () => {
+            console.log('Socket connected:', socketIo.id);
+            const language = document.getElementById('languageSelect').value;
+            const role = document.getElementById('roleSelect').value;
+            socketIo.emit('join', { language, role });
+        });
+
+        socketIo.on('match', async ({ offer, room }) => {
+            console.log('Matched with peer, room:', room);
+            currentRoom = room;
             if (offer) {
                 const offerDescription = await createPeerConnection();
-                socketInstance.emit('offer', offerDescription, room);
+                socketIo.emit('offer', offerDescription, room);
             }
-        } catch (err) {
-            console.error('Error in match handling:', err);
-            handleConnectionError();
-        }
-    });
+        });
 
-    socketInstance.on('offer', async (offer) => {
-        console.log('Received offer');
-        try {
-            await initializePeerConnection();
+        socketIo.on('offer', async (offer) => {
+            console.log('Received offer');
             const answer = await handleOffer(offer);
-            socketInstance.emit('answer', answer, currentRoom);
-        } catch (err) {
-            console.error('Error handling offer:', err);
-            handleConnectionError();
-        }
-    });
+            socketIo.emit('answer', answer, currentRoom);
+        });
 
-    socketInstance.on('answer', async (answer) => {
-        console.log('Received answer');
-        try {
+        socketIo.on('answer', async (answer) => {
+            console.log('Received answer');
             await handleAnswer(answer);
-        } catch (err) {
-            console.error('Error handling answer:', err);
-            handleConnectionError();
-        }
-    });
+        });
 
-    socketInstance.on('candidate', async (candidate) => {
-        console.log('Received ICE candidate');
-        try {
+        socketIo.on('candidate', async (candidate) => {
+            console.log('Received ICE candidate');
             await handleIceCandidate(candidate);
-        } catch (err) {
-            console.error('Error handling ICE candidate:', err);
-        }
-    });
+        });
 
-    socketInstance.on('disconnect', () => {
-        console.log('Disconnected from server');
-        handleDisconnection();
-    });
+        socketIo.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            handleConnectionError();
+        });
 
-    return socketInstance;
+        return socketIo;
+    } catch (error) {
+        console.error('Socket initialization error:', error);
+        handleConnectionError();
+        return null;
+    }
 }
 
 async function initializePeerConnection() {
@@ -175,6 +164,47 @@ async function startLocalStream() {
     }
 }
 
+async function createPeerConnection() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (err) {
+        console.error('Error creating offer:', err);
+        throw err;
+    }
+}
+
+async function handleOffer(offer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        return answer;
+    } catch (err) {
+        console.error('Error handling offer:', err);
+        throw err;
+    }
+}
+
+async function handleAnswer(answer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (err) {
+        console.error('Error handling answer:', err);
+        throw err;
+    }
+}
+
+async function handleIceCandidate(candidate) {
+    try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+        console.error('Error handling ICE candidate:', err);
+        throw err;
+    }
+}
+
 function handleConnectionError() {
     showMessage('Connection failed. Please check your internet connection and try again.', 'error');
     cleanup();
@@ -231,45 +261,4 @@ function cleanup() {
     const remoteVideo = document.getElementById('remoteVideo');
     if (localVideo) localVideo.srcObject = null;
     if (remoteVideo) remoteVideo.srcObject = null;
-}
-
-async function createPeerConnection() {
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        return offer;
-    } catch (err) {
-        console.error('Error creating offer:', err);
-        throw err;
-    }
-}
-
-async function handleOffer(offer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        return answer;
-    } catch (err) {
-        console.error('Error handling offer:', err);
-        throw err;
-    }
-}
-
-async function handleAnswer(answer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (err) {
-        console.error('Error handling answer:', err);
-        throw err;
-    }
-}
-
-async function handleIceCandidate(candidate) {
-    try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-        console.error('Error handling ICE candidate:', err);
-        throw err;
-    }
 }
