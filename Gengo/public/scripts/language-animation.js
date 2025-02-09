@@ -1,3 +1,4 @@
+
 const greetings = [
     'こんにちは', // Japanese
     '안녕하세요', // Korean
