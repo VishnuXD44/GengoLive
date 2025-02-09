@@ -9,11 +9,21 @@ const app = express();
 const server = http.createServer(app);
 
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? ['https://www.gengo.live', 'http://localhost:9000']
-        : ['http://localhost:9000', 'http://localhost:3000'],
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'https://gengo.up.railway.app',
+            'http://localhost:9000',
+            'http://localhost:3000'
+        ];
+        
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     optionsSuccessStatus: 200
 };
@@ -22,24 +32,18 @@ app.use(cors(corsOptions));
 
 const io = new Server(server, {
     cors: corsOptions,
-    path: '/socket.io',
-    serveClient: false,
+    path: '/socket.io/',
     transports: ['websocket', 'polling'],
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000
 });
 
-app.use(express.static(path.join(__dirname, '../dist'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
+app.use(express.static(path.join(__dirname, '../dist')));
 
-io.engine.on("connection_error", (err) => {
-    console.log('Connection error:', err);
+// Handle SPA routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 io.on('connection', (socket) => {

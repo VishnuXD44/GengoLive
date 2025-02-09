@@ -65,22 +65,48 @@ function handleMediaError() {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = process.env.NODE_ENV === 'production' 
-            ? 'https://www.gengo.live'
-            : 'http://localhost:3000';
+        const socketUrl = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://gengo-socket-production.up.railway.app'; // Update this with your Railway URL
+
+        console.log('Connecting to socket URL:', socketUrl);
 
         const socketIo = io(socketUrl, {
-            path: '/socket.io',
-            transports: ['polling', 'websocket'], // Try polling first
+            path: '/socket.io/',
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            autoConnect: true
+            withCredentials: true
+        });
+
+        socketIo.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            showMessage('Connection error. Retrying...', 'warning');
+            handleConnectionError();
+        });
+
+        socketIo.on('connect_timeout', () => {
+            console.error('Socket connection timeout');
+            showMessage('Connection timeout. Retrying...', 'warning');
+            handleConnectionError();
+        });
+
+        socketIo.on('reconnect', (attemptNumber) => {
+            console.log('Socket reconnected after', attemptNumber, 'attempts');
+            showMessage('Connection restored!', 'success');
+        });
+
+        socketIo.on('reconnect_error', (error) => {
+            console.error('Socket reconnection error:', error);
+            showMessage('Reconnection failed. Please try again.', 'error');
+            handleConnectionError();
         });
 
         socketIo.on('connect', () => {
             console.log('Socket connected successfully:', socketIo.id);
+            showMessage('Connected to server', 'success');
             const language = document.getElementById('language')?.value;
             const role = document.getElementById('role')?.value;
             
@@ -92,6 +118,7 @@ function initializeSocket() {
         socketIo.on('match', async (matchData) => {
             console.log('Matched with peer', matchData);
             currentRoom = matchData.room;
+            showMessage('Found a matching partner!', 'success');
 
             if (matchData.offer) {
                 await createAndSendOffer();
@@ -113,16 +140,6 @@ function initializeSocket() {
             await handleIceCandidate(candidate);
         });
 
-        socketIo.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
-            if (error.message.includes('xhr poll error')) {
-                console.log('Falling back to websocket only');
-                socketIo.io.opts.transports = ['websocket'];
-                socketIo.connect();
-            }
-            handleConnectionError();
-        });
-
         return socketIo;
     } catch (error) {
         console.error('Socket initialization error:', error);
@@ -131,7 +148,7 @@ function initializeSocket() {
     }
 }
 
-// ... rest of the file remains the same ...
+// Rest of the file remains the same...
 
 async function initializePeerConnection() {
     try {
