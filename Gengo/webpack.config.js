@@ -49,6 +49,10 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
+          from: 'public/styles',
+          to: 'styles'
+        },
+        {
           from: 'public/scripts',
           to: 'scripts'
         }
@@ -66,7 +70,7 @@ module.exports = {
     open: true,
     proxy: {
       '/socket.io': {
-        target: 'gengo.live',
+        target: 'http://localhost:3000',
         ws: true
       }
     }
