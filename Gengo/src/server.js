@@ -7,7 +7,6 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// Updated CORS configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
         ? ['https://www.gengo.live', 'http://localhost:9000']
@@ -19,15 +18,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Add specific CORS headers for Socket.IO
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     next();
 });
 
-// Serve static files
 app.use(express.static(path.join(__dirname, '../dist'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.js')) {
@@ -36,7 +32,6 @@ app.use(express.static(path.join(__dirname, '../dist'), {
     }
 }));
 
-// Updated Socket.IO Configuration
 const io = new Server(server, {
     cors: {
         ...corsOptions,
@@ -55,12 +50,10 @@ const io = new Server(server, {
     }
 });
 
-// Enhanced error handling for Socket.IO
 io.engine.on("connection_error", (err) => {
     console.log('Connection error:', err);
 });
 
-// Socket connection handling
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
     
@@ -75,7 +68,6 @@ io.on('connection', (socket) => {
     require('./signaling').handleSignaling(socket, io);
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Server error:', err);
     res.status(500).send('Internal Server Error');

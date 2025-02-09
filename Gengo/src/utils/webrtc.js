@@ -1,6 +1,7 @@
-const configuration = {
+export const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
@@ -11,7 +12,10 @@ let peerConnection;
 export async function startLocalStream() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
             audio: true 
         });
         const localVideo = document.getElementById('localVideo');
@@ -45,10 +49,7 @@ export async function createPeerConnection() {
             }
         };
 
-        // Create and send offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        return offer;
+        return peerConnection;
     } catch (err) {
         console.error('Error creating peer connection:', err);
         throw err;
@@ -63,6 +64,17 @@ export async function handleOffer(offer) {
         return answer;
     } catch (err) {
         console.error('Error handling offer:', err);
+        throw err;
+    }
+}
+
+export async function createOffer() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (err) {
+        console.error('Error creating offer:', err);
         throw err;
     }
 }

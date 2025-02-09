@@ -1,13 +1,14 @@
-const users = {};
+const users = new Map();
 
 function handleSignaling(socket, io) {
     socket.on('join', ({ language, role }) => {
         console.log(`User joined with language: ${language}, role: ${role}`);
-        const key = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
+        const matchKey = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
+        const userKey = `${language}-${role}`;
         
-        if (users[key]) {
-            const otherSocket = users[key];
-            delete users[key];
+        if (users.has(matchKey)) {
+            const otherSocket = users.get(matchKey);
+            users.delete(matchKey);
             
             const room = `${language}-${Date.now()}`;
             
@@ -17,11 +18,10 @@ function handleSignaling(socket, io) {
             socket.emit('match', { offer: true, room });
             otherSocket.emit('match', { offer: false, room });
         } else {
-            users[`${language}-${role}`] = socket;
+            users.set(userKey, socket);
         }
     });
 
-    // Other signaling event handlers for offer, answer, candidate
     socket.on('offer', (offer, room) => {
         socket.to(room).emit('offer', offer);
     });
@@ -36,9 +36,9 @@ function handleSignaling(socket, io) {
 
     socket.on('disconnect', () => {
         // Clean up users on disconnection
-        for (const key in users) {
-            if (users[key] === socket) {
-                delete users[key];
+        for (const [key, value] of users.entries()) {
+            if (value === socket) {
+                users.delete(key);
                 break;
             }
         }
