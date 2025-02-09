@@ -49,10 +49,6 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: 'public/styles',
-          to: 'styles'
-        },
-        {
           from: 'public/scripts',
           to: 'scripts'
         }
