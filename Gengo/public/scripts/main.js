@@ -1,7 +1,6 @@
-// Import necessary modules
 import io from 'socket.io-client';
+import { startLocalStream, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, cleanup } from '../../src/utils/webrtc.js';
 
-// WebRTC Configuration
 const configuration = {
     iceServers: [
         { 
@@ -13,14 +12,12 @@ const configuration = {
     ]
 };
 
-// Global variables
 let localStream = null;
 let remoteStream = null;
 let peerConnection = null;
 let socket = null;
 let currentRoom = null;
 
-// Utility Functions
 function showMessage(text, type = 'info') {
     const message = document.createElement('div');
     message.className = `message ${type}-message`;
@@ -65,7 +62,6 @@ function handleMediaError() {
     enableControls();
 }
 
-// Local Stream Management
 async function startLocalStream() {
     try {
         const constraints = {
@@ -91,7 +87,6 @@ async function startLocalStream() {
     }
 }
 
-// Socket Initialization
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
@@ -124,7 +119,6 @@ function initializeSocket() {
             console.log('Matched with peer', matchData);
             currentRoom = matchData.room;
 
-            // Determine if this peer should create the offer
             if (matchData.offer) {
                 await createAndSendOffer();
             }
@@ -163,7 +157,6 @@ function initializeSocket() {
     }
 }
 
-// Peer Connection Management
 async function initializePeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
@@ -211,7 +204,6 @@ async function initializePeerConnection() {
     }
 }
 
-// WebRTC Signaling Methods
 async function createAndSendOffer() {
     try {
         const offer = await peerConnection.createOffer({
@@ -265,7 +257,6 @@ async function handleIceCandidate(candidate) {
     }
 }
 
-// Call Initialization
 async function startCall() {
     try {
         console.log('Starting call process');
@@ -290,10 +281,8 @@ async function startCall() {
     }
 }
 
-// Cleanup Function
 function cleanup() {
     try {
-        // Stop local media tracks
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 track.stop();
@@ -302,7 +291,6 @@ function cleanup() {
             localStream = null;
         }
 
-        // Stop remote media tracks
         if (remoteStream) {
             remoteStream.getTracks().forEach(track => {
                 track.stop();
@@ -311,19 +299,16 @@ function cleanup() {
             remoteStream = null;
         }
 
-        // Close peer connection
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
         }
 
-        // Disconnect socket
         if (socket) {
             socket.disconnect();
             socket = null;
         }
 
-        // Clear video sources
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         
@@ -336,17 +321,14 @@ function cleanup() {
             remoteVideo.srcObject = null;
         }
 
-        // Reset room
         currentRoom = null;
 
-        // Re-enable controls
         enableControls();
     } catch (error) {
         console.error('Error during cleanup:', error);
     }
 }
 
-// Event Listeners and Page Initialization
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
     if (connectButton) {
@@ -354,7 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Attach functions to the global window object
 window.startCall = startCall;
 window.handleConnectionError = handleConnectionError;
 window.cleanup = cleanup;

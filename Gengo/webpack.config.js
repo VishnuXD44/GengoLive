@@ -18,7 +18,6 @@ module.exports = {
     resolve: {
         extensions: ['.js', '.mjs', '.json'],
         alias: {
-            // Correct socket.io-client import
             'socket.io-client': path.resolve(__dirname, 'node_modules/socket.io-client/dist/socket.io.js'),
             '@': path.resolve(__dirname, 'public/scripts')
         },

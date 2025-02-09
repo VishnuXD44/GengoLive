@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const { handleSignaling } = require('./signaling');
 
 const app = express();
 const server = http.createServer(app);
@@ -56,7 +57,8 @@ io.engine.on("connection_error", (err) => {
 
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    
+    handleSignaling(socket, io);
+
     socket.on('error', (error) => {
         console.error('Socket error:', error);
     });
@@ -64,16 +66,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', (reason) => {
         console.log('Client disconnected:', socket.id, 'Reason:', reason);
     });
-
-    require('./signaling').handleSignaling(socket, io);
-});
-
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).send('Internal Server Error');
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });

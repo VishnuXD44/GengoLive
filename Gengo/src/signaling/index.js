@@ -35,7 +35,6 @@ function handleSignaling(socket, io) {
     });
 
     socket.on('disconnect', () => {
-        // Clean up users on disconnection
         for (const [key, value] of users.entries()) {
             if (value === socket) {
                 users.delete(key);

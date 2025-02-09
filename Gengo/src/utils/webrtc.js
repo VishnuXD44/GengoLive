@@ -33,14 +33,12 @@ export async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add local stream
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
         }
 
-        // Handle incoming stream
         peerConnection.ontrack = (event) => {
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
