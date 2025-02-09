@@ -73,15 +73,25 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['websocket'], // Try websocket only first
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: false, // Changed to false
+            withCredentials: true,
             forceNew: true,
             secure: true,
             rejectUnauthorized: false
+        });
+
+        socketIo.on('connect', () => {
+            console.log('Socket connected successfully:', socketIo.id);
+            const language = document.getElementById('language')?.value;
+            const role = document.getElementById('role')?.value;
+            
+            if (language && role) {
+                socketIo.emit('join', { language, role });
+            }
         });
 
         socketIo.on('connect_error', (error) => {

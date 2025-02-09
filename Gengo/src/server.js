@@ -10,34 +10,36 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
-const corsOptions = {
+
+// CORS middleware configuration
+const allowedOrigins = [
+    'https://www.gengo.live',
+    'https://gengo-socket-production.up.railway.app',
+    'https://gengo-production.up.railway.app',
+    'http://localhost:9000',
+    'http://localhost:3000'
+];
+
+app.use(cors({
     origin: (origin, callback) => {
-        const allowedOrigins = [
-            'https://www.gengo.live',
-            'https://gengo-socket-production.up.railway.app',
-            'https://gengo-production.up.railway.app',
-            ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
-        ];
-        
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             console.log('Blocked origin:', origin);
-            callback(null, true); // Temporarily allow all origins while debugging
+            callback(null, true); // Allow all origins temporarily for debugging
         }
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     credentials: true,
     optionsSuccessStatus: 200
-};
+}));
 
+// Socket.IO server configuration
 const io = new Server(server, {
     cors: {
-        origin: '*', // Allow all origins temporarily
+        origin: '*', // Allow all origins for Socket.IO
         methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
         credentials: true
     },
     path: '/socket.io/',
@@ -47,16 +49,31 @@ const io = new Server(server, {
     pingInterval: 25000
 });
 
-app.use(express.static(path.join(__dirname, '../dist')));
-
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+// Add headers to all responses
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
 });
 
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Socket connection handling
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    handleSignaling(socket, io);
-
+    
     socket.on('error', (error) => {
         console.error('Socket error:', error);
     });
@@ -64,10 +81,13 @@ io.on('connection', (socket) => {
     socket.on('disconnect', (reason) => {
         console.log('Client disconnected:', socket.id, 'Reason:', reason);
     });
+
+    handleSignaling(socket, io);
 });
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
+// Handle SPA routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // Error handling
@@ -77,4 +97,10 @@ server.on('error', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Start server
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
+    console.log('Allowed origins:', allowedOrigins);
 });
