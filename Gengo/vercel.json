@@ -6,47 +6,22 @@
             "use": "@vercel/node"
         },
         {
-            "src": "dist/**",
+            "src": "dist/**/*",
             "use": "@vercel/static"
         }
     ],
     "routes": [
         {
             "src": "/socket.io/(.*)",
-            "dest": "src/server.js",
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-                "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-                "Access-Control-Allow-Credentials": "true",
-                "Vary": "Origin"
-            }
+            "dest": "src/server.js"
         },
         {
-            "src": "/scripts/(.*)",
-            "headers": {
-                "cache-control": "public, max-age=31536000, immutable",
-                "Content-Type": "application/javascript"
-            },
-            "dest": "/dist/scripts/$1"
-        },
-        {
-            "src": "/(styles|styles2)\\.css",
-            "headers": {
-                "Content-Type": "text/css"
-            },
-            "dest": "/dist/$1.css"
-        },
-        {
-            "src": "/assets/(.*)",
-            "dest": "/dist/assets/$1"
-        },
-        {
-            "handle": "filesystem"
+            "src": "/(.*)\\.(js|css|jpg|jpeg|png|gif|ico|html|json)$",
+            "dest": "/dist/$1.$2"
         },
         {
             "src": "/(.*)",
-            "dest": "src/server.js"
+            "dest": "/dist/index.html"
         }
     ]
 }

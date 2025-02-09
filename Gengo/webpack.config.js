@@ -8,7 +8,7 @@ module.exports = {
         'language-animation': './public/scripts/language-animation.js'
     },
     output: {
-        filename: 'scripts/[name].js',
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
     },
@@ -32,7 +32,7 @@ module.exports = {
                 test: /\.(png|jpg|jpeg|gif|svg)$/,
                 type: 'asset/resource',
                 generator: {
-                    filename: 'assets/[name][ext][query]'
+                    filename: 'assets/[name][ext]'
                 }
             }
         ],
@@ -41,12 +41,12 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main']
+            chunks: ['main', 'language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main']
+            chunks: ['main', 'language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
@@ -57,8 +57,7 @@ module.exports = {
             patterns: [
                 { from: 'public/assets', to: 'assets' },
                 { from: 'public/styles.css', to: 'styles.css' },
-                { from: 'public/styles2.css', to: 'styles2.css' },
-                { from: 'public/scripts/language-animation.js', to: 'scripts/language-animation.js' }
+                { from: 'public/styles2.css', to: 'styles2.css' }
             ],
         }),
     ],
