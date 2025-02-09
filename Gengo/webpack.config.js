@@ -3,9 +3,12 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-    entry: './public/scripts/main.js',
+    entry: {
+        main: './public/scripts/main.js',
+        'language-animation': './public/scripts/language-animation.js'
+    },
     output: {
-        filename: 'bundle.js',
+        filename: 'scripts/[name].js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
     },
@@ -38,21 +41,23 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
+            chunks: ['main']
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
+            chunks: ['main']
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
+            chunks: ['main']
         }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
                 { from: 'public/styles.css', to: 'styles.css' },
-                { from: 'public/styles2.css', to: 'styles2.css' },
-                { from: 'public/scripts/language-animation.js', to: 'scripts/language-animation.js' }
+                { from: 'public/styles2.css', to: 'styles2.css' }
             ],
         }),
     ],
