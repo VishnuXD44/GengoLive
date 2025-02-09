@@ -8,10 +8,9 @@ module.exports = {
         'language-animation': './public/scripts/language-animation.js'
     },
     output: {
-        filename: 'scripts/[name].bundle.js',
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/'
     },
     module: {
         rules: [
@@ -42,19 +41,16 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            inject: true,
             chunks: ['main', 'language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            inject: true,
             chunks: ['main', 'language-animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            inject: true,
             chunks: ['main']
         }),
         new CopyWebpackPlugin({
@@ -72,17 +68,5 @@ module.exports = {
         compress: true,
         port: 9000,
         hot: true,
-        historyApiFallback: true
-    },
-    resolve: {
-        extensions: ['.js', '.jsx', '.json'],
-        fallback: {
-            "path": require.resolve("path-browserify")
-        }
-    },
-    optimization: {
-        splitChunks: {
-            chunks: 'all',
-        },
     },
 };

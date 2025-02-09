@@ -16,12 +16,11 @@
             "dest": "src/server.js"
         },
         {
-            "src": "/(.*)\\.(js|css|jpg|jpeg|png|gif|ico|html|json)$",
-            "dest": "/dist/$1.$2"
+            "handle": "filesystem"
         },
         {
             "src": "/(.*)",
-            "dest": "/dist/index.html"
+            "dest": "/dist/$1"
         }
     ]
 }
