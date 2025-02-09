@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leaveButton) {
         leaveButton.addEventListener('click', () => {
             cleanup();
-            // Show selection container and hide video container
             if (videoContainer && selectionContainer) {
                 videoContainer.style.display = 'none';
                 selectionContainer.style.display = 'block';
@@ -58,6 +57,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+async function startCall() {
+    try {
+        console.log('Starting call process');
+        await startLocalStream();
+        console.log('Local stream started');
+        
+        socket = initializeSocket();
+        console.log('Socket initialized');
+        
+        peerConnection = await initializePeerConnection();
+        console.log('Peer connection initialized');
+        
+        if (!peerConnection || !socket) {
+            throw new Error('Failed to initialize connections');
+        }
+    } catch (error) {
+        console.error('Error starting call:', error);
+        handleConnectionError();
+    }
+}
 
 function initializeSocket() {
     try {
@@ -112,7 +132,123 @@ function initializeSocket() {
     }
 }
 
-// ... [keep all other functions the same] ...
+async function initializePeerConnection() {
+    try {
+        peerConnection = new RTCPeerConnection(configuration);
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        peerConnection.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+                showMessage('Connected to peer', 'success');
+            }
+        };
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate && socket) {
+                socket.emit('candidate', event.candidate, currentRoom);
+            }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'failed') {
+                handleConnectionError();
+            }
+        };
+
+        return peerConnection;
+    } catch (err) {
+        console.error('Error creating peer connection:', err);
+        handleConnectionError();
+        throw err;
+    }
+}
+
+async function startLocalStream() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+        });
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            localVideo.classList.add('active');
+            showMessage('Camera and microphone activated', 'success');
+        }
+        return localStream;
+    } catch (err) {
+        console.error('Error accessing media devices:', err);
+        handleMediaError();
+        throw err;
+    }
+}
+
+async function createPeerConnection() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (err) {
+        console.error('Error creating offer:', err);
+        throw err;
+    }
+}
+
+async function handleOffer(offer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        return answer;
+    } catch (err) {
+        console.error('Error handling offer:', err);
+        throw err;
+    }
+}
+
+async function handleAnswer(answer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (err) {
+        console.error('Error handling answer:', err);
+        throw err;
+    }
+}
+
+async function handleIceCandidate(candidate) {
+    try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+        console.error('Error handling ICE candidate:', err);
+        throw err;
+    }
+}
+
+function handleConnectionError() {
+    showMessage('Connection failed. Please check your internet connection and try again.', 'error');
+    cleanup();
+    enableControls();
+}
+
+function handleDisconnection() {
+    showMessage('Lost connection. Attempting to reconnect...', 'warning');
+    cleanup();
+    enableControls();
+}
+
+function handleMediaError() {
+    showMessage('Unable to access camera or microphone. Please check your permissions.', 'error');
+    enableControls();
+}
 
 function enableControls() {
     const connectButton = document.getElementById('connect');
