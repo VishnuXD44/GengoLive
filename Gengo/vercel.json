@@ -10,6 +10,10 @@
         {
             "source": "/socket.io/(.*)",
             "destination": "https://gengolive-production.up.railway.app/socket.io/$1"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/dist/index.html"
         }
     ],
     "headers": [
