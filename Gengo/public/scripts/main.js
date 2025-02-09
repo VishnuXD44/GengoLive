@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 connectButton.disabled = true;
                 await startCall();
                 
-                // Show video container and hide selection container
                 if (videoContainer && selectionContainer) {
                     selectionContainer.style.display = 'none';
                     videoContainer.style.display = 'block';
@@ -83,8 +82,13 @@ function initializeSocket() {
     try {
         console.log('Initializing socket connection');
         const socketIo = io(window.location.origin, {
-            path: '/socket.io',
-            transports: ['websocket', 'polling']
+            path: '/socket.io/',
+            transports: ['websocket', 'polling'],
+            secure: true,
+            reconnection: true,
+            rejectUnauthorized: false,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
         });
 
         socketIo.on('connect', () => {
@@ -121,6 +125,10 @@ function initializeSocket() {
 
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
+            if (socketIo.io.opts.transports[0] === 'websocket') {
+                console.log('Falling back to polling');
+                socketIo.io.opts.transports = ['polling'];
+            }
             handleConnectionError();
         });
 
