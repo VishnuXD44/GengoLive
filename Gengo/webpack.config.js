@@ -2,6 +2,18 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const fs = require('fs');
+
+// Function to get existing HTML files
+const getHtmlFiles = () => {
+  const publicDir = path.resolve(__dirname, 'public');
+  return fs.readdirSync(publicDir)
+    .filter(file => file.endsWith('.html'))
+    .map(file => ({
+      filename: file,
+      template: path.join(publicDir, file)
+    }));
+};
 
 module.exports = {
   mode: 'production',
@@ -13,8 +25,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'scripts/[name].js',
-    publicPath: '/',
-    clean: true
+    publicPath: '/'
   },
   module: {
     rules: [
@@ -45,21 +56,22 @@ module.exports = {
     ]
   },
   plugins: [
-    new HtmlWebpackPlugin({
-      template: './public/main.html',
-      filename: 'main.html',
-      chunks: ['main', 'language-animation', 'bundle']
-    }),
-    new HtmlWebpackPlugin({
-      template: './public/index.html',
-      filename: 'index.html',
-      chunks: ['main', 'bundle']
-    }),
-    new HtmlWebpackPlugin({
-      template: './public/about.html',
-      filename: 'about.html',
-      chunks: ['main', 'bundle']
-    }),
+    // Dynamically create HtmlWebpackPlugin instances for existing HTML files
+    ...getHtmlFiles().map(file => 
+      new HtmlWebpackPlugin({
+        template: file.template,
+        filename: file.filename,
+        chunks: ['main', 'bundle', 'language-animation'],
+        inject: 'body',
+        links: [
+          { rel: 'stylesheet', href: 'styles/styles.css' },
+          // Conditionally add styles2.css for specific pages if needed
+          ...(file.filename === 'about.html' || file.filename === 'contact.html' 
+            ? [{ rel: 'stylesheet', href: 'styles/styles2.css' }] 
+            : [])
+        ]
+      })
+    ),
     new CopyWebpackPlugin({
       patterns: [
         {
