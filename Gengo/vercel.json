@@ -18,36 +18,36 @@
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE",
                 "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
-                "Access-Control-Allow-Credentials": "true",
-                "Connection": "upgrade",
-                "Upgrade": "websocket"
+                "Access-Control-Allow-Credentials": "true"
             }
         },
         {
-            "src": "/scripts/(.*)",
+            "src": "/main.js",
             "headers": {
-                "cache-control": "public, max-age=31536000, immutable",
                 "Content-Type": "application/javascript"
             },
-            "dest": "/dist/scripts/$1"
+            "dest": "/dist/main.js"
         },
         {
             "src": "/bundle.js",
             "headers": {
                 "Content-Type": "application/javascript"
             },
-            "dest": "/dist/scripts/bundle.js"
+            "dest": "/dist/bundle.js"
+        },
+        {
+            "src": "/language-animation.js",
+            "headers": {
+                "Content-Type": "application/javascript"
+            },
+            "dest": "/dist/language-animation.js"
         },
         {
             "src": "/(styles|styles2)\\.css",
             "headers": {
-                "cache-control": "public, max-age=31536000, immutable"
+                "Content-Type": "text/css"
             },
             "dest": "/dist/$1.css"
-        },
-        {
-            "src": "/assets/(.*)",
-            "dest": "/dist/assets/$1"
         },
         {
             "handle": "filesystem"

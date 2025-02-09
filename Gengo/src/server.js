@@ -17,7 +17,13 @@ app.use(cors({
 }));
 
 // Serve static files
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../dist'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Socket.IO setup
 const io = new Server(server, {
@@ -28,13 +34,14 @@ const io = new Server(server, {
         methods: ['GET', 'POST', 'OPTIONS'],
         credentials: true
     },
-    serveClient: false // Don't serve the client, we're using CDN
+    serveClient: false
 });
 
-// Socket connection handling
+// Signaling logic (from your existing index.js)
+const { handleSignaling } = require('./signaling');
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    // Your existing socket handlers
+    handleSignaling(socket, io);
 });
 
 const PORT = process.env.PORT || 3000;
