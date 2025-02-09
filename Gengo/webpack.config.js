@@ -19,9 +19,14 @@ module.exports = {
     resolve: {
         extensions: ['.js', '.mjs', '.json'],
         alias: {
+            'socket.io-client': path.resolve(__dirname, 'node_modules/socket.io-client/dist/socket.io.js'),
             '@': path.resolve(__dirname, 'src'),
-            '@public': path.resolve(__dirname, 'public')
-        }
+            '@public': path.resolve(__dirname, 'public/scripts')
+        },
+        fallback: {
+            "path": require.resolve("path-browserify")
+    },
+     caseSensitive: true,
     },
     module: {
         rules: [
