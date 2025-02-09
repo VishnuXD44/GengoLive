@@ -13,17 +13,9 @@
             "headers": {
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-                "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
+                "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
                 "Access-Control-Allow-Credentials": "false"
             }
-        },
-        {
-            "src": "/(.*)\\.bundle\\.js$",
-            "headers": {
-                "cache-control": "public, max-age=31536000, immutable",
-                "Content-Type": "application/javascript"
-            },
-            "dest": "/dist/$1.bundle.js"
         },
         {
             "handle": "filesystem"
@@ -31,6 +23,16 @@
         {
             "src": "/(.*)",
             "dest": "/dist/$1"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                { "key": "Access-Control-Allow-Origin", "value": "*" },
+                { "key": "Access-Control-Allow-Methods", "value": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS" },
+                { "key": "Access-Control-Allow-Headers", "value": "Origin, X-Requested-With, Content-Type, Accept, Authorization" }
+            ]
         }
     ]
 }

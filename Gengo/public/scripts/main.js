@@ -65,9 +65,7 @@ function handleMediaError() {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://gengolive-production.up.railway.app';
+        const socketUrl = 'https://gengolive-production.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
@@ -80,7 +78,18 @@ function initializeSocket() {
             timeout: 20000,
             withCredentials: false,
             forceNew: true,
-            secure: true
+            secure: true,
+            autoConnect: true,
+            rejectUnauthorized: false
+        });
+
+        socketIo.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            if (error.message.includes('websocket error')) {
+                console.log('Falling back to polling transport');
+                socketIo.io.opts.transports = ['polling', 'websocket'];
+            }
+            handleConnectionError();
         });
 
         return socketIo;
