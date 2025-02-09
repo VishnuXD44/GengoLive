@@ -5,13 +5,10 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 module.exports = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     entry: {
-        bundle: './public/scripts/main.js',
-        main: './public/scripts/main.js'
+        bundle: './public/scripts/main.js'
     },
     output: {
-        filename: (pathData) => {
-            return pathData.chunk.name === 'bundle' ? 'bundle.js' : 'scripts/[name].js';
-        },
+        filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
         publicPath: '/'
@@ -20,7 +17,13 @@ module.exports = {
         alias: {
             '@': path.resolve(__dirname, 'src'),
         },
-        extensions: ['.js']
+        extensions: ['.js'],
+        fallback: {
+            "buffer": require.resolve("buffer/")
+        }
+    },
+    externals: {
+        'socket.io-client': 'io'
     },
     module: {
         rules: [
@@ -51,20 +54,26 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['runtime', 'bundle', 'main'],
-            inject: true
+            inject: 'body',
+            templateParameters: {
+                socketIoUrl: 'https://cdn.socket.io/4.8.1/socket.io.min.js'
+            }
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['runtime', 'bundle', 'main'],
-            inject: true
+            inject: 'body',
+            templateParameters: {
+                socketIoUrl: 'https://cdn.socket.io/4.8.1/socket.io.min.js'
+            }
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['runtime', 'bundle', 'main'],
-            inject: true
+            inject: 'body',
+            templateParameters: {
+                socketIoUrl: 'https://cdn.socket.io/4.8.1/socket.io.min.js'
+            }
         }),
         new CopyWebpackPlugin({
             patterns: [
@@ -92,9 +101,7 @@ module.exports = {
         })
     ],
     optimization: {
-        runtimeChunk: {
-            name: 'runtime'
-        },
+        runtimeChunk: 'single',
         splitChunks: {
             chunks: 'all',
             name: false
@@ -108,6 +115,7 @@ module.exports = {
         compress: true,
         port: 9000,
         hot: true,
+        historyApiFallback: true,
         proxy: {
             '/socket.io': {
                 target: 'http://localhost:3000',
@@ -119,5 +127,16 @@ module.exports = {
                 changeOrigin: true
             }
         }
+    },
+    performance: {
+        hints: process.env.NODE_ENV === 'production' ? 'warning' : false,
+        maxEntrypointSize: 512000,
+        maxAssetSize: 512000
+    },
+    stats: {
+        colors: true,
+        modules: true,
+        reasons: true,
+        errorDetails: true
     }
 };
