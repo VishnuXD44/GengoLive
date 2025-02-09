@@ -66,7 +66,7 @@ module.exports = {
     open: true,
     proxy: {
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: 'gengo.live',
         ws: true
       }
     }
