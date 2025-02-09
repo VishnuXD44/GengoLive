@@ -1,63 +1,43 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
+const { Server } = require('socket.io');
 const cors = require('cors');
-const { handleSignaling } = require('./signaling');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 
-// Updated Socket.IO configuration
-const io = socketIo(server, {
-    cors: {
-        origin: ["https://www.gengo.live", "http://localhost:3000"],
-        methods: ["GET", "POST"],
-        allowedHeaders: ["Content-Type"],
-        credentials: true
-    },
-    transports: ['websocket', 'polling'],
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    upgradeTimeout: 30000,
-    allowUpgrades: true,
-    cookie: false
-});
-
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Enable CORS
+// CORS configuration
 app.use(cors({
-    origin: ["https://www.gengo.live", "http://localhost:3000"],
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
+    origin: process.env.NODE_ENV === 'production' 
+        ? 'https://www.gengo.live'
+        : 'http://localhost:9000',
+    methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true
 }));
 
-// Socket.IO error handling
-io.engine.on("connection_error", (err) => {
-    console.log(err.req);      // the request object
-    console.log(err.code);     // the error code, for example 1
-    console.log(err.message);  // the error message, for example "Session ID unknown"
-    console.log(err.context);  // some additional error context
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Socket.IO setup
+const io = new Server(server, {
+    cors: {
+        origin: process.env.NODE_ENV === 'production' 
+            ? 'https://www.gengo.live'
+            : 'http://localhost:9000',
+        methods: ['GET', 'POST', 'OPTIONS'],
+        credentials: true
+    },
+    serveClient: false // Don't serve the client, we're using CDN
 });
 
+// Socket connection handling
 io.on('connection', (socket) => {
-    console.log('New client connected');
-    
-    socket.on('error', (error) => {
-        console.log('Socket error:', error);
-    });
-
-    handleSignaling(socket, io);
-
-    socket.on('disconnect', (reason) => {
-        console.log('Client disconnected:', reason);
-    });
+    console.log('Client connected:', socket.id);
+    // Your existing socket handlers
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
