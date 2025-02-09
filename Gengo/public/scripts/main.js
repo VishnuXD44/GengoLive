@@ -70,13 +70,12 @@ function initializeSocket() {
             : 'http://localhost:3000';
 
         const socketIo = io(socketUrl, {
-            path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            path: '/socket.io',
+            transports: ['polling', 'websocket'], // Try polling first
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true,
             autoConnect: true
         });
 
@@ -131,6 +130,8 @@ function initializeSocket() {
         return null;
     }
 }
+
+// ... rest of the file remains the same ...
 
 async function initializePeerConnection() {
     try {

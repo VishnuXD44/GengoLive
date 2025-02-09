@@ -19,10 +19,15 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
+
+const io = new Server(server, {
+    cors: corsOptions,
+    path: '/socket.io',
+    serveClient: false,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 app.use(express.static(path.join(__dirname, '../dist'), {
@@ -32,24 +37,6 @@ app.use(express.static(path.join(__dirname, '../dist'), {
         }
     }
 }));
-
-const io = new Server(server, {
-    cors: {
-        ...corsOptions,
-        credentials: true,
-    },
-    path: '/socket.io/',
-    transports: ['websocket', 'polling'],
-    allowEIO3: true,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    cookie: {
-        name: 'io',
-        path: '/',
-        httpOnly: true,
-        sameSite: 'lax'
-    }
-});
 
 io.engine.on("connection_error", (err) => {
     console.log('Connection error:', err);
