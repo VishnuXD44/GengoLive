@@ -2,8 +2,6 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const TerserPlugin = require('terser-webpack-plugin');
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
 module.exports = {
   mode: 'production',
@@ -14,7 +12,7 @@ module.exports = {
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'scripts/[name].[contenthash].js',
+    filename: 'scripts/[name].js',
     publicPath: '/',
     clean: true
   },
@@ -41,7 +39,7 @@ module.exports = {
         test: /\.(png|svg|jpg|jpeg|gif)$/i,
         type: 'asset/resource',
         generator: {
-          filename: 'assets/[name].[contenthash][ext]'
+          filename: 'assets/[name][ext]'
         }
       }
     ]
@@ -65,43 +63,41 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
+          from: 'public/styles.css',
+          to: 'styles/styles.css'
+        },
+        {
+          from: 'public/styles2.css',
+          to: 'styles/styles2.css'
+        },
+        {
           from: 'public/assets',
           to: 'assets'
         }
       ]
     }),
     new MiniCssExtractPlugin({
-      filename: 'styles/[name].[contenthash].css'
+      filename: 'styles/[name].css'
     })
   ],
-  optimization: {
-    minimize: true,
-    minimizer: [
-      new TerserPlugin({
-        terserOptions: {
-          compress: {
-            drop_console: true
-          }
-        }
-      }),
-      new CssMinimizerPlugin()
-    ],
-    splitChunks: {
-      chunks: 'all',
-      maxInitialRequests: Infinity,
-      minSize: 0,
-      cacheGroups: {
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
-          chunks: 'all',
-        }
+  devServer: {
+    port: 9000,
+    static: {
+      directory: path.join(__dirname, 'dist'),
+      publicPath: '/'
+    },
+    historyApiFallback: true,
+    hot: true,
+    compress: true,
+    open: true,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        ws: true
       }
     }
   },
-  performance: {
-    hints: false,
-    maxEntrypointSize: 512000,
-    maxAssetSize: 512000
+  resolve: {
+    extensions: ['.js', '.css']
   }
 };

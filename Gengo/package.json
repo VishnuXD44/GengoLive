@@ -4,10 +4,10 @@
   "description": "A WebRTC application for language practice and coaching based on user preferences.",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "webpack serve --mode production",
     "dev": "nodemon src/server.js",
     "build": "webpack --mode development",
-    "build:prod": "cross-env NODE_ENV=production webpack --mode production",
+    "build:prod": "webpack --mode production",
     "serve": "webpack serve --mode development"
   },
   "dependencies": {
