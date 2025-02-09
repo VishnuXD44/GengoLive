@@ -8,10 +8,10 @@ module.exports = {
         'language-animation': './public/scripts/language-animation.js'
     },
     output: {
-        filename: '[name].bundle.js',
-        publicPath: '/',
+        filename: 'scripts/[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
+        publicPath: '/'
     },
     module: {
         rules: [
@@ -69,6 +69,13 @@ module.exports = {
         compress: true,
         port: 9000,
         hot: true,
+        proxy: {
+            '/socket.io': {
+                target: 'http://localhost:3000',
+                ws: true,
+                changeOrigin: true
+            }
+        },
         historyApiFallback: true
     },
 };
