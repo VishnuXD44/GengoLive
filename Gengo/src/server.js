@@ -10,19 +10,21 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
-
 const corsOptions = {
     origin: (origin, callback) => {
         const allowedOrigins = [
             'https://www.gengo.live',
+            'https://gengo-socket-production.up.railway.app',
             'https://gengo-production.up.railway.app',
-            ...(!isProduction ? ['http://localhost:9000', 'http://localhost:3000'] : [])
+            ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
         ];
         
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            console.log('Blocked origin:', origin);
+            callback(null, true); // Temporarily allow all origins while debugging
         }
     },
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -31,16 +33,18 @@ const corsOptions = {
     optionsSuccessStatus: 200
 };
 
-app.use(cors(corsOptions));
-
 const io = new Server(server, {
-    cors: corsOptions,
+    cors: {
+        origin: '*', // Allow all origins temporarily
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true
+    },
     path: '/socket.io/',
     transports: ['websocket', 'polling'],
     allowEIO3: true,
     pingTimeout: 60000,
-    pingInterval: 25000,
-    cookie: false
+    pingInterval: 25000
 });
 
 app.use(express.static(path.join(__dirname, '../dist')));

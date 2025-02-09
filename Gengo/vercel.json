@@ -18,7 +18,7 @@
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
                 "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
-                "Access-Control-Allow-Credentials": "true"
+                "Access-Control-Allow-Credentials": "false"
             }
         },
         {
@@ -28,17 +28,6 @@
                 "Content-Type": "application/javascript"
             },
             "dest": "/dist/$1.bundle.js"
-        },
-        {
-            "src": "/(styles|styles2)\\.css",
-            "headers": {
-                "Content-Type": "text/css"
-            },
-            "dest": "/dist/$1.css"
-        },
-        {
-            "src": "/assets/(.*)",
-            "dest": "/dist/assets/$1"
         },
         {
             "handle": "filesystem"

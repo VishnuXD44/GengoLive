@@ -73,17 +73,17 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['polling', 'websocket'], // Try polling first
+            transports: ['websocket'], // Try websocket only first
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true,
+            withCredentials: false, // Changed to false
             forceNew: true,
-            secure: true
+            secure: true,
+            rejectUnauthorized: false
         });
 
-        // Add more detailed error logging
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             console.error('Error details:', {
@@ -91,11 +91,18 @@ function initializeSocket() {
                 description: error.description,
                 type: error.type
             });
+            
+            // Try polling if websocket fails
+            if (error.message.includes('websocket error')) {
+                console.log('Falling back to polling transport');
+                socketIo.io.opts.transports = ['polling', 'websocket'];
+            }
+            
             showMessage('Connection error. Retrying...', 'warning');
             handleConnectionError();
         });
 
-        // Rest of the socket event handlers...
+        return socketIo;
     } catch (error) {
         console.error('Socket initialization error:', error);
         handleConnectionError();
