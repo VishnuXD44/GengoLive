@@ -11,51 +11,55 @@ const configuration = {
     ]
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connect');
-    const leaveButton = document.getElementById('leave');
-    const videoContainer = document.getElementById('video-container');
-    const selectionContainer = document.getElementById('selection-container');
+// Only initialize WebRTC functionality on main.html
+if (window.location.pathname.includes('main.html')) {
+    document.addEventListener('DOMContentLoaded', () => {
+        const connectButton = document.getElementById('connect');
+        const leaveButton = document.getElementById('leave');
+        const videoContainer = document.getElementById('video-container');
+        const selectionContainer = document.getElementById('selection-container');
 
-    if (connectButton) {
+        if (!connectButton || !videoContainer || !selectionContainer) {
+            console.error('Required elements not found');
+            return;
+        }
+
         console.log('Connect button found');
         connectButton.addEventListener('click', async () => {
             console.log('Connect button clicked');
             try {
-                const language = document.getElementById('language').value;
-                const role = document.getElementById('role').value;
+                const language = document.getElementById('language')?.value;
+                const role = document.getElementById('role')?.value;
                 
                 if (!language || !role) {
                     showMessage('Please select language and role', 'warning');
                     return;
                 }
 
+                // Disable controls before starting call
                 connectButton.disabled = true;
+                document.getElementById('language').disabled = true;
+                document.getElementById('role').disabled = true;
+
                 await startCall();
                 
-                if (videoContainer && selectionContainer) {
-                    selectionContainer.style.display = 'none';
-                    videoContainer.style.display = 'block';
-                }
+                selectionContainer.style.display = 'none';
+                videoContainer.style.display = 'block';
             } catch (error) {
                 console.error('Error in click handler:', error);
                 handleConnectionError();
             }
         });
-    } else {
-        console.error('Connect button not found in DOM');
-    }
 
-    if (leaveButton) {
-        leaveButton.addEventListener('click', () => {
-            cleanup();
-            if (videoContainer && selectionContainer) {
-                videoContainer.style.display = 'none';
+        if (leaveButton) {
+            leaveButton.addEventListener('click', () => {
+                cleanup();
                 selectionContainer.style.display = 'block';
-            }
-        });
-    }
-});
+                videoContainer.style.display = 'none';
+            });
+        }
+    });
+}
 
 async function startCall() {
     try {
@@ -64,17 +68,20 @@ async function startCall() {
         console.log('Local stream started');
         
         socket = initializeSocket();
+        if (!socket) {
+            throw new Error('Failed to initialize socket');
+        }
         console.log('Socket initialized');
         
         peerConnection = await initializePeerConnection();
-        console.log('Peer connection initialized');
-        
-        if (!peerConnection || !socket) {
-            throw new Error('Failed to initialize connections');
+        if (!peerConnection) {
+            throw new Error('Failed to initialize peer connection');
         }
+        console.log('Peer connection initialized');
     } catch (error) {
         console.error('Error starting call:', error);
         handleConnectionError();
+        throw error;
     }
 }
 
@@ -83,7 +90,7 @@ function initializeSocket() {
         console.log('Initializing socket connection');
         const socketIo = io(window.location.origin, {
             path: '/socket.io/',
-            transports: ['polling', 'websocket'], // Start with polling first
+            transports: ['polling', 'websocket'],
             secure: true,
             reconnection: true,
             rejectUnauthorized: false,
@@ -98,9 +105,11 @@ function initializeSocket() {
 
         socketIo.on('connect', () => {
             console.log('Socket connected:', socketIo.id);
-            const language = document.getElementById('language').value;
-            const role = document.getElementById('role').value;
-            socketIo.emit('join', { language, role });
+            const language = document.getElementById('language')?.value;
+            const role = document.getElementById('role')?.value;
+            if (language && role) {
+                socketIo.emit('join', { language, role });
+            }
         });
 
         socketIo.on('match', async ({ offer, room }) => {
@@ -158,7 +167,7 @@ async function initializePeerConnection() {
 
         peerConnection.ontrack = (event) => {
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
+            if (remoteVideo && event.streams[0]) {
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
                 showMessage('Connected to peer', 'success');
@@ -178,20 +187,32 @@ async function initializePeerConnection() {
             }
         };
 
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'disconnected') {
+                handleDisconnection();
+            }
+        };
+
         return peerConnection;
     } catch (err) {
         console.error('Error creating peer connection:', err);
         handleConnectionError();
-        throw err;
+        return null;
     }
 }
 
 async function startLocalStream() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-        });
+        const constraints = {
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: true
+        };
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
@@ -208,7 +229,10 @@ async function startLocalStream() {
 
 async function createPeerConnection() {
     try {
-        const offer = await peerConnection.createOffer();
+        const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+        });
         await peerConnection.setLocalDescription(offer);
         return offer;
     } catch (err) {
@@ -219,6 +243,9 @@ async function createPeerConnection() {
 
 async function handleOffer(offer) {
     try {
+        if (!peerConnection) {
+            throw new Error('No peer connection available');
+        }
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -231,6 +258,9 @@ async function handleOffer(offer) {
 
 async function handleAnswer(answer) {
     try {
+        if (!peerConnection) {
+            throw new Error('No peer connection available');
+        }
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (err) {
         console.error('Error handling answer:', err);
@@ -240,6 +270,9 @@ async function handleAnswer(answer) {
 
 async function handleIceCandidate(candidate) {
     try {
+        if (!peerConnection) {
+            throw new Error('No peer connection available');
+        }
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (err) {
         console.error('Error handling ICE candidate:', err);
@@ -292,22 +325,34 @@ function showMessage(text, type) {
 
 function cleanup() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop();
+            localStream.removeTrack(track);
+        });
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+            remoteStream.removeTrack(track);
+        });
     }
     if (peerConnection) {
         peerConnection.close();
+        peerConnection = null;
     }
     if (socket) {
         socket.disconnect();
+        socket = null;
     }
 
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     if (localVideo) localVideo.srcObject = null;
     if (remoteVideo) remoteVideo.srcObject = null;
+
+    localStream = null;
+    remoteStream = null;
+    currentRoom = null;
 
     enableControls();
 }
