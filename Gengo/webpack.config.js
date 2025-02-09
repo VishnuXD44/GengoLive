@@ -57,7 +57,8 @@ module.exports = {
             patterns: [
                 { from: 'public/assets', to: 'assets' },
                 { from: 'public/styles.css', to: 'styles.css' },
-                { from: 'public/styles2.css', to: 'styles2.css' }
+                { from: 'public/styles2.css', to: 'styles2.css' },
+                { from: 'public/scripts/language-animation.js', to: 'scripts/language-animation.js' }
             ],
         }),
     ],
