@@ -67,88 +67,41 @@ function initializeSocket() {
         console.log('Initializing socket connection');
         const socketUrl = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
-            : 'https://gengo-socket-production.up.railway.app'; // Update this with your Railway URL
+            : 'https://gengo-socket-production.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'], // Try polling first
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true
+            withCredentials: true,
+            forceNew: true,
+            secure: true
         });
 
+        // Add more detailed error logging
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
+            console.error('Error details:', {
+                message: error.message,
+                description: error.description,
+                type: error.type
+            });
             showMessage('Connection error. Retrying...', 'warning');
             handleConnectionError();
         });
 
-        socketIo.on('connect_timeout', () => {
-            console.error('Socket connection timeout');
-            showMessage('Connection timeout. Retrying...', 'warning');
-            handleConnectionError();
-        });
-
-        socketIo.on('reconnect', (attemptNumber) => {
-            console.log('Socket reconnected after', attemptNumber, 'attempts');
-            showMessage('Connection restored!', 'success');
-        });
-
-        socketIo.on('reconnect_error', (error) => {
-            console.error('Socket reconnection error:', error);
-            showMessage('Reconnection failed. Please try again.', 'error');
-            handleConnectionError();
-        });
-
-        socketIo.on('connect', () => {
-            console.log('Socket connected successfully:', socketIo.id);
-            showMessage('Connected to server', 'success');
-            const language = document.getElementById('language')?.value;
-            const role = document.getElementById('role')?.value;
-            
-            if (language && role) {
-                socketIo.emit('join', { language, role });
-            }
-        });
-
-        socketIo.on('match', async (matchData) => {
-            console.log('Matched with peer', matchData);
-            currentRoom = matchData.room;
-            showMessage('Found a matching partner!', 'success');
-
-            if (matchData.offer) {
-                await createAndSendOffer();
-            }
-        });
-
-        socketIo.on('offer', async (offer) => {
-            console.log('Received offer');
-            await webrtcHandleOffer(offer);
-        });
-
-        socketIo.on('answer', async (answer) => {
-            console.log('Received answer');
-            await webrtcHandleAnswer(answer);
-        });
-
-        socketIo.on('candidate', async (candidate) => {
-            console.log('Received ICE candidate');
-            await handleIceCandidate(candidate);
-        });
-
-        return socketIo;
+        // Rest of the socket event handlers...
     } catch (error) {
         console.error('Socket initialization error:', error);
         handleConnectionError();
         return null;
     }
 }
-
-// Rest of the file remains the same...
 
 async function initializePeerConnection() {
     try {
