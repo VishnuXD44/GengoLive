@@ -63,7 +63,7 @@ function handleMediaError() {
 }
 
 function initializeSocket() {
-    try {   
+    try {
         console.log('Initializing socket connection');
         const socketUrl = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
@@ -73,75 +73,26 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['polling', 'websocket'], // Try polling first
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: false, // Changed to false
+            withCredentials: true,
             forceNew: true,
             secure: true,
-            autoConnect: true
-        });
-
-        socketIo.on('connect', () => {
-            console.log('Socket connected successfully:', socketIo.id);
-            const language = document.getElementById('language')?.value;
-            const role = document.getElementById('role')?.value;
-            
-            if (language && role) {
-                socketIo.emit('join', { language, role });
-            }
-        });
-
-        socketIo.on('match', async (matchData) => {
-            console.log('Matched with peer:', matchData);
-            currentRoom = matchData.room;
-            
-            if (matchData.offer) {
-                await createAndSendOffer();
-            }
-        });
-
-        socketIo.on('offer', async (offer) => {
-            console.log('Received offer');
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit('answer', answer, currentRoom);
-            } catch (error) {
-                console.error('Error handling offer:', error);
-                handleConnectionError();
-            }
-        });
-
-        socketIo.on('answer', async (answer) => {
-            console.log('Received answer');
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            } catch (error) {
-                console.error('Error handling answer:', error);
-                handleConnectionError();
-            }
-        });
-
-        socketIo.on('candidate', async (candidate) => {
-            console.log('Received ICE candidate');
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (error) {
-                console.error('Error handling ICE candidate:', error);
-                handleConnectionError();
+            extraHeaders: {
+                'Access-Control-Allow-Origin': '*'
             }
         });
 
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
-            if (error.message.includes('websocket error')) {
-                console.log('Falling back to polling transport');
-                socketIo.io.opts.transports = ['polling', 'websocket'];
-            }
+            console.error('Error details:', {
+                message: error.message,
+                description: error.description,
+                type: error.type
+            });
             handleConnectionError();
         });
 

@@ -15,55 +15,39 @@ const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = [
     'https://www.gengo.live',
     'https://gengolive-production.up.railway.app',
-    ...(isProduction ? [] : ['http://localhost:9000', 'http://localhost:3000'])
+    'http://localhost:9000',
+    'http://localhost:3000'
 ];
 
-app.use(cors({
-    origin: (origin, callback) => {
+const corsOptions = {
+    origin: function(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             console.log('Blocked origin:', origin);
-            callback(null, true); // Allow all origins temporarily for debugging
+            callback(null, true); // Allow all origins during development
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: false,
-    optionsSuccessStatus: 200
-}));
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true
+};
 
-// Socket.IO server configuration
+app.use(cors(corsOptions));
+
 const io = new Server(server, {
     cors: {
-        origin: '*', // Allow all origins for Socket.IO
+        origin: allowedOrigins,
         methods: ['GET', 'POST', 'OPTIONS'],
-        credentials: false
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true
     },
-    path: '/socket.io/',
-    transports: ['polling', 'websocket'],
     allowEIO3: true,
-    pingTimeout: 60000,
-    pingInterval: 25000
+    transports: ['websocket', 'polling']
 });
 
-// Add headers to all responses
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'false');
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
-});
+// Pre-flight requests
+app.options('*', cors(corsOptions));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -71,34 +55,10 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // Socket connection handling
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log('Client disconnected:', socket.id, 'Reason:', reason);
-    });
-
     handleSignaling(socket, io);
-});
-
-// Handle SPA routing
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-// Error handling
-server.on('error', (error) => {
-    console.error('Server error:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Start server
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
-    console.log('Allowed origins:', allowedOrigins);
 });

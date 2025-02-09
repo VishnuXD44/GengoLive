@@ -4,10 +4,11 @@
   "description": "A WebRTC application for language practice and coaching based on user preferences.",
   "main": "src/server.js",
   "scripts": {
-    "start": "cross-env NODE_ENV=production node src/server.js",
-    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
-    "build": "cross-env NODE_ENV=production webpack --config webpack.config.js",
-    "watch": "cross-env NODE_ENV=development webpack --watch --config webpack.config.js"
+   "start": "node src/server.js",
+    "build": "webpack --mode production",
+    "dev": "nodemon src/server.js",
+    "dev:client": "webpack serve --mode development",
+    "deploy": "npm run build && railway up"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.7",
