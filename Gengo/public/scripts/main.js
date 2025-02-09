@@ -12,14 +12,32 @@ const configuration = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connectButton');
+    const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+    const videoContainer = document.getElementById('video-container');
+    const selectionContainer = document.getElementById('selection-container');
+
     if (connectButton) {
         console.log('Connect button found');
         connectButton.addEventListener('click', async () => {
             console.log('Connect button clicked');
             try {
+                const language = document.getElementById('language').value;
+                const role = document.getElementById('role').value;
+                
+                if (!language || !role) {
+                    showMessage('Please select language and role', 'warning');
+                    return;
+                }
+
                 connectButton.disabled = true;
                 await startCall();
+                
+                // Show video container and hide selection container
+                if (videoContainer && selectionContainer) {
+                    selectionContainer.style.display = 'none';
+                    videoContainer.style.display = 'block';
+                }
             } catch (error) {
                 console.error('Error in click handler:', error);
                 handleConnectionError();
@@ -28,28 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.error('Connect button not found in DOM');
     }
-});
 
-async function startCall() {
-    try {
-        console.log('Starting call process');
-        await startLocalStream();
-        console.log('Local stream started');
-        
-        socket = initializeSocket();
-        console.log('Socket initialized');
-        
-        peerConnection = await initializePeerConnection();
-        console.log('Peer connection initialized');
-        
-        if (!peerConnection || !socket) {
-            throw new Error('Failed to initialize connections');
-        }
-    } catch (error) {
-        console.error('Error starting call:', error);
-        handleConnectionError();
+    if (leaveButton) {
+        leaveButton.addEventListener('click', () => {
+            cleanup();
+            // Show selection container and hide video container
+            if (videoContainer && selectionContainer) {
+                videoContainer.style.display = 'none';
+                selectionContainer.style.display = 'block';
+            }
+        });
     }
-}
+});
 
 function initializeSocket() {
     try {
@@ -61,8 +69,8 @@ function initializeSocket() {
 
         socketIo.on('connect', () => {
             console.log('Socket connected:', socketIo.id);
-            const language = document.getElementById('languageSelect').value;
-            const role = document.getElementById('roleSelect').value;
+            const language = document.getElementById('language').value;
+            const role = document.getElementById('role').value;
             socketIo.emit('join', { language, role });
         });
 
@@ -104,128 +112,12 @@ function initializeSocket() {
     }
 }
 
-async function initializePeerConnection() {
-    try {
-        peerConnection = new RTCPeerConnection(configuration);
-
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-        }
-
-        peerConnection.ontrack = (event) => {
-            const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
-                showMessage('Connected to peer', 'success');
-            }
-        };
-
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate && socket) {
-                socket.emit('candidate', event.candidate, currentRoom);
-            }
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed') {
-                handleConnectionError();
-            }
-        };
-
-        return peerConnection;
-    } catch (err) {
-        console.error('Error creating peer connection:', err);
-        handleConnectionError();
-        throw err;
-    }
-}
-
-async function startLocalStream() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-        });
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            localVideo.classList.add('active');
-            showMessage('Camera and microphone activated', 'success');
-        }
-        return localStream;
-    } catch (err) {
-        console.error('Error accessing media devices:', err);
-        handleMediaError();
-        throw err;
-    }
-}
-
-async function createPeerConnection() {
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        return offer;
-    } catch (err) {
-        console.error('Error creating offer:', err);
-        throw err;
-    }
-}
-
-async function handleOffer(offer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        return answer;
-    } catch (err) {
-        console.error('Error handling offer:', err);
-        throw err;
-    }
-}
-
-async function handleAnswer(answer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (err) {
-        console.error('Error handling answer:', err);
-        throw err;
-    }
-}
-
-async function handleIceCandidate(candidate) {
-    try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-        console.error('Error handling ICE candidate:', err);
-        throw err;
-    }
-}
-
-function handleConnectionError() {
-    showMessage('Connection failed. Please check your internet connection and try again.', 'error');
-    cleanup();
-    enableControls();
-}
-
-function handleDisconnection() {
-    showMessage('Lost connection. Attempting to reconnect...', 'warning');
-    cleanup();
-    enableControls();
-}
-
-function handleMediaError() {
-    showMessage('Unable to access camera or microphone. Please check your permissions.', 'error');
-    enableControls();
-}
+// ... [keep all other functions the same] ...
 
 function enableControls() {
-    const connectButton = document.getElementById('connectButton');
-    const languageSelect = document.getElementById('languageSelect');
-    const roleSelect = document.getElementById('roleSelect');
+    const connectButton = document.getElementById('connect');
+    const languageSelect = document.getElementById('language');
+    const roleSelect = document.getElementById('role');
     
     if (connectButton) connectButton.disabled = false;
     if (languageSelect) languageSelect.disabled = false;
@@ -236,7 +128,12 @@ function showMessage(text, type) {
     const message = document.createElement('div');
     message.className = `message ${type}-message`;
     message.textContent = text;
-    document.body.appendChild(message);
+    const container = document.querySelector('.container');
+    if (container) {
+        container.appendChild(message);
+    } else {
+        document.body.appendChild(message);
+    }
     
     setTimeout(() => {
         message.remove();
@@ -261,4 +158,6 @@ function cleanup() {
     const remoteVideo = document.getElementById('remoteVideo');
     if (localVideo) localVideo.srcObject = null;
     if (remoteVideo) remoteVideo.srcObject = null;
+
+    enableControls();
 }
