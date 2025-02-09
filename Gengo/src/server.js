@@ -11,12 +11,11 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// CORS middleware configuration
 const allowedOrigins = [
     'https://www.gengo.live',
+    'https://gengo-live-mhndo74fy-vishnuxd44s-projects.vercel.app',
     'https://gengolive-production.up.railway.app',
-    'http://localhost:9000',
-    'http://localhost:3000'
+    ...(isProduction ? [] : ['http://localhost:9000', 'http://localhost:3000'])
 ];
 
 const corsOptions = {
@@ -25,25 +24,26 @@ const corsOptions = {
             callback(null, true);
         } else {
             console.log('Blocked origin:', origin);
-            callback(null, true); // Allow all origins during development
+            callback(null, true); // Allow all origins temporarily for debugging
         }
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true
+    credentials: false // Changed to false
 };
 
 app.use(cors(corsOptions));
 
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: '*', // Allow all origins temporarily
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        credentials: true
+        credentials: false // Changed to false
     },
-    allowEIO3: true,
-    transports: ['websocket', 'polling']
+    path: '/socket.io/',
+    transports: ['polling', 'websocket'],
+    allowEIO3: true
 });
 
 // Pre-flight requests

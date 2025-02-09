@@ -73,27 +73,14 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true,
+            withCredentials: false,
             forceNew: true,
-            secure: true,
-            extraHeaders: {
-                'Access-Control-Allow-Origin': '*'
-            }
-        });
-
-        socketIo.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                description: error.description,
-                type: error.type
-            });
-            handleConnectionError();
+            secure: true
         });
 
         return socketIo;

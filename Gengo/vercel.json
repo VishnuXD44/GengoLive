@@ -2,10 +2,6 @@
     "version": 2,
     "builds": [
         {
-            "src": "src/server.js",
-            "use": "@vercel/node"
-        },
-        {
             "src": "dist/**/*",
             "use": "@vercel/static"
         }
@@ -13,7 +9,7 @@
     "routes": [
         {
             "src": "/socket.io/(.*)",
-            "dest": "src/server.js",
+            "dest": "https://gengolive-production.up.railway.app/socket.io/$1",
             "headers": {
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
