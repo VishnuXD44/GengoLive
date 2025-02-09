@@ -13,15 +13,21 @@
     "routes": [
         {
             "src": "/socket.io/(.*)",
-            "dest": "src/server.js"
+            "dest": "src/server.js",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+                "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
+                "Access-Control-Allow-Credentials": "true"
+            }
         },
         {
-            "src": "/scripts/(.*)",
+            "src": "/(.*)\\.bundle\\.js$",
             "headers": {
                 "cache-control": "public, max-age=31536000, immutable",
                 "Content-Type": "application/javascript"
             },
-            "dest": "/dist/scripts/$1"
+            "dest": "/dist/$1.bundle.js"
         },
         {
             "src": "/(styles|styles2)\\.css",

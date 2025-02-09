@@ -2,18 +2,16 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js'
     },
     output: {
-        filename: 'scripts/[name].bundle.js',
+        filename: '[name].bundle.js', // Remove 'scripts/' from here
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/'
+        publicPath: '/' // Important for resolving paths correctly
     },
     module: {
         rules: [
@@ -44,17 +42,20 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation']
+            chunks: ['main', 'language-animation'],
+            inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation']
+            chunks: ['main', 'language-animation'],
+            inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main']
+            chunks: ['main'],
+            inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
@@ -71,13 +72,5 @@ module.exports = {
         compress: true,
         port: 9000,
         hot: true,
-        proxy: {
-            '/socket.io': {
-                target: isProduction ? 'https://gengo-socket-production.up.railway.app' : 'http://localhost:3000',
-                ws: true,
-                changeOrigin: true
-            }
-        },
-        historyApiFallback: true
     },
 };
