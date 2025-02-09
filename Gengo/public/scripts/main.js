@@ -67,21 +67,21 @@ function initializeSocket() {
         console.log('Initializing socket connection');
         const socketUrl = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
-            : 'https://gengo-socket-production.up.railway.app';
+            : 'https://gengolive-production.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'], // Try polling first
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true,
+            withCredentials: false, // Changed to false
             forceNew: true,
             secure: true,
-            rejectUnauthorized: false
+            autoConnect: true
         });
 
         socketIo.on('connect', () => {
@@ -94,21 +94,54 @@ function initializeSocket() {
             }
         });
 
+        socketIo.on('match', async (matchData) => {
+            console.log('Matched with peer:', matchData);
+            currentRoom = matchData.room;
+            
+            if (matchData.offer) {
+                await createAndSendOffer();
+            }
+        });
+
+        socketIo.on('offer', async (offer) => {
+            console.log('Received offer');
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('answer', answer, currentRoom);
+            } catch (error) {
+                console.error('Error handling offer:', error);
+                handleConnectionError();
+            }
+        });
+
+        socketIo.on('answer', async (answer) => {
+            console.log('Received answer');
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+                handleConnectionError();
+            }
+        });
+
+        socketIo.on('candidate', async (candidate) => {
+            console.log('Received ICE candidate');
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (error) {
+                console.error('Error handling ICE candidate:', error);
+                handleConnectionError();
+            }
+        });
+
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                description: error.description,
-                type: error.type
-            });
-            
-            // Try polling if websocket fails
             if (error.message.includes('websocket error')) {
                 console.log('Falling back to polling transport');
                 socketIo.io.opts.transports = ['polling', 'websocket'];
             }
-            
-            showMessage('Connection error. Retrying...', 'warning');
             handleConnectionError();
         });
 

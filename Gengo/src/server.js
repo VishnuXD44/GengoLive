@@ -14,10 +14,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 // CORS middleware configuration
 const allowedOrigins = [
     'https://www.gengo.live',
-    'https://gengo-socket-production.up.railway.app',
-    'https://gengo-production.up.railway.app',
-    'http://localhost:9000',
-    'http://localhost:3000'
+    'https://gengolive-production.up.railway.app',
+    ...(isProduction ? [] : ['http://localhost:9000', 'http://localhost:3000'])
 ];
 
 app.use(cors({
@@ -31,7 +29,7 @@ app.use(cors({
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: true,
+    credentials: false,
     optionsSuccessStatus: 200
 }));
 
@@ -40,10 +38,10 @@ const io = new Server(server, {
     cors: {
         origin: '*', // Allow all origins for Socket.IO
         methods: ['GET', 'POST', 'OPTIONS'],
-        credentials: true
+        credentials: false
     },
     path: '/socket.io/',
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000
@@ -59,7 +57,7 @@ app.use((req, res, next) => {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
     
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
