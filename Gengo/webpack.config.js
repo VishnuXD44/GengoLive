@@ -2,6 +2,8 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
@@ -71,7 +73,7 @@ module.exports = {
         hot: true,
         proxy: {
             '/socket.io': {
-                target: 'http://localhost:3000',
+                target: isProduction ? 'https://gengo-socket-production.up.railway.app' : 'http://localhost:3000',
                 ws: true,
                 changeOrigin: true
             }
