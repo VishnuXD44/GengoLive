@@ -83,14 +83,17 @@ function initializeSocket() {
         console.log('Initializing socket connection');
         const socketIo = io(window.location.origin, {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'], // Start with polling first
             secure: true,
             reconnection: true,
             rejectUnauthorized: false,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            forceNew: true
+            forceNew: true,
+            extraHeaders: {
+                "Access-Control-Allow-Origin": "*"
+            }
         });
 
         socketIo.on('connect', () => {
@@ -127,11 +130,12 @@ function initializeSocket() {
 
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
-            if (socketIo.io.opts.transports[0] === 'websocket') {
-                console.log('Falling back to polling');
-                socketIo.io.opts.transports = ['polling'];
-            }
             handleConnectionError();
+        });
+
+        socketIo.on('disconnect', () => {
+            console.log('Socket disconnected');
+            handleDisconnection();
         });
 
         return socketIo;
@@ -202,7 +206,46 @@ async function startLocalStream() {
     }
 }
 
-// ... [rest of your WebRTC functions] ...
+async function createPeerConnection() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (err) {
+        console.error('Error creating offer:', err);
+        throw err;
+    }
+}
+
+async function handleOffer(offer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        return answer;
+    } catch (err) {
+        console.error('Error handling offer:', err);
+        throw err;
+    }
+}
+
+async function handleAnswer(answer) {
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (err) {
+        console.error('Error handling answer:', err);
+        throw err;
+    }
+}
+
+async function handleIceCandidate(candidate) {
+    try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+        console.error('Error handling ICE candidate:', err);
+        throw err;
+    }
+}
 
 function handleConnectionError() {
     showMessage('Connection failed. Please check your internet connection and try again.', 'error');
