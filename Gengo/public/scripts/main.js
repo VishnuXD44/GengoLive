@@ -88,7 +88,9 @@ function initializeSocket() {
             reconnection: true,
             rejectUnauthorized: false,
             reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            reconnectionDelay: 1000,
+            timeout: 20000,
+            forceNew: true
         });
 
         socketIo.on('connect', () => {
@@ -200,46 +202,7 @@ async function startLocalStream() {
     }
 }
 
-async function createPeerConnection() {
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        return offer;
-    } catch (err) {
-        console.error('Error creating offer:', err);
-        throw err;
-    }
-}
-
-async function handleOffer(offer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        return answer;
-    } catch (err) {
-        console.error('Error handling offer:', err);
-        throw err;
-    }
-}
-
-async function handleAnswer(answer) {
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (err) {
-        console.error('Error handling answer:', err);
-        throw err;
-    }
-}
-
-async function handleIceCandidate(candidate) {
-    try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-        console.error('Error handling ICE candidate:', err);
-        throw err;
-    }
-}
+// ... [rest of your WebRTC functions] ...
 
 function handleConnectionError() {
     showMessage('Connection failed. Please check your internet connection and try again.', 'error');

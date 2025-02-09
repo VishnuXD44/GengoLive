@@ -18,16 +18,10 @@
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE",
                 "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
-                "Access-Control-Allow-Credentials": "true"
+                "Access-Control-Allow-Credentials": "true",
+                "Connection": "upgrade",
+                "Upgrade": "websocket"
             }
-        },
-        {
-            "src": "/bundle.js",
-            "headers": {
-                "Content-Type": "application/javascript",
-                "cache-control": "public, max-age=31536000, immutable"
-            },
-            "dest": "/dist/bundle.js"
         },
         {
             "src": "/scripts/(.*)",
@@ -36,6 +30,13 @@
                 "Content-Type": "application/javascript"
             },
             "dest": "/dist/scripts/$1"
+        },
+        {
+            "src": "/bundle.js",
+            "headers": {
+                "Content-Type": "application/javascript"
+            },
+            "dest": "/dist/scripts/bundle.js"
         },
         {
             "src": "/(styles|styles2)\\.css",
@@ -47,10 +48,6 @@
         {
             "src": "/assets/(.*)",
             "dest": "/dist/assets/$1"
-        },
-        {
-            "src": "/(.*)\\.html",
-            "dest": "/dist/$1.html"
         },
         {
             "handle": "filesystem"
