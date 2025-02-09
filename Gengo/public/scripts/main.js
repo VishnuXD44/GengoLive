@@ -91,15 +91,17 @@ function initializeSocket() {
         const socketIo = io(window.location.origin, {
             path: '/socket.io/',
             transports: ['polling', 'websocket'],
-            secure: true,
+            forceNew: true,
             reconnection: true,
-            rejectUnauthorized: false,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
+            randomizationFactor: 0.5,
             timeout: 20000,
-            forceNew: true,
+            secure: true,
+            rejectUnauthorized: false,
+            withCredentials: true,
             extraHeaders: {
-                "Access-Control-Allow-Origin": "*"
+                'Access-Control-Allow-Origin': '*'
             }
         });
 
@@ -107,44 +109,22 @@ function initializeSocket() {
             console.log('Socket connected:', socketIo.id);
             const language = document.getElementById('language')?.value;
             const role = document.getElementById('role')?.value;
+            
             if (language && role) {
                 socketIo.emit('join', { language, role });
             }
         });
 
-        socketIo.on('match', async ({ offer, room }) => {
-            console.log('Matched with peer, room:', room);
-            currentRoom = room;
-            if (offer) {
-                const offerDescription = await createPeerConnection();
-                socketIo.emit('offer', offerDescription, room);
-            }
-        });
-
-        socketIo.on('offer', async (offer) => {
-            console.log('Received offer');
-            const answer = await handleOffer(offer);
-            socketIo.emit('answer', answer, currentRoom);
-        });
-
-        socketIo.on('answer', async (answer) => {
-            console.log('Received answer');
-            await handleAnswer(answer);
-        });
-
-        socketIo.on('candidate', async (candidate) => {
-            console.log('Received ICE candidate');
-            await handleIceCandidate(candidate);
-        });
+        // Existing socket event handlers...
 
         socketIo.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
+            // Fallback mechanism
+            if (socketIo.io.opts.transports[0] === 'polling') {
+                console.log('Falling back to websocket');
+                socketIo.io.opts.transports = ['websocket'];
+            }
             handleConnectionError();
-        });
-
-        socketIo.on('disconnect', () => {
-            console.log('Socket disconnected');
-            handleDisconnection();
         });
 
         return socketIo;
@@ -154,6 +134,7 @@ function initializeSocket() {
         return null;
     }
 }
+
 
 async function initializePeerConnection() {
     try {

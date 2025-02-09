@@ -7,14 +7,19 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// CORS configuration
-app.use(cors({
+// Cors Configuration
+const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-        ? 'https://www.gengo.live'
-        : 'http://localhost:9000',
+        ? ['https://www.gengo.live', 'https://gengo.live']
+        : ['http://localhost:9000', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
     credentials: true
-}));
+};
+
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../dist'), {
@@ -25,19 +30,17 @@ app.use(express.static(path.join(__dirname, '../dist'), {
     }
 }));
 
-// Socket.IO setup
+// Socket.IO Configuration
 const io = new Server(server, {
-    cors: {
-        origin: process.env.NODE_ENV === 'production' 
-            ? 'https://www.gengo.live'
-            : 'http://localhost:9000',
-        methods: ['GET', 'POST', 'OPTIONS'],
-        credentials: true
-    },
-    serveClient: false
+    cors: corsOptions,
+    path: '/socket.io/',
+    serveClient: false,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['polling', 'websocket']
 });
 
-// Signaling logic (from your existing index.js)
+// Signaling logic
 const { handleSignaling } = require('./signaling');
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
