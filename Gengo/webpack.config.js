@@ -13,30 +13,29 @@ module.exports = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'scripts/[name].[contenthash].js',
         clean: true,
-        publicPath: '/',
-        assetModuleFilename: 'assets/[name][ext]'
+        publicPath: '/'
     },
     resolve: {
         extensions: ['.js', '.mjs', '.json'],
         alias: {
+            // Correct socket.io-client import
             'socket.io-client': path.resolve(__dirname, 'node_modules/socket.io-client/dist/socket.io.js'),
-            '@': path.resolve(__dirname, 'src'),
-            '@public': path.resolve(__dirname, 'public/scripts')
+            '@': path.resolve(__dirname, 'public/scripts')
         },
         fallback: {
             "path": require.resolve("path-browserify")
-        },
-        caseSensitive: true,
+        }
     },
     module: {
         rules: [
             {
-                test: /\.js$/,
+                test: /\.(m?js|jsx)$/,
                 exclude: /node_modules/,
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env']
+                        presets: ['@babel/preset-env'],
+                        plugins: ['@babel/plugin-transform-runtime']
                     }
                 }
             },
@@ -45,17 +44,10 @@ module.exports = {
                 use: ['style-loader', 'css-loader']
             },
             {
-                test: /\.(png|jpg|jpeg|gif|svg|ico)$/i,
+                test: /\.(png|svg|jpg|jpeg|gif)$/i,
                 type: 'asset/resource',
                 generator: {
-                    filename: 'assets/images/[name][ext]'
-                }
-            },
-            {
-                test: /\.(woff|woff2|eot|ttf|otf)$/i,
-                type: 'asset/resource',
-                generator: {
-                    filename: 'assets/fonts/[name][ext]'
+                    filename: 'assets/[name][ext]'
                 }
             }
         ]
@@ -79,70 +71,41 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 { 
-                    from: 'public/assets',
-                    to: 'assets',
-                    noErrorOnMissing: true,
-                    globOptions: {
-                        ignore: ['**/*.html']
-                    }
+                    from: 'public/assets', 
+                    to: 'assets' 
                 },
-                {
-                    from: 'public/styles.css',
-                    to: 'styles.css',
-                    noErrorOnMissing: true
+                { 
+                    from: 'public/styles.css', 
+                    to: 'styles.css' 
                 },
-                {
-                    from: 'public/styles2.css',
-                    to: 'styles2.css',
-                    noErrorOnMissing: true
+                { 
+                    from: 'public/styles2.css', 
+                    to: 'styles2.css' 
                 }
             ]
         }),
         new webpack.DefinePlugin({
-            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-            'process.env.SOCKET_URL': JSON.stringify(
-                process.env.NODE_ENV === 'production' 
-                    ? 'https://www.gengo.live' 
-                    : 'http://localhost:3000'
-            )
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
         })
     ],
     devServer: {
-        port: 9000,
         static: {
-            directory: path.join(__dirname, 'public'),
-            publicPath: '/'
+            directory: path.join(__dirname, 'dist')
         },
+        port: 9000,
         hot: true,
-        historyApiFallback: true,
+        open: true,
         proxy: {
             '/socket.io': {
                 target: 'http://localhost:3000',
                 ws: true,
-                changeOrigin: true,
-                secure: false,
-                headers: {
-                    'Access-Control-Allow-Origin': '*'
-                }
+                changeOrigin: true
             }
-        },
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-            'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
         }
     },
     optimization: {
         splitChunks: {
-            chunks: 'all',
-            cacheGroups: {
-                vendor: {
-                    test: /[\\/]node_modules[\\/]/,
-                    name: 'vendors',
-                    chunks: 'all'
-                }
-            }
-        },
-        runtimeChunk: 'single'
+            chunks: 'all'
+        }
     }
 };
