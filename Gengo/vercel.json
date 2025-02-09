@@ -22,12 +22,35 @@
             }
         },
         {
+            "src": "/bundle.js",
+            "headers": {
+                "Content-Type": "application/javascript",
+                "cache-control": "public, max-age=31536000, immutable"
+            },
+            "dest": "/dist/bundle.js"
+        },
+        {
             "src": "/scripts/(.*)",
             "headers": {
                 "cache-control": "public, max-age=31536000, immutable",
                 "Content-Type": "application/javascript"
             },
             "dest": "/dist/scripts/$1"
+        },
+        {
+            "src": "/(styles|styles2)\\.css",
+            "headers": {
+                "cache-control": "public, max-age=31536000, immutable"
+            },
+            "dest": "/dist/$1.css"
+        },
+        {
+            "src": "/assets/(.*)",
+            "dest": "/dist/assets/$1"
+        },
+        {
+            "src": "/(.*)\\.html",
+            "dest": "/dist/$1.html"
         },
         {
             "handle": "filesystem"
