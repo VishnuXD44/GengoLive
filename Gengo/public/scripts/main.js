@@ -65,9 +65,10 @@ function handleMediaError() {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = window.location.hostname === 'localhost'
+        const hostname = window.location.hostname;
+        const socketUrl = hostname === 'localhost' 
             ? 'http://localhost:3000'
-            : 'https://px6793pa.up.railway.app';
+            : `https://${hostname === 'www.gengo.live' ? 'px6793pa.up.railway.app' : hostname}`;
 
         console.log('Connecting to socket URL:', socketUrl);
 
@@ -80,7 +81,17 @@ function initializeSocket() {
             timeout: 20000,
             withCredentials: false,
             forceNew: true,
-            secure: true
+            secure: true,
+            autoConnect: true
+        });
+
+        socketIo.on('connect', () => {
+            console.log('Successfully connected to socket server');
+        });
+
+        socketIo.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            handleConnectionError();
         });
 
         return socketIo;
