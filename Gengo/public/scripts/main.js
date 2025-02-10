@@ -65,7 +65,9 @@ function handleMediaError() {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = 'https://gengolive-production.up.railway.app';
+        const socketUrl = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://px6793pa.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
@@ -78,18 +80,7 @@ function initializeSocket() {
             timeout: 20000,
             withCredentials: false,
             forceNew: true,
-            secure: true,
-            autoConnect: true,
-            rejectUnauthorized: false
-        });
-
-        socketIo.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
-            if (error.message.includes('websocket error')) {
-                console.log('Falling back to polling transport');
-                socketIo.io.opts.transports = ['polling', 'websocket'];
-            }
-            handleConnectionError();
+            secure: true
         });
 
         return socketIo;
@@ -99,7 +90,6 @@ function initializeSocket() {
         return null;
     }
 }
-
 async function initializePeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
