@@ -71,25 +71,36 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: true,
+            withCredentials: false,
             forceNew: true,
             secure: true,
-            autoConnect: true
+            autoConnect: true,
+            rejectUnauthorized: false
         });
 
-        // Add connection event handlers
+        // Add better error handling
         socketIo.on('connect', () => {
-            console.log('Socket connected successfully');
-            showMessage('Connected to server', 'success');
+            console.log('Successfully connected to socket server');
+            const language = document.getElementById('language')?.value;
+            const role = document.getElementById('role')?.value;
+            
+            if (language && role) {
+                socketIo.emit('join', { language, role });
+                showMessage('Connected to server', 'success');
+            }
         });
 
         socketIo.on('connect_error', (error) => {
             console.error('Connection error:', error);
+            if (error.message.includes('websocket error')) {
+                console.log('Falling back to polling transport');
+                socketIo.io.opts.transports = ['polling', 'websocket'];
+            }
             handleConnectionError();
         });
 
