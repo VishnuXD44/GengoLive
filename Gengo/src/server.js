@@ -12,27 +12,28 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigins = [
     'https://www.gengo.live',
     'https://gengo.live',
+    'https://gengolive-production.up.railway.app',
     'https://px6793pa.up.railway.app',
-    'http://www.gengo.live',
-    'http://gengo.live',
     ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
 ];
 
-// Update CORS middleware
-app.use(cors({
-    origin: function(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(null, false);
-        }
-    },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true
-}));
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
 
-// Socket.IO configuration
 const io = new Server(server, {
     cors: {
         origin: '*',
@@ -47,21 +48,7 @@ const io = new Server(server, {
     cookie: false
 });
 
-// Serve static files
 app.use(express.static(path.join(__dirname, '../dist')));
-
-// Add route handler for root path
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-// Add route handler for socket.io path
-app.get('/socket.io/*', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    next();
-});
 
 // Socket connection handling
 io.on('connection', (socket) => {
@@ -78,19 +65,10 @@ io.on('connection', (socket) => {
     handleSignaling(socket, io);
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-});
-
-// Start server
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-    console.log('Allowed origins:', allowedOrigins);
 });
 
-// Handle server errors
 server.on('error', (error) => {
     console.error('Server error:', error);
 });

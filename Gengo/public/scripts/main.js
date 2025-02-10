@@ -1,16 +1,5 @@
 import io from 'socket.io-client';
-import { startLocalStream, createPeerConnection, handleOffer as webrtcHandleOffer, handleAnswer as webrtcHandleAnswer, handleIceCandidate, cleanup as webrtcCleanup } from '../../src/utils/webrtc.js';
-
-const configuration = {
-    iceServers: [
-        { 
-            urls: [
-                'stun:stun.l.google.com:19302', 
-                'stun:stun1.l.google.com:19302'
-            ]
-        }
-    ]
-};
+import { configuration } from '../../src/utils/webrtc.js';
 
 let localStream = null;
 let remoteStream = null;
@@ -30,9 +19,7 @@ function showMessage(text, type = 'info') {
         document.body.appendChild(message);
     }
     
-    setTimeout(() => {
-        message.remove();
-    }, 5000);
+    setTimeout(() => message.remove(), 5000);
 }
 
 function enableControls() {
@@ -45,27 +32,45 @@ function enableControls() {
     if (roleSelect) roleSelect.disabled = false;
 }
 
-function handleConnectionError() {
-    showMessage('Connection failed. Please check your internet connection and try again.', 'error');
-    cleanup();
-    enableControls();
-}
+async function startLocalStream() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: 'user'
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
 
-function handleDisconnection() {
-    showMessage('Lost connection. Attempting to reconnect...', 'warning');
-    cleanup();
-    enableControls();
-}
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            localVideo.setAttribute('playsinline', '');
+        }
 
-function handleMediaError() {
-    showMessage('Unable to access camera or microphone. Please check your permissions.', 'error');
-    enableControls();
+        const selectionContainer = document.getElementById('selection-container');
+        const videoContainer = document.getElementById('video-container');
+        
+        if (selectionContainer) selectionContainer.style.display = 'none';
+        if (videoContainer) videoContainer.style.display = 'block';
+
+        return localStream;
+    } catch (err) {
+        console.error('Error accessing media devices:', err);
+        handleMediaError();
+        throw err;
+    }
 }
 
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = 'https://px6793pa.up.railway.app';
+        const socketUrl = 'https://gengolive-production.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
@@ -83,7 +88,6 @@ function initializeSocket() {
             rejectUnauthorized: false
         });
 
-        // Add better error handling
         socketIo.on('connect', () => {
             console.log('Successfully connected to socket server');
             const language = document.getElementById('language')?.value;
@@ -91,17 +95,50 @@ function initializeSocket() {
             
             if (language && role) {
                 socketIo.emit('join', { language, role });
-                showMessage('Connected to server', 'success');
+                showMessage('Waiting for a match...', 'info');
             }
         });
 
-        socketIo.on('connect_error', (error) => {
-            console.error('Connection error:', error);
-            if (error.message.includes('websocket error')) {
-                console.log('Falling back to polling transport');
-                socketIo.io.opts.transports = ['polling', 'websocket'];
+        socketIo.on('match', async (matchData) => {
+            console.log('Matched with peer:', matchData);
+            currentRoom = matchData.room;
+            
+            if (matchData.offer) {
+                await createAndSendOffer();
             }
-            handleConnectionError();
+        });
+
+        socketIo.on('offer', async (offer) => {
+            console.log('Received offer');
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socketIo.emit('answer', answer, currentRoom);
+            } catch (error) {
+                console.error('Error handling offer:', error);
+                handleConnectionError();
+            }
+        });
+
+        socketIo.on('answer', async (answer) => {
+            console.log('Received answer');
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+                handleConnectionError();
+            }
+        });
+
+        socketIo.on('candidate', async (candidate) => {
+            console.log('Received ICE candidate');
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (error) {
+                console.error('Error handling ICE candidate:', error);
+                handleConnectionError();
+            }
         });
 
         return socketIo;
@@ -126,6 +163,7 @@ async function initializePeerConnection() {
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo && event.streams[0]) {
                 remoteVideo.srcObject = event.streams[0];
+                remoteVideo.setAttribute('playsinline', '');
                 remoteStream = event.streams[0];
                 showMessage('Connected to peer', 'success');
             }
@@ -137,20 +175,6 @@ async function initializePeerConnection() {
             }
         };
 
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed') {
-                handleConnectionError();
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'disconnected') {
-                handleDisconnection();
-            }
-        };
-
         return peerConnection;
     } catch (err) {
         console.error('Error creating peer connection:', err);
@@ -159,59 +183,33 @@ async function initializePeerConnection() {
     }
 }
 
-async function createAndSendOffer() {
-    try {
-        const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true
-        });
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('offer', offer, currentRoom);
-    } catch (err) {
-        console.error('Error creating offer:', err);
-        handleConnectionError();
-    }
-}
-
 async function startCall() {
     try {
         console.log('Starting call process');
         await startLocalStream();
-        console.log('Local stream started');
         
         socket = initializeSocket();
-        if (!socket) {
-            throw new Error('Failed to initialize socket');
-        }
-        console.log('Socket initialized');
+        if (!socket) throw new Error('Failed to initialize socket');
         
         peerConnection = await initializePeerConnection();
-        if (!peerConnection) {
-            throw new Error('Failed to initialize peer connection');
-        }
-        console.log('Peer connection initialized');
+        if (!peerConnection) throw new Error('Failed to initialize peer connection');
+        
+        showMessage('Connecting...', 'info');
     } catch (error) {
         console.error('Error starting call:', error);
         handleConnectionError();
-        throw error;
     }
 }
 
 function cleanup() {
     try {
         if (localStream) {
-            localStream.getTracks().forEach(track => {
-                track.stop();
-                localStream.removeTrack(track);
-            });
+            localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
 
         if (remoteStream) {
-            remoteStream.getTracks().forEach(track => {
-                track.stop();
-                remoteStream.removeTrack(track);
-            });
+            remoteStream.getTracks().forEach(track => track.stop());
             remoteStream = null;
         }
 
@@ -225,20 +223,17 @@ function cleanup() {
             socket = null;
         }
 
+        const selectionContainer = document.getElementById('selection-container');
+        const videoContainer = document.getElementById('video-container');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         
-        if (localVideo) {
-            localVideo.srcObject = null;
-            localVideo.classList.remove('active');
-        }
-        
-        if (remoteVideo) {
-            remoteVideo.srcObject = null;
-        }
+        if (localVideo) localVideo.srcObject = null;
+        if (remoteVideo) remoteVideo.srcObject = null;
+        if (selectionContainer) selectionContainer.style.display = 'block';
+        if (videoContainer) videoContainer.style.display = 'none';
 
         currentRoom = null;
-
         enableControls();
     } catch (error) {
         console.error('Error during cleanup:', error);
@@ -247,12 +242,16 @@ function cleanup() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+
     if (connectButton) {
         connectButton.addEventListener('click', startCall);
     }
-});
 
-window.startCall = startCall;
-window.handleConnectionError = handleConnectionError;
-window.cleanup = cleanup;
-window.webrtcCleanup = webrtcCleanup;
+    if (leaveButton) {
+        leaveButton.addEventListener('click', () => {
+            cleanup();
+            showMessage('Call ended', 'info');
+        });
+    }
+});
