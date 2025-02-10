@@ -65,10 +65,8 @@ function handleMediaError() {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const hostname = window.location.hostname;
-        const socketUrl = hostname === 'localhost' 
-            ? 'http://localhost:3000'
-            : `https://${hostname === 'www.gengo.live' ? 'px6793pa.up.railway.app' : hostname}`;
+        // Always use the Railway URL
+        const socketUrl = 'https://gengolive-production.up.railway.app';
 
         console.log('Connecting to socket URL:', socketUrl);
 
@@ -87,11 +85,12 @@ function initializeSocket() {
 
         socketIo.on('connect', () => {
             console.log('Successfully connected to socket server');
-        });
-
-        socketIo.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
-            handleConnectionError();
+            const language = document.getElementById('language')?.value;
+            const role = document.getElementById('role')?.value;
+            
+            if (language && role) {
+                socketIo.emit('join', { language, role });
+            }
         });
 
         return socketIo;

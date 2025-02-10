@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 3000;
 // Add allowed origins
 const allowedOrigins = [
     'https://www.gengo.live',
-    'https://px6793pa.up.railway.app',
     'https://gengolive-production.up.railway.app',
     ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
 ];
