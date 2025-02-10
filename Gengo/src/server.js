@@ -12,34 +12,34 @@ const PORT = process.env.PORT || 3000;
 // Add allowed origins
 const allowedOrigins = [
     'https://www.gengo.live',
+    'https://gengo.live',
+    'https://px6793pa.up.railway.app',
     'https://gengolive-production.up.railway.app',
     ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
 ];
 
-// CORS configuration
-const corsOptions = {
-    origin: function(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.log('Blocked origin:', origin);
-            callback(null, true); // Allow all origins temporarily for debugging
-        }
-    },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: false
-};
-
-app.use(cors(corsOptions));
-
-// Serve static files from dist directory
-app.use(express.static(path.join(__dirname, '../dist')));
+// Add headers middleware
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
 
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: '*',
         methods: ['GET', 'POST', 'OPTIONS'],
         credentials: false
     },
@@ -49,6 +49,9 @@ const io = new Server(server, {
     pingTimeout: 60000,
     pingInterval: 25000
 });
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // Socket connection handling
 io.on('connection', (socket) => {
@@ -63,11 +66,6 @@ io.on('connection', (socket) => {
     });
 
     handleSignaling(socket, io);
-});
-
-// Serve index.html for all routes (SPA support)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // Error handling middleware
