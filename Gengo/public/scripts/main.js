@@ -71,27 +71,26 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['polling', 'websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             timeout: 20000,
-            withCredentials: false,
+            withCredentials: true,
             forceNew: true,
             secure: true,
-            autoConnect: true,
-            rejectUnauthorized: false
+            autoConnect: true
         });
 
+        // Add connection event handlers
         socketIo.on('connect', () => {
-            console.log('Successfully connected to socket server');
-            const language = document.getElementById('language')?.value;
-            const role = document.getElementById('role')?.value;
-            
-            if (language && role) {
-                socketIo.emit('join', { language, role });
-                showMessage('Waiting for a match...', 'info');
-            }
+            console.log('Socket connected successfully');
+            showMessage('Connected to server', 'success');
+        });
+
+        socketIo.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            handleConnectionError();
         });
 
         return socketIo;
@@ -101,6 +100,7 @@ function initializeSocket() {
         return null;
     }
 }
+
 async function initializePeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
