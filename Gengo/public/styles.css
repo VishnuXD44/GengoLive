@@ -75,6 +75,7 @@ html, body {
     padding: 5rem 2rem 2rem;
     display: flex;
     align-items: center;
+    justify-content: center;
     overflow: hidden;
     position: relative;
     background-color: #fff;
@@ -369,5 +370,25 @@ html, body {
 
     .feature-title {
         font-size: 1.2rem;
+    }
+}
+
+/* Browser Compatibility */
+@supports ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))) {
+    .video-container {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+}
+
+@-moz-document url-prefix() {
+    .video-container {
+        background: rgba(255, 255, 255, 0.98);
+    }
+}
+
+@supports not ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))) {
+    .video-container {
+        background: rgba(255, 255, 255, 0.98);
     }
 }
