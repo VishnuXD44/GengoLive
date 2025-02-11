@@ -120,7 +120,6 @@ async function handleVideoStream(video, stream, isLocal = false) {
     }
 }
 
-// Improved socket initialization
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
@@ -137,7 +136,12 @@ function initializeSocket() {
             forceNew: true,
             secure: true,
             autoConnect: true,
-            extraHeaders: undefined // Ensure no unsafe headers are set
+            extraHeaders: {}, // Remove any custom headers
+            transportOptions: {
+                polling: {
+                    extraHeaders: {} // Remove custom headers from polling transport
+                }
+            }
         });
 
         socketIo.on('connect', () => {
