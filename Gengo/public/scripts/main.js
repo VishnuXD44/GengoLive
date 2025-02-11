@@ -66,7 +66,61 @@ function enableControls() {
     if (roleSelect) roleSelect.disabled = false;
 }
 
-// Socket initialization with proper error handling
+// Modified video handling function
+async function handleVideoStream(video, stream, isLocal = false) {
+    if (!video || !stream) return;
+
+    try {
+        // Create new MediaStream to avoid interruption issues
+        const newStream = new MediaStream(stream.getTracks());
+        video.srcObject = newStream;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('autoplay', '');
+        video.muted = isLocal;
+
+        const videoWrapper = video.parentElement;
+        videoWrapper.classList.add('video-wrapper');
+
+        // Improved autoplay handling
+        const playVideo = async () => {
+            try {
+                // Only play if video is paused
+                if (video.paused) {
+                    await video.play();
+                }
+            } catch (err) {
+                console.warn(`${isLocal ? 'Local' : 'Remote'} video autoplay failed:`, err);
+                
+                if (!videoWrapper.querySelector('.play-button')) {
+                    const playButton = document.createElement('button');
+                    playButton.textContent = 'Click to Start Video';
+                    playButton.className = 'play-button';
+                    videoWrapper.appendChild(playButton);
+                    
+                    playButton.onclick = async () => {
+                        try {
+                            await video.play();
+                            playButton.remove();
+                        } catch (playErr) {
+                            console.error('Manual play failed:', playErr);
+                            showMessage('Video playback failed. Please refresh.', 'error');
+                        }
+                    };
+                }
+            }
+        };
+
+        // Add multiple triggers for play attempts
+        video.addEventListener('loadedmetadata', playVideo);
+        video.addEventListener('canplay', playVideo);
+        document.addEventListener('click', playVideo, { once: true });
+    } catch (err) {
+        console.error('Error setting up video:', err);
+        showMessage('Failed to setup video stream', 'error');
+    }
+}
+
+// Improved socket initialization
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
@@ -83,7 +137,12 @@ function initializeSocket() {
             forceNew: true,
             secure: true,
             autoConnect: true,
-            extraHeaders: {} // Remove User-Agent header
+            extraHeaders: undefined
+        });
+
+        socketIo.on('connect', () => {
+            console.log('Successfully connected to socket server');
+            showMessage('Connected to server', 'success');
         });
 
         socketIo.on('connect_error', (error) => {
@@ -103,51 +162,7 @@ function initializeSocket() {
     }
 }
 
-// Better video handling
-async function handleVideoStream(video, stream, isLocal = false) {
-    if (!video || !stream) return;
-
-    try {
-        video.srcObject = stream;
-        video.setAttribute('playsinline', '');
-        video.setAttribute('autoplay', '');
-        video.muted = isLocal; // Mute only local video
-
-        // Create container for play button
-        const videoWrapper = video.parentElement;
-        videoWrapper.classList.add('video-wrapper');
-
-        // Handle autoplay
-        try {
-            await video.play();
-        } catch (e) {
-            console.warn(`${isLocal ? 'Local' : 'Remote'} video autoplay failed:`, e);
-            
-            // Add play button if not exists
-            if (!videoWrapper.querySelector('.play-button')) {
-                const playButton = document.createElement('button');
-                playButton.textContent = 'Click to Start Video';
-                playButton.className = 'play-button';
-                videoWrapper.appendChild(playButton);
-                
-                playButton.onclick = async () => {
-                    try {
-                        await video.play();
-                        playButton.remove();
-                    } catch (err) {
-                        console.error('Manual play failed:', err);
-                        showMessage('Video playback failed. Please refresh the page.', 'error');
-                    }
-                };
-            }
-        }
-    } catch (err) {
-        console.error('Error setting up video:', err);
-        showMessage('Failed to setup video stream', 'error');
-    }
-}
-
-// Update your existing startLocalStream function
+// Modified startLocalStream with better error handling
 async function startLocalStream() {
     try {
         const hasPermissions = await checkMediaPermissions();
@@ -163,9 +178,9 @@ async function startLocalStream() {
                 frameRate: { min: 15, ideal: 30 }
             },
             audio: {
-                echoCancellation: { ideal: true },
-                noiseSuppression: { ideal: true },
-                autoGainControl: { ideal: true }
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
             }
         };
 
@@ -192,8 +207,6 @@ async function startLocalStream() {
     }
 }
 
-// Rest of your existing code remains the same
-
 async function initializePeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
@@ -211,16 +224,8 @@ async function initializePeerConnection() {
         peerConnection.ontrack = (event) => {
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteVideo.setAttribute('playsinline', '');
+                handleVideoStream(remoteVideo, event.streams[0], false);
                 remoteStream = event.streams[0];
-                
-                // Ensure remote video plays
-                remoteVideo.play().catch(e => {
-                    console.warn('Remote video autoplay failed:', e);
-                    showMessage('Tap to start remote video', 'info');
-                });
-                
                 showMessage('Connected to peer', 'success');
             }
         };
@@ -365,3 +370,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, { once: true });
 });
+
+export {
+    startCall,
+    cleanup,
+    handleMediaError,
+    handleConnectionError,
+    showMessage
+};
