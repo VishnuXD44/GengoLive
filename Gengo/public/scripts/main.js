@@ -6,6 +6,7 @@ let remoteStream = null;
 let peerConnection = null;
 let socket = null;
 let currentRoom = null;
+
 // Add permission check function
 async function checkMediaPermissions() {
     try {
@@ -136,7 +137,7 @@ function initializeSocket() {
             forceNew: true,
             secure: true,
             autoConnect: true,
-            extraHeaders: undefined
+            extraHeaders: undefined // Ensure no unsafe headers are set
         });
 
         socketIo.on('connect', () => {
