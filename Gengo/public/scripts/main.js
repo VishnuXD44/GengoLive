@@ -149,12 +149,11 @@ async function startLocalStream() {
     }
 }
 
+// Socket initialization with proper error handling
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
         const socketUrl = 'https://gengolive-production.up.railway.app';
-
-        console.log('Connecting to socket URL:', socketUrl);
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
@@ -166,25 +165,15 @@ function initializeSocket() {
             withCredentials: false,
             forceNew: true,
             secure: true,
-            autoConnect: true
-        });
-
-        socketIo.on('connect', () => {
-            console.log('Successfully connected to socket server');
-            const language = document.getElementById('language')?.value;
-            const role = document.getElementById('role')?.value;
-            
-            if (language && role) {
-                socketIo.emit('join', { language, role });
-                showMessage('Waiting for a match...', 'info');
-            }
+            autoConnect: true,
+            extraHeaders: {} // Remove User-Agent header
         });
 
         socketIo.on('connect_error', (error) => {
             console.error('Connection error:', error);
             if (error.message.includes('websocket error')) {
                 console.log('Falling back to polling transport');
-                socketIo.io.opts.transports = ['polling', 'websocket'];
+                socketIo.io.opts.transports = ['polling'];
             }
             handleConnectionError();
         });
@@ -194,6 +183,95 @@ function initializeSocket() {
         console.error('Socket initialization error:', error);
         handleConnectionError();
         return null;
+    }
+}
+
+// Better video handling
+async function handleVideoStream(video, stream, isLocal = false) {
+    if (!video || !stream) return;
+
+    try {
+        video.srcObject = stream;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('autoplay', '');
+        video.muted = isLocal; // Mute only local video
+
+        // Create container for play button
+        const videoWrapper = video.parentElement;
+        videoWrapper.classList.add('video-wrapper');
+
+        // Handle autoplay
+        try {
+            await video.play();
+        } catch (e) {
+            console.warn(`${isLocal ? 'Local' : 'Remote'} video autoplay failed:`, e);
+            
+            // Add play button if not exists
+            if (!videoWrapper.querySelector('.play-button')) {
+                const playButton = document.createElement('button');
+                playButton.textContent = 'Click to Start Video';
+                playButton.className = 'play-button';
+                videoWrapper.appendChild(playButton);
+                
+                playButton.onclick = async () => {
+                    try {
+                        await video.play();
+                        playButton.remove();
+                    } catch (err) {
+                        console.error('Manual play failed:', err);
+                        showMessage('Video playback failed. Please refresh the page.', 'error');
+                    }
+                };
+            }
+        }
+    } catch (err) {
+        console.error('Error setting up video:', err);
+        showMessage('Failed to setup video stream', 'error');
+    }
+}
+
+// Update your existing startLocalStream function
+async function startLocalStream() {
+    try {
+        const hasPermissions = await checkMediaPermissions();
+        if (!hasPermissions) {
+            throw new Error('Permission check failed');
+        }
+
+        const constraints = {
+            video: {
+                width: { min: 320, ideal: 1280, max: 1920 },
+                height: { min: 240, ideal: 720, max: 1080 },
+                facingMode: 'user',
+                frameRate: { min: 15, ideal: 30 }
+            },
+            audio: {
+                echoCancellation: { ideal: true },
+                noiseSuppression: { ideal: true },
+                autoGainControl: { ideal: true }
+            }
+        };
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (e) {
+            console.log('Falling back to basic constraints');
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
+            });
+        }
+
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            await handleVideoStream(localVideo, localStream, true);
+        }
+
+        return localStream;
+    } catch (err) {
+        console.error('Error accessing media devices:', err);
+        handleMediaError();
+        throw err;
     }
 }
 
