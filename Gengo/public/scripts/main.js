@@ -7,6 +7,31 @@ let peerConnection = null;
 let socket = null;
 let currentRoom = null;
 
+// Add permission check function
+async function checkMediaPermissions() {
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Your browser does not support media devices');
+        }
+
+        // Request permissions explicitly
+        const permissions = await Promise.all([
+            navigator.permissions.query({ name: 'camera' }),
+            navigator.permissions.query({ name: 'microphone' })
+        ]);
+
+        if (permissions.some(p => p.state === 'denied')) {
+            throw new Error('Camera/Microphone access denied');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Permission check failed:', error);
+        showMessage(error.message, 'error');
+        return false;
+    }
+}
+
 function showMessage(text, type = 'info') {
     const message = document.createElement('div');
     message.className = `message ${type}-message`;
@@ -43,48 +68,70 @@ function enableControls() {
 
 async function startLocalStream() {
     try {
-        // More flexible constraints for different devices
+        // Check permissions first
+        const hasPermissions = await checkMediaPermissions();
+        if (!hasPermissions) {
+            throw new Error('Permission check failed');
+        }
+
+        // Basic constraints first
         const constraints = {
-            video: {
-                width: { min: 640, ideal: 1280, max: 1920 },
-                height: { min: 480, ideal: 720, max: 1080 },
-                facingMode: 'user',
-                frameRate: { ideal: 30, max: 60 }
-            },
+            video: true,
             audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-                sampleRate: 48000,
-                sampleSize: 16
+                echoCancellation: { ideal: true },
+                noiseSuppression: { ideal: true },
+                autoGainControl: { ideal: true }
             }
         };
 
-        // Try getting media with ideal constraints first
         try {
             localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Now try to upgrade video quality if possible
+            const betterConstraints = {
+                video: {
+                    width: { min: 320, ideal: 1280, max: 1920 },
+                    height: { min: 240, ideal: 720, max: 1080 },
+                    frameRate: { min: 15, ideal: 30 },
+                    facingMode: 'user'
+                }
+            };
+            
+            const betterStream = await navigator.mediaDevices.getUserMedia(betterConstraints);
+            localStream.getVideoTracks().forEach(track => track.stop());
+            localStream.removeTrack(localStream.getVideoTracks()[0]);
+            localStream.addTrack(betterStream.getVideoTracks()[0]);
         } catch (e) {
-            console.log('Falling back to basic constraints');
-            // Fallback to basic constraints
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
+            console.log('Using basic video constraints');
         }
 
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
-            // Add playsinline for iOS Safari
             localVideo.setAttribute('playsinline', '');
-            // Add muted for autoplay
+            localVideo.setAttribute('webkit-playsinline', '');
             localVideo.muted = true;
-            // Ensure autoplay works
+
+            // Create play button for manual start
+            const playButton = document.createElement('button');
+            playButton.textContent = 'Start Video';
+            playButton.className = 'play-button';
+            localVideo.parentElement.appendChild(playButton);
+
+            // Try autoplay first
             try {
                 await localVideo.play();
+                playButton.remove();
             } catch (e) {
                 console.warn('Autoplay failed:', e);
-                showMessage('Tap to start video', 'info');
+                playButton.onclick = async () => {
+                    try {
+                        await localVideo.play();
+                        playButton.remove();
+                    } catch (err) {
+                        console.error('Manual play failed:', err);
+                    }
+                };
             }
         }
 
@@ -111,20 +158,15 @@ function initializeSocket() {
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
-            transports: ['polling', 'websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
-            reconnectionAttempts: 10,
+            reconnectionAttempts: 5,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
             timeout: 20000,
             withCredentials: false,
             forceNew: true,
             secure: true,
-            autoConnect: true,
-            rejectUnauthorized: false,
-            extraHeaders: {
-                'User-Agent': navigator.userAgent
-            }
+            autoConnect: true
         });
 
         socketIo.on('connect', () => {
@@ -147,25 +189,6 @@ function initializeSocket() {
             handleConnectionError();
         });
 
-        // Enhanced error handling and reconnection logic
-        socketIo.on('reconnect_attempt', () => {
-            console.log('Attempting to reconnect...');
-            showMessage('Reconnecting...', 'warning');
-        });
-
-        socketIo.on('reconnect', () => {
-            console.log('Reconnected successfully');
-            showMessage('Reconnected', 'success');
-        });
-
-        socketIo.on('disconnect', (reason) => {
-            console.log('Disconnected:', reason);
-            if (reason === 'io server disconnect') {
-                socketIo.connect(); // Automatically reconnect if server disconnected
-            }
-            handleConnectionError();
-        });
-
         return socketIo;
     } catch (error) {
         console.error('Socket initialization error:', error);
@@ -173,6 +196,8 @@ function initializeSocket() {
         return null;
     }
 }
+
+// Rest of your existing code remains the same
 
 async function initializePeerConnection() {
     try {
