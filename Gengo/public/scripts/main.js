@@ -6,7 +6,6 @@ let remoteStream = null;
 let peerConnection = null;
 let socket = null;
 let currentRoom = null;
-
 // Add permission check function
 async function checkMediaPermissions() {
     try {
@@ -249,30 +248,67 @@ async function initializePeerConnection() {
             }
         };
 
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection State:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed') {
-                handleConnectionError();
-            }
-        };
-
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate && socket) {
-                socket.emit('candidate', event.candidate, currentRoom);
+            if (event.candidate) {
+                socket.emit('candidate', event.candidate);
             }
         };
 
         return peerConnection;
-    } catch (err) {
-        console.error('Error creating peer connection:', err);
+    } catch (error) {
+        console.error('Error initializing peer connection:', error);
         handleConnectionError();
-        return null;
+        throw error;
+    }
+}
+
+function cleanup() {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
+    }
+
+    const videoContainer = document.querySelector('.video-container');
+    if (videoContainer) {
+        videoContainer.style.display = 'none';
+    }
+
+    const selectionContainer = document.getElementById('selection-container');
+    if (selectionContainer) {
+        selectionContainer.style.display = 'flex';
     }
 }
 
 async function startCall() {
     try {
         console.log('Starting call process');
+        
+        // Cleanup any existing connections first
+        cleanup();
+        
+        // Create loading state
+        const videoContainer = document.querySelector('.video-container');
+        if (videoContainer) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'video-loading';
+            videoContainer.appendChild(loadingDiv);
+        }
+
         await startLocalStream();
         
         socket = initializeSocket();
@@ -281,6 +317,15 @@ async function startCall() {
         peerConnection = await initializePeerConnection();
         if (!peerConnection) throw new Error('Failed to initialize peer connection');
         
+        // Remove loading state
+        const loadingDiv = document.querySelector('.video-loading');
+        if (loadingDiv) loadingDiv.remove();
+        
+        // Show video container and hide selection container
+        if (videoContainer) videoContainer.style.display = 'block';
+        const selectionContainer = document.getElementById('selection-container');
+        if (selectionContainer) selectionContainer.style.display = 'none';
+
         showMessage('Connecting...', 'info');
     } catch (error) {
         console.error('Error starting call:', error);
@@ -288,93 +333,4 @@ async function startCall() {
     }
 }
 
-function cleanup() {
-    try {
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                track.stop();
-                localStream.removeTrack(track);
-            });
-            localStream = null;
-        }
-
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(track => {
-                track.stop();
-                remoteStream.removeTrack(track);
-            });
-            remoteStream = null;
-        }
-
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-
-        if (socket) {
-            socket.disconnect();
-            socket = null;
-        }
-
-        const selectionContainer = document.getElementById('selection-container');
-        const videoContainer = document.getElementById('video-container');
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        
-        if (localVideo) localVideo.srcObject = null;
-        if (remoteVideo) remoteVideo.srcObject = null;
-        if (selectionContainer) selectionContainer.style.display = 'block';
-        if (videoContainer) videoContainer.style.display = 'none';
-
-        currentRoom = null;
-        enableControls();
-    } catch (error) {
-        console.error('Error during cleanup:', error);
-    }
-}
-
-// Handle page visibility changes
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && peerConnection) {
-        cleanup();
-        showMessage('Call ended due to page becoming inactive', 'info');
-    }
-});
-
-// Handle beforeunload to cleanup
-window.addEventListener('beforeunload', cleanup);
-
-// Initialize UI
-document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connect');
-    const leaveButton = document.getElementById('leave');
-
-    if (connectButton) {
-        connectButton.addEventListener('click', startCall);
-    }
-
-    if (leaveButton) {
-        leaveButton.addEventListener('click', () => {
-            cleanup();
-            showMessage('Call ended', 'info');
-        });
-    }
-
-    // Add tap-to-play handler for mobile browsers
-    document.addEventListener('click', () => {
-        const videos = document.querySelectorAll('video');
-        videos.forEach(video => {
-            if (video.paused) {
-                video.play().catch(e => console.warn('Video play failed:', e));
-            }
-        });
-    }, { once: true });
-});
-
-export {
-    startCall,
-    cleanup,
-    handleMediaError,
-    handleConnectionError,
-    showMessage
-};
+document.getElementById('connect').addEventListener('click', startCall);
