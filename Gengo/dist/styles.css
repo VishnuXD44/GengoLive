@@ -42,7 +42,7 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between; /* Adjusted for better alignment */
     align-items: center;
     padding: 1.5rem 2rem;
     background-color: rgba(255, 255, 255, 0.98);
@@ -112,7 +112,7 @@ html, body {
     font-size: clamp(1rem, 2vw, 1.25rem);
     max-width: 800px;
     margin: 0 auto;
-    color: var(--dark);
+    color: var (--dark);
 }
 
 .features {
@@ -344,9 +344,16 @@ html, body {
 }
 
 @media (max-width: 768px) {
+    .navbar {
+        padding: 1rem;
+        justify-content: center; /* Center align the navbar */
+    }
+
     .nav-links {
         gap: 1rem;
         font-size: 0.9rem;
+        flex-wrap: wrap; /* Allow wrapping of nav links */
+        justify-content: center; /* Center align the nav links */
     }
 
     .main-logo {
@@ -370,6 +377,43 @@ html, body {
     .get-started {
         padding: 0.75rem 1.5rem;
         font-size: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .navbar {
+        padding: 0.5rem;
+        justify-content: center; /* Center align the navbar */
+    }
+
+    .nav-links {
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        flex-wrap: wrap; /* Allow wrapping of nav links */
+        justify-content: center; /* Center align the nav links */
+    }
+
+    .main-logo {
+        font-size: 2.5rem;
+        margin-top: 3rem;
+    }
+
+    .feature-image {
+        max-width: 100px;
+    }
+
+    .selection-container {
+        padding: 1rem;
+    }
+
+    .connect-btn, .leave-btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .get-started {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
     }
 }
 
