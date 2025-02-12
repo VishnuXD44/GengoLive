@@ -49,6 +49,7 @@ html, body {
     background-color: transparent;
     z-index: 1000;
     transition: all 0.3s ease;
+    color: transparent;
 }
 
 .nav-links {
@@ -311,6 +312,8 @@ html, body {
 @media (max-width: 1024px) {
     .navbar {
         padding: 1rem;
+        color: transparent;
+        justify-content: right;
     }
 
     .nav-links {
@@ -347,7 +350,8 @@ html, body {
 @media (max-width: 768px) {
     .navbar {
         padding: 1rem;
-        justify-content: flex-end;
+        justify-content: right;
+        color: transparent;
     }
 
     .nav-links {
@@ -383,7 +387,8 @@ html, body {
 @media (max-width: 576px) {
     .navbar {
         padding: 0.5rem;
-        justify-content: flex-end;
+        justify-content: right;
+        color: transparent;
     }
 
     .nav-links {
