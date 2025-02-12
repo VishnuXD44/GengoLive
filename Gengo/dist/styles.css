@@ -145,6 +145,26 @@ html, body {
     color: var(--dark);
 }
 
+.get-started {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: var(--pink);
+    color: white;
+    text-decoration: none;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+    text-align: center;
+    margin: 2rem auto 0;
+}
+
+.get-started:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
+}
+
 /* ============ MAIN PAGE STYLES ============ */
 .selection-container {
     display: flex;
@@ -229,7 +249,7 @@ html, body {
 
 /* ============ VIDEO CONTAINER ============ */
 .video-container {
-    display: none;
+    display: none; /* Hide by default */
     position: relative;
     z-index: 10;
     background: rgba(255, 255, 255, 0.95);
@@ -243,7 +263,7 @@ html, body {
     margin: 0 auto;
 }
 
-.video-grid {
+.video-wrapper {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
@@ -287,7 +307,7 @@ html, body {
 }
 
 /* ============ RESPONSIVE STYLES ============ */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .navbar {
         padding: 1rem;
     }
@@ -308,7 +328,7 @@ html, body {
         display: none;
     }
 
-    .video-grid {
+    .video-wrapper {
         grid-template-columns: 1fr;
     }
 
@@ -316,9 +336,14 @@ html, body {
         margin: 2rem auto;
         padding: 1.5rem;
     }
+
+    .get-started {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .nav-links {
         gap: 1rem;
         font-size: 0.9rem;
@@ -340,6 +365,11 @@ html, body {
     .connect-btn, .leave-btn {
         font-size: 1rem;
         padding: 0.6rem 1.5rem;
+    }
+
+    .get-started {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
     }
 }
 
@@ -366,6 +396,11 @@ html, body {
 
     .feature-title {
         font-size: 1.2rem;
+    }
+
+    .get-started {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
     }
 }
 
