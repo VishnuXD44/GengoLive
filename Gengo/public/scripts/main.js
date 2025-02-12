@@ -58,10 +58,12 @@ function handleConnectionError() {
 
 function enableControls() {
     const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
     const languageSelect = document.getElementById('language');
     const roleSelect = document.getElementById('role');
     
     if (connectButton) connectButton.disabled = false;
+    if (leaveButton) leaveButton.disabled = false;
     if (languageSelect) languageSelect.disabled = false;
     if (roleSelect) roleSelect.disabled = false;
 }
@@ -123,7 +125,7 @@ async function handleVideoStream(video, stream, isLocal = false) {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = 'https://gengolive-production.up.railway.app';
+        const socketUrl = 'https://bsgkke2t.up.railway.app';
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
@@ -338,4 +340,11 @@ async function startCall() {
     }
 }
 
+function leaveCall() {
+    cleanup();
+    showMessage('You have left the call', 'info');
+    enableControls();
+}
+
 document.getElementById('connect').addEventListener('click', startCall);
+document.getElementById('leave').addEventListener('click', leaveCall);
