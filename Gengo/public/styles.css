@@ -40,12 +40,13 @@ html, body {
 .navbar {
     position: fixed;
     top: 0;
+    right: 0;
     width: 100%;
     display: flex;
-    justify-content: space-between; /* Adjusted for better alignment */
+    justify-content: flex-end;
     align-items: center;
     padding: 1.5rem 2rem;
-    background-color: rgba(255, 255, 255, 0.98);
+    background-color: transparent;
     z-index: 1000;
     transition: all 0.3s ease;
 }
@@ -112,7 +113,7 @@ html, body {
     font-size: clamp(1rem, 2vw, 1.25rem);
     max-width: 800px;
     margin: 0 auto;
-    color: var (--dark);
+    color: var(--dark);
 }
 
 .features {
@@ -346,14 +347,13 @@ html, body {
 @media (max-width: 768px) {
     .navbar {
         padding: 1rem;
-        justify-content: center; /* Center align the navbar */
+        justify-content: flex-end;
     }
 
     .nav-links {
         gap: 1rem;
         font-size: 0.9rem;
-        flex-wrap: wrap; /* Allow wrapping of nav links */
-        justify-content: center; /* Center align the nav links */
+        flex-wrap: wrap;
     }
 
     .main-logo {
@@ -383,14 +383,13 @@ html, body {
 @media (max-width: 576px) {
     .navbar {
         padding: 0.5rem;
-        justify-content: center; /* Center align the navbar */
+        justify-content: flex-end;
     }
 
     .nav-links {
         gap: 0.5rem;
         font-size: 0.8rem;
-        flex-wrap: wrap; /* Allow wrapping of nav links */
-        justify-content: center; /* Center align the nav links */
+        flex-wrap: wrap;
     }
 
     .main-logo {
