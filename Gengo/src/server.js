@@ -14,7 +14,8 @@ const allowedOrigins = [
     'https://gengo.live',
     'https://www.gengo.live',
     'http://localhost:3000',
-    'http://localhost:9000'
+    'http://localhost:9000',
+    'https://gengo.fly.dev',
 ];
 
 // Middleware to handle www to non-www redirect
