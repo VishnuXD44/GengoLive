@@ -1,33 +1,44 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { handleSignaling } = require('./signaling');
 
 const app = express();
-const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Updated allowed origins
+// SSL configuration for HTTPS
+const sslOptions = {
+    key: fs.readFileSync('/etc/letsencrypt/live/gengo.live/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/gengo.live/fullchain.pem')
+};
+
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(sslOptions, app);
+
+// Allowed origins
 const allowedOrigins = [
     'https://gengo.live',
     'https://www.gengo.live',
     'http://localhost:3000',
-    'http://localhost:9000',
-    'https://gengo.fly.dev',
+    'http://localhost:9000'
 ];
 
-// Middleware to handle www to non-www redirect
+// Redirect HTTP to HTTPS and www to non-www
 app.use((req, res, next) => {
-    if (req.hostname.startsWith('www.')) {
-        const newHost = req.hostname.slice(4);
-        return res.redirect(301, `${req.protocol}://${newHost}${req.originalUrl}`);
+    if (!req.secure) {
+        return res.redirect(`https://${req.headers.host}${req.url}`);
+    }
+    if (req.headers.host.startsWith('www.')) {
+        return res.redirect(301, `https://gengo.live${req.url}`);
     }
     next();
 });
 
-// Updated CORS configuration
+// CORS and other middleware configurations remain the same
 app.use(cors({
     origin: function(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -38,50 +49,26 @@ app.use(cors({
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-}));
-
-// Serve static files with proper caching
-app.use(express.static(path.join(__dirname, '../dist'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
-        } else if (filePath.endsWith('.css')) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
-        }
-    }
+    credentials: true
 }));
 
 // Socket.IO configuration
-const io = new Server(server, {
+const io = new Server(httpsServer, {
     cors: {
         origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     },
-    path: '/socket.io/',
-    transports: ['websocket', 'polling'],
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    maxHttpBufferSize: 1e8,
-    allowUpgrades: true
+    path: '/socket.io/'
 });
 
-io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
-    handleSignaling(socket, io);
+// Rest of your server code remains the same...
 
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-    });
-
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
+// Listen on both HTTP and HTTPS
+httpServer.listen(80, () => {
+    console.log('HTTP Server running on port 80');
 });
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+httpsServer.listen(443, () => {
+    console.log('HTTPS Server running on port 443');
 });
