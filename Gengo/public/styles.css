@@ -1,16 +1,9 @@
-/* Base Styles and CSS Reset */
 :root {
     --primary-color: #4a90e2;
     --secondary-color: #2c3e50;
-    --accent-color: #e74c3c;
     --success-color: #2ecc71;
     --error-color: #e74c3c;
     --background-color: #f5f6fa;
-    --text-color: #333;
-    --light-text: #fff;
-    --border-radius: 8px;
-    --transition: all 0.3s ease;
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -19,170 +12,74 @@
     box-sizing: border-box;
 }
 
-html {
-    font-size: 16px;
-    scroll-behavior: smooth;
-}
-
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
                  'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--background-color);
-    color: var(--text-color);
-    line-height: 1.6;
-    overflow-x: hidden;
+    min-height: 100vh;
+    padding-top: 60px; /* For fixed header */
 }
 
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-    margin-bottom: 1rem;
-    line-height: 1.2;
+/* Header and Navigation */
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    z-index: 100;
 }
 
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.75rem; }
-
-@media (max-width: 768px) {
-    h1 { font-size: 2rem; }
-    h2 { font-size: 1.75rem; }
-    h3 { font-size: 1.5rem; }
-}
-
-/* Layout Components */
+/* Main Container */
 .container {
-    width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 2rem;
 }
 
-/* Header Styles */
-.header {
-    background-color: var(--secondary-color);
-    padding: 1rem 0;
-    position: fixed;
-    width: 100%;
-    top: 0;
-    z-index: 1000;
-    box-shadow: var(--shadow);
-}
-
-.nav-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 1rem;
-}
-
-.logo {
-    color: var(--light-text);
-    font-size: 1.5rem;
-    font-weight: bold;
-}
-
-.nav-links {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-}
-
-.nav-links a {
-    color: var(--light-text);
-    text-decoration: none;
-    transition: var(--transition);
-}
-
-/* Mobile Navigation */
-.mobile-menu-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--light-text);
-    font-size: 1.5rem;
-    cursor: pointer;
-}
-
-@media (max-width: 768px) {
-    .mobile-menu-btn {
-        display: block;
-    }
-
-    .nav-links {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background-color: var(--secondary-color);
-        flex-direction: column;
-        padding: 1rem;
-    }
-
-    .nav-links.active {
-        display: flex;
-    }
-}
-
-/* Hero Section */
-.hero {
-    padding: 6rem 1rem 4rem;
-    text-align: center;
-    background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-    color: var(--light-text);
-    min-height: 80vh;
+/* Selection Container */
+.selection-container {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-}
-
-.hero-text {
-    max-width: 600px;
-    margin: 1.5rem auto;
-    font-size: 1.2rem;
-}
-
-/* Features Section */
-.features {
-    padding: 4rem 1rem;
-}
-
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 2rem;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     margin-top: 2rem;
 }
 
-.feature-card {
-    background: white;
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    transition: var(--transition);
+/* Language Selection */
+.language-select, 
+.role-select {
+    padding: 0.8rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    width: 200px;
+    margin: 0.5rem 0;
 }
 
-.feature-card:hover {
-    transform: translateY(-5px);
-}
-
-/* Video Chat Interface */
+/* Video Container */
 .video-container {
     display: none;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-top: 5rem;
-    padding: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin-top: 2rem;
 }
 
 .video-wrapper {
     position: relative;
     width: 100%;
     aspect-ratio: 16/9;
-    background: #000;
-    border-radius: var(--border-radius);
+    background-color: #000;
+    border-radius: 8px;
     overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 video {
@@ -191,43 +88,59 @@ video {
     object-fit: cover;
 }
 
-/* Selection Interface */
-.selection-container {
-    margin-top: 5rem;
-    padding: 2rem;
-    background: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-}
-
-/* Form Elements */
-select, button {
-    width: 100%;
-    padding: 0.8rem;
-    margin: 0.5rem 0;
-    border-radius: var(--border-radius);
-    border: 1px solid #ddd;
+/* Buttons */
+.btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
     font-size: 1rem;
-}
-
-button {
+    transition: background-color 0.3s ease;
     background-color: var(--primary-color);
     color: white;
-    border: none;
-    cursor: pointer;
-    transition: var(--transition);
+    width: 200px;
+    margin: 0.5rem 0;
 }
 
-button:hover {
+.btn:hover {
     background-color: #357abd;
 }
 
-/* Floating Animation */
+/* Messages */
+.message {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 1rem 2rem;
+    border-radius: 4px;
+    color: white;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.success-message { background-color: var(--success-color); }
+.error-message { background-color: var(--error-color); }
+.info-message { background-color: var(--primary-color); }
+
+/* Floating Text Animation */
 .floating-text {
     position: fixed;
     pointer-events: none;
     z-index: -1;
     opacity: 0.08;
+    color: var(--secondary-color);
     user-select: none;
     font-weight: bold;
 }
@@ -249,77 +162,10 @@ button:hover {
     }
 }
 
-/* Messages */
-.message {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 1rem 2rem;
-    border-radius: var(--border-radius);
-    color: white;
-    z-index: 1000;
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.success-message { background-color: var(--success-color); }
-.error-message { background-color: var(--error-color); }
-.info-message { background-color: var(--primary-color); }
-
-/* Footer */
-.footer {
-    background-color: var(--secondary-color);
-    color: var(--light-text);
-    padding: 3rem 1rem 1rem;
-    margin-top: 4rem;
-}
-
-.footer-content {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.footer-section h4 {
-    margin-bottom: 1rem;
-}
-
-.footer-section a {
-    color: var(--light-text);
-    text-decoration: none;
-    display: block;
-    margin: 0.5rem 0;
-}
-
-.footer-bottom {
-    text-align: center;
-    padding-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
 /* Responsive Design */
-@media (max-width: 480px) {
-    html {
-        font-size: 14px;
-    }
-
+@media (max-width: 768px) {
     .container {
-        padding: 0 0.5rem;
-    }
-
-    .hero {
-        padding: 5rem 0.5rem 3rem;
+        padding: 1rem;
     }
 
     .video-container {
@@ -330,48 +176,52 @@ button:hover {
         padding: 1rem;
     }
 
+    .language-select,
+    .role-select,
+    .btn {
+        width: 100%;
+        max-width: 300px;
+    }
+
     .message {
         left: 20px;
         right: 20px;
         text-align: center;
     }
+
+    .floating-text {
+        font-size: 1rem !important;
+    }
 }
 
-/* Loading States */
-.loading {
-    position: relative;
+/* Small screens */
+@media (max-width: 480px) {
+    body {
+        padding-top: 50px;
+    }
+
+    .header {
+        padding: 0.8rem;
+    }
+
+    .container {
+        padding: 0.5rem;
+    }
+
+    .selection-container {
+        margin-top: 1rem;
+    }
 }
 
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* Support for RTL languages */
+[dir="rtl"] .message {
+    right: auto;
+    left: 20px;
 }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
+    .floating-text {
+        animation: none;
     }
-}
-
-.sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
 }
