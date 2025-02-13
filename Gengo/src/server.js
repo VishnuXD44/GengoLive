@@ -7,17 +7,12 @@ const { handleSignaling } = require('./signaling');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Changed port to 3001
 
-// Updated allowed origins to be more permissive
+// Allowed origins for development
 const allowedOrigins = [
-    'https://www.gengo.live',
-    'https://gengo.live',
-    'https://gengolive-production.up.railway.app',
-    'https://px6793pa.up.railway.app',
-    'http://www.gengo.live',
-    'http://gengo.live',
-    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:3000'] : [])
+    'http://localhost:9000',
+    'http://localhost:3000'
 ];
 
 // Use CORS middleware with specific options

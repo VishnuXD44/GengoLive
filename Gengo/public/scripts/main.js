@@ -125,7 +125,7 @@ async function handleVideoStream(video, stream, isLocal = false) {
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
-        const socketUrl = 'https://bsgkke2t.up.railway.app';
+        const socketUrl = 'http://localhost:3000';
 
         const socketIo = io(socketUrl, {
             path: '/socket.io/',
