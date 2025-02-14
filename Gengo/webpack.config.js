@@ -1,16 +1,18 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
-    mode: process.env.NODE_ENV || 'development',
     entry: {
         main: './public/scripts/main.js',
-        animation: './public/scripts/language-animation.js'
+        'language-animation': './public/scripts/language-animation.js',
+        styles: './public/styles.css',     // Add styles.css as an entry point
+        styles2: './public/styles2.css'    // Add styles2.css as an entry point
     },
     output: {
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
-        filename: 'scripts/[name].bundle.js',
         clean: true,
         publicPath: '/'
     },
@@ -20,85 +22,58 @@ module.exports = {
                 test: /\.js$/,
                 exclude: /node_modules/,
                 use: {
-                    loader: 'babel-loader'
-                }
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env'],
+                    },
+                },
             },
             {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader']
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    'css-loader'
+                ],
             },
             {
-                test: /\.(png|svg|jpg|jpeg|gif)$/i,
+                test: /\.(png|jpg|jpeg|gif|svg)$/,
                 type: 'asset/resource',
                 generator: {
-                    filename: 'assets/images/[name][ext]'
-                }
-            },
-            {
-                test: /\.(woff|woff2|eot|ttf|otf)$/i,
-                type: 'asset/resource',
-                generator: {
-                    filename: 'assets/fonts/[name][ext]'
+                    filename: 'assets/[name][ext]'
                 }
             }
-        ]
+        ],
     },
     plugins: [
-        new HtmlWebpackPlugin({
-            template: './public/main.html',
-            filename: 'main.html',
-            chunks: ['main', 'animation']
+        new MiniCssExtractPlugin({
+            filename: 'css/[name].css'  // Output CSS files to css directory
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main']
+            chunks: ['main', 'language-animation', 'styles'],
+            inject: true
+        }),
+        new HtmlWebpackPlugin({
+            template: './public/main.html',
+            filename: 'main.html',
+            chunks: ['main', 'language-animation', 'styles'],
+            inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main']
+            chunks: ['main', 'styles2'],
+            inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
-                { 
-                    from: 'public/styles',
-                    to: 'styles'
-                },
-                {
-                    from: 'public/assets',
-                    to: 'assets',
-                    noErrorOnMissing: true
-                },
-                {
-                    from: 'public/scripts',
-                    to: 'scripts',
-                    globOptions: {
-                        ignore: ['**/*.js'] // Don't copy JS files as they're handled by webpack
-                    }
-                }
-            ]
-        })
+                { from: 'public/assets', to: 'assets' },
+                { from: 'favicon.ico', to: 'favicon.ico' }
+            ],
+        }),
     ],
-    devServer: {
-        static: {
-            directory: path.join(__dirname, 'public'),
-            publicPath: '/'
-        },
-        port: 9000,
-        hot: true,
-        historyApiFallback: true,
-        proxy: {
-            '/socket.io': {
-                target: 'http://localhost:3000',
-                ws: true
-            },
-            '/api': {
-                target: 'http://localhost:3000'
-            }
-        }
-    },
     resolve: {
-        extensions: ['.js']
+        extensions: ['.js', '.css']
     }
 };
