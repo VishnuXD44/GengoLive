@@ -91,7 +91,7 @@ html, body {
 .container {
     min-height: 100vh;
     height: 100vh;
-    padding: 5rem 2rem 2rem;
+    padding: 80px 2rem 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -715,6 +715,12 @@ video {
 
 /* For mobile devices */
 @media (max-width: 575px) {
+
+    .main-logo{
+        font-size: clamp(2rem, 5vw, 2.5rem);
+        margin-top: 2rem; /* Increased top margin */
+        letter-spacing: 0.03em;
+    }
     /* Floating text adjustments */
     .floating-text {
         font-size: 1.2rem;
@@ -743,6 +749,20 @@ video {
         height: 50px;
         font-size: 20px;
     }
+
+    .navbar {
+        padding: 0.6rem 1rem; /* Increased horizontal padding */
+    }
+    
+    .nav-links {
+        gap: 0.8rem; /* Increased gap */
+    }
+    
+    .nav-links a {
+        font-size: 0.85rem; /* Slightly larger font */
+        padding: 0.4rem 0.6rem;
+    }
+
 }
 
 /* Landscape mode specific fixes for video chat */
