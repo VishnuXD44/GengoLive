@@ -2,7 +2,7 @@ const users = new Map();
 
 function handleSignaling(socket, io) {
     socket.on('join', ({ language, role }) => {
-        console.log(`User joined with language: ${language}, role: ${role}`);
+        console.log(`User ${socket.id} joined with language: ${language}, role: ${role}`);
         const matchKey = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
         const userKey = `${language}-${role}`;
         
@@ -11,7 +11,6 @@ function handleSignaling(socket, io) {
             users.delete(matchKey);
             
             const room = `${language}-${Date.now()}`;
-            
             socket.join(room);
             otherSocket.join(room);
             
@@ -41,6 +40,7 @@ function handleSignaling(socket, io) {
                 break;
             }
         }
+        socket.broadcast.emit('user-disconnected', socket.id);
     });
 }
 

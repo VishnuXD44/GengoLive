@@ -2,12 +2,17 @@ let localStream;
 let remoteStream;
 let peerConnection;
 let socket;
+let currentRoom;
 
-// WebRTC configuration
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
     ]
 };
 
@@ -22,15 +27,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leaveButton) {
         leaveButton.addEventListener('click', leaveCall);
     }
+
+    // Hide leave button initially
+    if (leaveButton) {
+        leaveButton.style.display = 'none';
+    }
 });
 
 function setupSocketListeners() {
+    socket.on('match', async ({ offer, room }) => {
+        currentRoom = room;
+        if (offer) {
+            try {
+                const offerDescription = await createOffer();
+                socket.emit('offer', offerDescription, room);
+            } catch (error) {
+                console.error('Error creating offer:', error);
+                showMessage('Error creating offer', 'error');
+            }
+        }
+    });
+
     socket.on('offer', async (offer) => {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer);
+            socket.emit('answer', answer, currentRoom);
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Error handling offer', 'error');
@@ -48,22 +71,30 @@ function setupSocketListeners() {
 
     socket.on('candidate', async (candidate) => {
         try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
             showMessage('Error handling connection', 'error');
         }
     });
 
-    socket.on('user-connected', (userId) => {
-        console.log('User connected:', userId);
-        showMessage('User connected', 'success');
+    socket.on('user-disconnected', () => {
+        showMessage('Peer disconnected', 'info');
+        resetVideoCall();
     });
+}
 
-    socket.on('user-disconnected', (userId) => {
-        console.log('User disconnected:', userId);
-        showMessage('User disconnected', 'info');
-    });
+async function createOffer() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (error) {
+        console.error('Error creating offer:', error);
+        throw error;
+    }
 }
 
 function createPeerConnection() {
@@ -71,8 +102,8 @@ function createPeerConnection() {
         peerConnection = new RTCPeerConnection(configuration);
         
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('candidate', event.candidate);
+            if (event.candidate && currentRoom) {
+                socket.emit('candidate', event.candidate, currentRoom);
             }
         };
 
@@ -81,6 +112,14 @@ function createPeerConnection() {
             if (remoteVideo && event.streams[0]) {
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
+                showMessage('Connected to peer', 'success');
+            }
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+            if (peerConnection.iceConnectionState === 'disconnected') {
+                showMessage('Peer connection lost', 'error');
+                resetVideoCall();
             }
         };
 
@@ -117,23 +156,23 @@ function initializeSocket() {
             console.log('Connected to server');
             showMessage('Connected to server', 'success');
             
-            // Get selected language and role
             const language = document.getElementById('language').value;
             const role = document.getElementById('role').value;
             
-            // Emit join event with user preferences
             socket.emit('join', { language, role });
         });
 
         socket.on('connect_error', (error) => {
             console.error('Connection error:', error);
             showMessage('Connection failed', 'error');
+            resetVideoCall();
         });
 
         setupSocketListeners();
     } catch (error) {
         console.error('Socket initialization error:', error);
         showMessage('Failed to connect to server', 'error');
+        resetVideoCall();
     }
 }
 
@@ -151,44 +190,60 @@ function showMessage(message, type = 'info') {
 async function startCall() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
             audio: true
         });
         
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            await localVideo.play().catch(console.error);
+        }
+
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
-        document.getElementById('localVideo').srcObject = localStream;
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
-        initializeSocket();
-        createPeerConnection();
+        await createPeerConnection();
+        await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
         showMessage('Failed to access media devices', 'error');
+        resetVideoCall();
     }
+}
+
+function resetVideoCall() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    if (peerConnection) {
+        peerConnection.close();
+    }
+    if (socket) {
+        socket.disconnect();
+    }
+
+    localStream = null;
+    remoteStream = null;
+    peerConnection = null;
+    currentRoom = null;
+
+    document.getElementById('localVideo').srcObject = null;
+    document.getElementById('remoteVideo').srcObject = null;
+    document.querySelector('.video-container').style.display = 'none';
+    document.querySelector('.selection-container').style.display = 'flex';
+    document.getElementById('connect').style.display = 'block';
+    document.getElementById('leave').style.display = 'none';
 }
 
 function leaveCall() {
     try {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-        if (peerConnection) {
-            peerConnection.close();
-        }
-        if (socket) {
-            socket.disconnect();
-        }
-
-        document.querySelector('.video-container').style.display = 'none';
-        document.querySelector('.selection-container').style.display = 'flex';
-        
-        document.getElementById('localVideo').srcObject = null;
-        document.getElementById('remoteVideo').srcObject = null;
-        document.getElementById('connect').style.display = 'block';
-        document.getElementById('leave').style.display = 'none';
-
+        resetVideoCall();
         showMessage('Call ended', 'info');
     } catch (error) {
         console.error('Error leaving call:', error);
