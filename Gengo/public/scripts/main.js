@@ -8,63 +8,111 @@ const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
             credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
         }
-    ]
+    ],
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
 };
 
-// Add this helper function at the top of the file
 async function playVideo(videoElement) {
     try {
-        // Only attempt to play if the video has content
         if (videoElement.srcObject) {
-            // Wait for the loadedmetadata event
-            await new Promise((resolve) => {
+            await new Promise((resolve, reject) => {
                 if (videoElement.readyState >= 2) {
                     resolve();
-                } else {
-                    videoElement.addEventListener('loadedmetadata', () => {
-                        resolve();
-                    });
+                    return;
                 }
+
+                const loadedHandler = () => {
+                    videoElement.removeEventListener('loadeddata', loadedHandler);
+                    videoElement.removeEventListener('error', errorHandler);
+                    resolve();
+                };
+
+                const errorHandler = (error) => {
+                    videoElement.removeEventListener('loadeddata', loadedHandler);
+                    videoElement.removeEventListener('error', errorHandler);
+                    reject(error);
+                };
+
+                videoElement.addEventListener('loadeddata', loadedHandler);
+                videoElement.addEventListener('error', errorHandler);
             });
-            
-            await videoElement.play();
+
+            if (document.hasFocus()) {
+                videoElement.muted = true;
+                await videoElement.play().catch(error => {
+                    console.warn('Initial play failed, retrying with user interaction:', error);
+                    addPlayButton(videoElement);
+                });
+            } else {
+                addPlayButton(videoElement);
+            }
         }
     } catch (error) {
         console.warn('Video play error:', error);
-        // We don't throw here as this is not a critical error
+        addPlayButton(videoElement);
     }
 }
 
-// Update the startCall function
+function addPlayButton(videoElement) {
+    const wrapper = videoElement.parentElement;
+    const existingButton = wrapper.querySelector('.play-button');
+    if (existingButton) {
+        existingButton.remove();
+    }
+
+    const playButton = document.createElement('button');
+    playButton.className = 'play-button';
+    playButton.innerHTML = '▶';
+    wrapper.appendChild(playButton);
+
+    playButton.onclick = async () => {
+        try {
+            await videoElement.play();
+            playButton.remove();
+        } catch (error) {
+            console.error('Play failed:', error);
+            showMessage('Failed to play video', 'error');
+        }
+    };
+}
+
 async function startCall() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 width: { ideal: 1280 },
-                height: { ideal: 720 }
+                height: { ideal: 720 },
+                facingMode: 'user'
             },
             audio: true
         });
         
-        // Update UI first
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
-        // Set up local video
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
             await playVideo(localVideo);
         }
 
-        // Initialize connections
         await createPeerConnection();
         await initializeSocket();
     } catch (error) {
@@ -74,12 +122,15 @@ async function startCall() {
     }
 }
 
-// Update the createPeerConnection function's ontrack handler
 function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
         
-        // ...existing code...
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate && currentRoom) {
+                socket.emit('candidate', event.candidate, currentRoom);
+            }
+        };
 
         peerConnection.ontrack = async (event) => {
             const remoteVideo = document.getElementById('remoteVideo');
@@ -91,31 +142,26 @@ function createPeerConnection() {
             }
         };
 
-        // ...rest of the existing code...
+        peerConnection.oniceconnectionstatechange = () => {
+            if (peerConnection.iceConnectionState === 'disconnected') {
+                showMessage('Peer connection lost', 'error');
+                resetVideoCall();
+            }
+        };
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        return peerConnection;
     } catch (error) {
         console.error('Error creating peer connection:', error);
         showMessage('Error creating connection', 'error');
         throw error;
     }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connect');
-    const leaveButton = document.getElementById('leave');
-    
-    if (connectButton) {
-        connectButton.addEventListener('click', startCall);
-    }
-    
-    if (leaveButton) {
-        leaveButton.addEventListener('click', leaveCall);
-    }
-
-    // Hide leave button initially
-    if (leaveButton) {
-        leaveButton.style.display = 'none';
-    }
-});
 
 function setupSocketListeners() {
     socket.on('match', async ({ offer, room }) => {
@@ -169,58 +215,6 @@ function setupSocketListeners() {
     });
 }
 
-async function createOffer() {
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        return offer;
-    } catch (error) {
-        console.error('Error creating offer:', error);
-        throw error;
-    }
-}
-
-function createPeerConnection() {
-    try {
-        peerConnection = new RTCPeerConnection(configuration);
-        
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate && currentRoom) {
-                socket.emit('candidate', event.candidate, currentRoom);
-            }
-        };
-
-        peerConnection.ontrack = (event) => {
-            const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
-                showMessage('Connected to peer', 'success');
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            if (peerConnection.iceConnectionState === 'disconnected') {
-                showMessage('Peer connection lost', 'error');
-                resetVideoCall();
-            }
-        };
-
-        // Add local tracks to the connection
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-        }
-
-        return peerConnection;
-    } catch (error) {
-        console.error('Error creating peer connection:', error);
-        showMessage('Error creating connection', 'error');
-        throw error;
-    }
-}
-
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
@@ -259,6 +253,17 @@ function initializeSocket() {
     }
 }
 
+async function createOffer() {
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        return offer;
+    } catch (error) {
+        console.error('Error creating offer:', error);
+        throw error;
+    }
+}
+
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
     messageDiv.textContent = message;
@@ -268,36 +273,6 @@ function showMessage(message, type = 'info') {
     setTimeout(() => {
         messageDiv.remove();
     }, 5000);
-}
-
-async function startCall() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: true
-        });
-        
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            await localVideo.play().catch(console.error);
-        }
-
-        document.getElementById('connect').style.display = 'none';
-        document.getElementById('leave').style.display = 'block';
-        document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'grid';
-
-        await createPeerConnection();
-        await initializeSocket();
-    } catch (error) {
-        console.error('Error starting call:', error);
-        showMessage('Failed to access media devices', 'error');
-        resetVideoCall();
-    }
 }
 
 function resetVideoCall() {
@@ -316,8 +291,12 @@ function resetVideoCall() {
     peerConnection = null;
     currentRoom = null;
 
-    document.getElementById('localVideo').srcObject = null;
-    document.getElementById('remoteVideo').srcObject = null;
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    
+    if (localVideo) localVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
+
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
     document.getElementById('connect').style.display = 'block';
@@ -333,3 +312,35 @@ function leaveCall() {
         showMessage('Error ending call', 'error');
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+    
+    if (connectButton) {
+        connectButton.addEventListener('click', startCall);
+    }
+    
+    if (leaveButton) {
+        leaveButton.addEventListener('click', leaveCall);
+        leaveButton.style.display = 'none';
+    }
+
+    // Add error handling for video elements
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    if (localVideo) {
+        localVideo.onerror = (error) => {
+            console.error('Local video error:', error);
+            showMessage('Error displaying local video', 'error');
+        };
+    }
+
+    if (remoteVideo) {
+        remoteVideo.onerror = (error) => {
+            console.error('Remote video error:', error);
+            showMessage('Error displaying remote video', 'error');
+        };
+    }
+});
