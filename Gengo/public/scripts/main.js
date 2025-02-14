@@ -91,30 +91,69 @@ function addPlayButton(videoElement) {
     };
 }
 
-async function startCall() {
+async function checkMediaPermissions() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                facingMode: 'user'
-            },
-            audio: true
-        });
-        
-        document.getElementById('connect').style.display = 'none';
-        document.getElementById('leave').style.display = 'block';
-        document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'grid';
+        const result = await Promise.all([
+            navigator.permissions.query({ name: 'camera' }),
+            navigator.permissions.query({ name: 'microphone' })
+        ]);
 
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            await playVideo(localVideo);
+        const [camera, microphone] = result;
+
+        if (camera.state === 'denied' || microphone.state === 'denied') {
+            showMessage('Camera and microphone access is required. Please enable them in your browser settings.', 'error');
+            return false;
         }
 
-        await createPeerConnection();
-        await initializeSocket();
+        return true;
+    } catch (error) {
+        console.error('Permission check error:', error);
+        return false;
+    }
+}
+
+async function startCall() {
+    try {
+        // Check if permissions are granted
+        const permissions = await navigator.permissions.query({ name: 'camera' });
+        if (permissions.state === 'denied') {
+            showMessage('Camera access is required. Please enable it in your browser settings.', 'error');
+            return;
+        }
+
+        // Request permissions before starting stream
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then((stream) => {
+                localStream = stream;
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo) {
+                    localVideo.srcObject = stream;
+                    localVideo.play().catch(error => {
+                        console.warn('Video play error:', error);
+                        addPlayButton(localVideo);
+                    });
+                }
+
+                document.getElementById('connect').style.display = 'none';
+                document.getElementById('leave').style.display = 'block';
+                document.querySelector('.selection-container').style.display = 'none';
+                document.querySelector('.video-container').style.display = 'grid';
+
+                return createPeerConnection();
+            })
+            .then(() => {
+                return initializeSocket();
+            })
+            .catch((error) => {
+                console.error('Media access error:', error);
+                if (error.name === 'NotAllowedError') {
+                    showMessage('Camera/Microphone access denied. Please grant permissions to use this feature.', 'error');
+                } else {
+                    showMessage('Failed to access media devices', 'error');
+                }
+                resetVideoCall();
+            });
+
     } catch (error) {
         console.error('Error starting call:', error);
         showMessage('Failed to access media devices', 'error');
@@ -313,12 +352,20 @@ function leaveCall() {
     }
 }
 
+
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
     const leaveButton = document.getElementById('leave');
     
     if (connectButton) {
-        connectButton.addEventListener('click', startCall);
+        connectButton.addEventListener('click', async () => {
+            const hasPermissions = await checkMediaPermissions();
+            if (hasPermissions) {
+                startCall();
+            } else {
+                showMessage('Please grant camera and microphone permissions to continue', 'error');
+            }
+        });
     }
     
     if (leaveButton) {

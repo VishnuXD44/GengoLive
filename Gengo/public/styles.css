@@ -872,3 +872,50 @@ video {
         color: var(--light);
     }
 }
+
+.permission-notice {
+    font-size: 0.9rem;
+    color: var(--dark);
+    text-align: center;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: rgba(77, 168, 218, 0.1);
+    border-radius: 8px;
+    line-height: 1.4;
+}
+
+/* Permission denied message style */
+.error-message[data-type="permission"] {
+    background-color: #e74c3c;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+/* Add loading state for connect button */
+.connect-btn.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.connect-btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    right: 1rem;
+    transform: translateY(-50%);
+    border: 2px solid white;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translateY(-50%) rotate(360deg); }
+}
