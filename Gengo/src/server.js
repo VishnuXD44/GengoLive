@@ -16,6 +16,7 @@ const allowedOrigins = [
     'http://localhost:9000'
 ];
 
+
 // CORS configuration
 app.use(cors({
     origin: function(origin, callback) {
@@ -28,6 +29,22 @@ app.use(cors({
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
+}));
+
+app.use('/styles', express.static(path.join(__dirname, '../public/styles'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        }
+    }
+}));
+
+app.use('/scripts', express.static(path.join(__dirname, '../public/scripts'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
 }));
 
 // Serve static files

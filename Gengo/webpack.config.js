@@ -1,20 +1,19 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
+    mode: process.env.NODE_ENV || 'development',
     entry: {
         main: './public/scripts/main.js',
-        'language-animation': './public/scripts/language-animation.js',
-        styles: './public/styles.css',     // Add styles.css as an entry point
-        styles2: './public/styles2.css'    // Add styles2.css as an entry point
+        animation: './public/scripts/language-animation.js'
     },
     output: {
-        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
+        filename: 'scripts/[name].bundle.js',
         clean: true,
-        publicPath: '/'
+        publicPath: '/',
+        assetModuleFilename: 'assets/[name][ext]'
     },
     module: {
         rules: [
@@ -22,58 +21,83 @@ module.exports = {
                 test: /\.js$/,
                 exclude: /node_modules/,
                 use: {
-                    loader: 'babel-loader',
-                    options: {
-                        presets: ['@babel/preset-env'],
-                    },
-                },
+                    loader: 'babel-loader'
+                }
             },
             {
                 test: /\.css$/,
-                use: [
-                    MiniCssExtractPlugin.loader,
-                    'css-loader'
-                ],
+                use: ['style-loader', 'css-loader']
             },
             {
-                test: /\.(png|jpg|jpeg|gif|svg)$/,
+                test: /\.(png|svg|jpg|jpeg|gif)$/i,
                 type: 'asset/resource',
                 generator: {
-                    filename: 'assets/[name][ext]'
+                    filename: 'assets/images/[name][ext]'
+                }
+            },
+            {
+                test: /\.(woff|woff2|eot|ttf|otf)$/i,
+                type: 'asset/resource',
+                generator: {
+                    filename: 'assets/fonts/[name][ext]'
+                }
+            },
+            {
+                test: /\.(mp3|wav)$/i,
+                type: 'asset/resource',
+                generator: {
+                    filename: 'assets/audio/[name][ext]'
                 }
             }
-        ],
+        ]
     },
     plugins: [
-        new MiniCssExtractPlugin({
-            filename: 'css/[name].css'  // Output CSS files to css directory
+        new HtmlWebpackPlugin({
+            template: './public/main.html',
+            filename: 'main.html',
+            chunks: ['main', 'animation']
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation', 'styles'],
-            inject: true
-        }),
-        new HtmlWebpackPlugin({
-            template: './public/main.html',
-            filename: 'main.html',
-            chunks: ['main', 'language-animation', 'styles'],
-            inject: true
+            chunks: ['main']
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main', 'styles2'],
-            inject: true
+            chunks: ['main']
         }),
         new CopyWebpackPlugin({
             patterns: [
-                { from: 'public/assets', to: 'assets' },
-                { from: 'favicon.ico', to: 'favicon.ico' }
-            ],
-        }),
+                { 
+                    from: 'styles.css',
+                    to: 'styles/styles.css',
+                    context: 'public'
+                },
+                { 
+                    from: 'styles2.css',
+                    to: 'styles/styles2.css',
+                    context: 'public'
+                },
+                {
+                    from: 'assets',
+                    to: 'assets',
+                    context: 'public',
+                    noErrorOnMissing: true
+                }
+            ]
+        })
     ],
-    resolve: {
-        extensions: ['.js', '.css']
+    devServer: {
+        static: './dist',
+        port: 9000,
+        hot: true,
+        historyApiFallback: true,
+        proxy: {
+            '/socket.io': {
+                target: 'http://localhost:3000',
+                ws: true
+            }
+        }
     }
 };
