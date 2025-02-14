@@ -251,25 +251,53 @@ video {
 
 /* ============ BUTTONS ============ */
 .connect-btn,
-.leave-btn{
-    display: none; /* Hide initially */
-}
-
-
-/* Show leave button when video container is visible */
-.video-container[style*="display: grid"] ~ .selection-container .leave-btn {
+.leave-btn,
+.get-started {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 400px;
     display: block;
+    margin: 0 auto;
 }
 
-/* Hide connect button when video container is visible */
+.connect-btn {
+    background: var(--pink);
+    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+    display: block; /* Change from 'none' to 'block' */
+}
+
+.leave-btn {
+    background: var(--dark);
+    margin-top: 1rem;
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
+    display: none; /* Initially hidden */
+}
+
+.connect-btn:hover,
+.get-started:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
+}
+
+.leave-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.4);
+}
+
+/* Update button visibility for video container */
 .video-container[style*="display: grid"] ~ .selection-container .connect-btn {
     display: none;
 }
 
-/* Adjust selection container for video call */
-.selection-container {
-    position: relative;
-    z-index: 3;
+.video-container[style*="display: grid"] ~ .selection-container .leave-btn {
+    display: block;
 }
 
 .video-container:not([style*="display: none"]) + .selection-container {
