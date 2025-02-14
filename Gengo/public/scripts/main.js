@@ -29,16 +29,14 @@ function initializeSocket() {
         console.log('Initializing socket connection');
         const socketUrl = window.location.origin;
 
+        
         socket = io(socketUrl, {
             path: '/socket.io/',
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
-            timeout: 20000,
-            withCredentials: true,
-            forceNew: true,
-            secure: true
+            timeout: 20000
         });
 
         socket.on('connect', () => {

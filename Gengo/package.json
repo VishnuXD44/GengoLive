@@ -1,14 +1,15 @@
 {
-  "name": "gengo",
-  "version": "1.0.0",
-  "description": "A WebRTC application for language practice and coaching based on user preferences.",
-  "main": "src/server.js",
-  "scripts": {
-   "start": "node src/server.js",
-    "build": "webpack --mode production",
-    "dev": "nodemon src/server.js",
-    "dev:client": "webpack serve --mode development"
-  },
+    "name": "gengo",
+    "version": "1.0.0",
+    "description": "A WebRTC application for language practice and coaching.",
+    "main": "src/server.js",
+    "scripts": {
+      "start": "node src/server.js",
+      "build": "webpack --mode production",
+      "heroku-postbuild": "npm run build",
+      "dev": "nodemon src/server.js",
+      "dev:client": "webpack serve --mode development"
+    },
   "dependencies": {
     "@babel/runtime": "^7.26.7",
     "buffer": "^6.0.3",

@@ -1,44 +1,22 @@
 const express = require('express');
 const http = require('http');
-const https = require('https');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 const { handleSignaling } = require('./signaling');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// SSL configuration for HTTPS
-const sslOptions = {
-    key: fs.readFileSync('/etc/letsencrypt/live/gengo.live/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/gengo.live/fullchain.pem')
-};
-
-const httpServer = http.createServer(app);
-const httpsServer = https.createServer(sslOptions, app);
-
-// Allowed origins
+// Updated allowed origins for Heroku
 const allowedOrigins = [
-    'https://gengo.live',
-    'https://www.gengo.live',
+    'https://gengolive-f8fb09d3fdf5.herokuapp.com',
     'http://localhost:3000',
     'http://localhost:9000'
 ];
 
-// Redirect HTTP to HTTPS and www to non-www
-app.use((req, res, next) => {
-    if (!req.secure) {
-        return res.redirect(`https://${req.headers.host}${req.url}`);
-    }
-    if (req.headers.host.startsWith('www.')) {
-        return res.redirect(301, `https://gengo.live${req.url}`);
-    }
-    next();
-});
-
-// CORS and other middleware configurations remain the same
+// CORS configuration
 app.use(cors({
     origin: function(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -52,8 +30,11 @@ app.use(cors({
     credentials: true
 }));
 
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
+
 // Socket.IO configuration
-const io = new Server(httpsServer, {
+const io = new Server(server, {
     cors: {
         origin: allowedOrigins,
         methods: ['GET', 'POST'],
@@ -62,13 +43,22 @@ const io = new Server(httpsServer, {
     path: '/socket.io/'
 });
 
-// Rest of your server code remains the same...
+// Socket connection handling
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+    handleSignaling(socket, io);
 
-// Listen on both HTTP and HTTPS
-httpServer.listen(80, () => {
-    console.log('HTTP Server running on port 80');
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
 });
 
-httpsServer.listen(443, () => {
-    console.log('HTTPS Server running on port 443');
+// Health check endpoint for Heroku
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
+// Start server
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
