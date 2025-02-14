@@ -1,17 +1,20 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
-        'language-animation': './public/scripts/language-animation.js'
+        'language-animation': './public/scripts/language-animation.js',
+        styles: './public/styles.css',
+        styles2: './public/styles2.css'
     },
     output: {
-        filename: '[name].bundle.js', // Remove 'scripts/' from here
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/' // Important for resolving paths correctly
+        publicPath: '/'
     },
     module: {
         rules: [
@@ -27,7 +30,10 @@ module.exports = {
             },
             {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader'],
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    'css-loader'
+                ],
             },
             {
                 test: /\.(png|jpg|jpeg|gif|svg)$/,
@@ -39,29 +45,31 @@ module.exports = {
         ],
     },
     plugins: [
+        new MiniCssExtractPlugin({
+            filename: '[name].css'
+        }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation'],
+            chunks: ['main', 'language-animation', 'styles'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation'],
+            chunks: ['main', 'language-animation', 'styles'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main'],
+            chunks: ['main', 'styles2'],
             inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
-                { from: 'public/styles.css', to: 'styles.css' },
-                { from: 'public/styles2.css', to: 'styles2.css' }
+                { from: 'favicon.ico', to: 'favicon.ico' }
             ],
         }),
     ],
@@ -70,7 +78,13 @@ module.exports = {
             directory: path.join(__dirname, 'dist'),
         },
         compress: true,
-        port: 9000,
+        port: process.env.PORT || 3000,
         hot: true,
+        historyApiFallback: true
+    },
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+        },
     },
 };

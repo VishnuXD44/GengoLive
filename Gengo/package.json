@@ -4,40 +4,41 @@
     "description": "A WebRTC application for language practice and coaching.",
     "main": "src/server.js",
     "scripts": {
-      "start": "node src/server.js",
-      "build": "webpack --mode production",
-      "heroku-postbuild": "npm run build",
-      "dev": "nodemon src/server.js",
-      "dev:client": "webpack serve --mode development"
+        "start": "node src/server.js",
+        "build": "webpack --mode production",
+        "heroku-postbuild": "npm run build",
+        "dev": "nodemon src/server.js",
+        "dev:client": "webpack serve --mode development"
     },
-  "dependencies": {
-    "@babel/runtime": "^7.26.7",
-    "buffer": "^6.0.3",
-    "copy-webpack-plugin": "^12.0.2",
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.16.0",
-    "@babel/plugin-transform-runtime": "^7.26.8",
-    "@babel/preset-env": "^7.16.4",
-    "babel-loader": "^8.2.3",
-    "cross-env": "^7.0.3",
-    "css-loader": "^6.11.0",
-    "css-minimizer-webpack-plugin": "^7.0.0",
-    "html-webpack-plugin": "^5.5.0",
-    "mini-css-extract-plugin": "^2.9.2",
-    "nodemon": "^2.0.7",
-    "path-browserify": "^1.0.1",
-    "style-loader": "^3.3.4",
-    "terser-webpack-plugin": "^5.3.11",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+    "dependencies": {
+        "@babel/runtime": "^7.26.7",
+        "buffer": "^6.0.3",
+        "copy-webpack-plugin": "^12.0.2",
+        "cors": "^2.8.5",
+        "express": "^4.21.2",
+        "heroku": "^8.7.1",
+        "socket.io": "^4.8.1",
+        "socket.io-client": "^4.8.1"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.16.0",
+        "@babel/plugin-transform-runtime": "^7.26.8",
+        "@babel/preset-env": "^7.16.4",
+        "babel-loader": "^8.2.3",
+        "cross-env": "^7.0.3",
+        "css-loader": "^6.11.0",
+        "css-minimizer-webpack-plugin": "^7.0.0",
+        "html-webpack-plugin": "^5.5.0",
+        "mini-css-extract-plugin": "^2.9.2",
+        "nodemon": "^2.0.7",
+        "path-browserify": "^1.0.1",
+        "style-loader": "^3.3.4",
+        "terser-webpack-plugin": "^5.3.11",
+        "webpack": "^5.97.1",
+        "webpack-cli": "^6.0.1",
+        "webpack-dev-server": "^5.2.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
 }
