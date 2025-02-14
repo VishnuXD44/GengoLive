@@ -75,7 +75,9 @@ async function startCall() {
             video: true,
             audio: true
         });
-
+        
+        document.getElementById('connect').style.display = 'none';
+        document.getElementById('leave').style.display = 'block';
         document.getElementById('localVideo').srcObject = localStream;
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'block';
@@ -105,6 +107,8 @@ function leaveCall() {
         
         document.getElementById('localVideo').srcObject = null;
         document.getElementById('remoteVideo').srcObject = null;
+        document.getElementById('connect').style.display = 'block';
+        document.getElementById('leave').style.display = 'none';
 
         showMessage('Call ended', 'info');
     } catch (error) {
