@@ -140,25 +140,41 @@ html, body {
 
 .feature-card {
     text-align: center;
-    transition: transform 0.3s ease;
+    transition: all 0.3s ease;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.5); /* More transparent background */
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .feature-card:hover {
     transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
 }
 
 .feature-image {
     width: 100%;
     max-width: 150px;
     height: auto;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
 }
+
 
 .feature-title {
     font-size: clamp(1.5rem, 2.5vw, 2rem);
     font-weight: 700;
     color: var(--dark);
 }
+
+/* Remove the visible container and shadow from images */
+.feature-card:hover .feature-image {
+    transform: translateY(-2px);
+}
+
 
 /* ============ SELECTION CONTAINER ============ */
 .selection-container {
@@ -325,22 +341,38 @@ video {
 }
 
 /* ============ FLOATING TEXT ============ */
+
 .floating-text {
     position: fixed;
     color: var(--dark);
     opacity: 0;
     pointer-events: none;
     z-index: 1;
-    font-weight: 500;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    font-weight: 700;
+    font-size: 1.8rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.05em;
+    animation: float 8s linear; /* Added fixed duration */
 }
 
+/* Update Floating Text animation */
 @keyframes float {
-    0% { transform: translateY(100vh); opacity: 0; }
-    10% { opacity: 0.08; }
-    90% { opacity: 0.08; }
-    100% { transform: translateY(-20vh); opacity: 0; }
+    0% { 
+        transform: translateY(100vh); 
+        opacity: 0; 
+    }
+    10% { 
+        opacity: 0.25;
+    }
+    90% { 
+        opacity: 0.25;
+    }
+    100% { 
+        transform: translateY(-100vh); /* Changed from -20vh to -100vh */
+        opacity: 0; 
+    }
 }
+
 
 /* ============ RESPONSIVE STYLES ============ */
 @media (min-width: 1024px) and (max-width: 1200px) {
