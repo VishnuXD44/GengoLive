@@ -24,12 +24,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function setupSocketListeners() {
+    socket.on('offer', async (offer) => {
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('answer', answer);
+        } catch (error) {
+            console.error('Error handling offer:', error);
+            showMessage('Error handling offer', 'error');
+        }
+    });
+
+    socket.on('answer', async (answer) => {
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        } catch (error) {
+            console.error('Error handling answer:', error);
+            showMessage('Error handling answer', 'error');
+        }
+    });
+
+    socket.on('candidate', async (candidate) => {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
+            showMessage('Error handling connection', 'error');
+        }
+    });
+
+    socket.on('user-connected', (userId) => {
+        console.log('User connected:', userId);
+        showMessage('User connected', 'success');
+    });
+
+    socket.on('user-disconnected', (userId) => {
+        console.log('User disconnected:', userId);
+        showMessage('User disconnected', 'info');
+    });
+}
+
+function createPeerConnection() {
+    try {
+        peerConnection = new RTCPeerConnection(configuration);
+        
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('candidate', event.candidate);
+            }
+        };
+
+        peerConnection.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+            }
+        };
+
+        // Add local tracks to the connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        return peerConnection;
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        showMessage('Error creating connection', 'error');
+        throw error;
+    }
+}
+
 function initializeSocket() {
     try {
         console.log('Initializing socket connection');
         const socketUrl = window.location.origin;
 
-        
         socket = io(socketUrl, {
             path: '/socket.io/',
             transports: ['websocket', 'polling'],
@@ -42,6 +116,13 @@ function initializeSocket() {
         socket.on('connect', () => {
             console.log('Connected to server');
             showMessage('Connected to server', 'success');
+            
+            // Get selected language and role
+            const language = document.getElementById('language').value;
+            const role = document.getElementById('role').value;
+            
+            // Emit join event with user preferences
+            socket.emit('join', { language, role });
         });
 
         socket.on('connect_error', (error) => {
@@ -55,8 +136,6 @@ function initializeSocket() {
         showMessage('Failed to connect to server', 'error');
     }
 }
-
-// ... rest of your existing socket and WebRTC handling code ...
 
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
@@ -80,7 +159,7 @@ async function startCall() {
         document.getElementById('leave').style.display = 'block';
         document.getElementById('localVideo').srcObject = localStream;
         document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'block';
+        document.querySelector('.video-container').style.display = 'grid';
 
         initializeSocket();
         createPeerConnection();
