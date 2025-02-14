@@ -12,8 +12,7 @@ module.exports = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'scripts/[name].bundle.js',
         clean: true,
-        publicPath: '/',
-        assetModuleFilename: 'assets/[name][ext]'
+        publicPath: '/'
     },
     module: {
         rules: [
@@ -41,13 +40,6 @@ module.exports = {
                 generator: {
                     filename: 'assets/fonts/[name][ext]'
                 }
-            },
-            {
-                test: /\.(mp3|wav)$/i,
-                type: 'asset/resource',
-                generator: {
-                    filename: 'assets/audio/[name][ext]'
-                }
             }
         ]
     },
@@ -70,26 +62,29 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 { 
-                    from: 'styles.css',
-                    to: 'styles/styles.css',
-                    context: 'public'
-                },
-                { 
-                    from: 'styles2.css',
-                    to: 'styles/styles2.css',
-                    context: 'public'
+                    from: 'public/styles',
+                    to: 'styles'
                 },
                 {
-                    from: 'assets',
+                    from: 'public/assets',
                     to: 'assets',
-                    context: 'public',
                     noErrorOnMissing: true
+                },
+                {
+                    from: 'public/scripts',
+                    to: 'scripts',
+                    globOptions: {
+                        ignore: ['**/*.js'] // Don't copy JS files as they're handled by webpack
+                    }
                 }
             ]
         })
     ],
     devServer: {
-        static: './dist',
+        static: {
+            directory: path.join(__dirname, 'public'),
+            publicPath: '/'
+        },
         port: 9000,
         hot: true,
         historyApiFallback: true,
@@ -97,7 +92,13 @@ module.exports = {
             '/socket.io': {
                 target: 'http://localhost:3000',
                 ws: true
+            },
+            '/api': {
+                target: 'http://localhost:3000'
             }
         }
+    },
+    resolve: {
+        extensions: ['.js']
     }
 };
