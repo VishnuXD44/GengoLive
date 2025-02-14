@@ -6,9 +6,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
-        'language-animation': './public/scripts/language-animation.js',
-        styles: './public/styles.css',     // Add styles.css as an entry point
-        styles2: './public/styles2.css'    // Add styles2.css as an entry point
+        'language-animation': './public/scripts/language-animation.js'
     },
     output: {
         filename: '[name].bundle.js',
@@ -46,29 +44,39 @@ module.exports = {
     },
     plugins: [
         new MiniCssExtractPlugin({
-            filename: 'css/[name].css'  // Output CSS files to css directory
+            filename: 'styles/[name].css'
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation', 'styles'],
+            chunks: ['main', 'language-animation'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'styles'],
+            chunks: ['main', 'language-animation'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main', 'styles2'],
+            chunks: ['main'],
             inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
+                { 
+                    from: 'public/styles.css',
+                    to: 'styles/styles.css',
+                    toType: 'file'
+                },
+                { 
+                    from: 'public/styles2.css',
+                    to: 'styles/styles2.css',
+                    toType: 'file'
+                },
                 { from: 'favicon.ico', to: 'favicon.ico' }
             ],
         }),
