@@ -7,8 +7,7 @@ module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js',
-        styles: './public/styles.css',
-        styles2: './public/styles2.css'
+        styles: './public/styles.css'
     },
     output: {
         filename: '[name].bundle.js',
@@ -46,7 +45,7 @@ module.exports = {
     },
     plugins: [
         new MiniCssExtractPlugin({
-            filename: '[name].css'
+            filename: 'styles/[name].css'
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
@@ -63,28 +62,23 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main', 'styles2'],
+            chunks: ['main'],
             inject: true
         }),
         new CopyWebpackPlugin({
             patterns: [
-                { from: 'public/assets', to: 'assets' },
-                { from: 'favicon.ico', to: 'favicon.ico' }
+                { 
+                    from: 'public/assets',
+                    to: 'assets'
+                },
+                {
+                    from: 'favicon.ico',
+                    to: 'favicon.ico'
+                }
             ],
         }),
     ],
-    devServer: {
-        static: {
-            directory: path.join(__dirname, 'dist'),
-        },
-        compress: true,
-        port: process.env.PORT || 3000,
-        hot: true,
-        historyApiFallback: true
-    },
-    optimization: {
-        splitChunks: {
-            chunks: 'all',
-        },
-    },
+    resolve: {
+        extensions: ['.js', '.css']
+    }
 };
