@@ -244,7 +244,10 @@ video {
     border-radius: 30px;
     cursor: pointer;
     transition: all 0.3s ease;
-    width: 10px;
+    width: 100%; /* Changed from 10px to 100% */
+    max-width: 400px; /* Add max-width for larger screens */
+    display: block; /* Ensure block display */
+    margin: 0 auto; /* Center the button */
 }
 
 .connect-btn,
@@ -252,22 +255,17 @@ video {
     background: var(--pink);
     box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
 }
-
-.connect-btn:hover,
-.get-started:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
-}
-
 .leave-btn {
     background: var(--dark);
     margin-top: 1rem;
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
 }
 
 .leave-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(44, 62, 80, 0.4);
 }
+
 
 /* ============ MESSAGES ============ */
 .message {
