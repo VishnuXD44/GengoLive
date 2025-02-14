@@ -63,7 +63,8 @@ html, body {
 
 .nav-links a {
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
+    color: #1a1a1a;
     transition: all 0.3s ease;
     position: relative;
 }
@@ -475,12 +476,6 @@ video {
 
 /* Tablet Landscape (768px to 1023px) */
 @media (min-width: 768px) and (max-width: 1023px) {
-    .navbar {
-        padding: 1rem 1.5rem;
-        background-color: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-    }
-
     .container {
         padding-top: 6rem;
     }
@@ -860,16 +855,6 @@ video {
     }
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-    .navbar {
-        background-color: rgba(44, 62, 80, 0.95);
-    }
-
-    .nav-links a {
-        color: var(--light);
-    }
-}
 
 .permission-notice {
     font-size: 0.9rem;
