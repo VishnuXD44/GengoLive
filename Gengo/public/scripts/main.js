@@ -28,46 +28,31 @@ const configuration = {
 };
 
 async function playVideo(videoElement) {
+    if (!videoElement.srcObject) return;
+    
     try {
-        if (videoElement.srcObject) {
-            await new Promise((resolve, reject) => {
-                if (videoElement.readyState >= 2) {
-                    resolve();
-                    return;
-                }
-
-                const loadedHandler = () => {
-                    videoElement.removeEventListener('loadeddata', loadedHandler);
-                    videoElement.removeEventListener('error', errorHandler);
-                    resolve();
-                };
-
-                const errorHandler = (error) => {
-                    videoElement.removeEventListener('loadeddata', loadedHandler);
-                    videoElement.removeEventListener('error', errorHandler);
-                    reject(error);
-                };
-
-                videoElement.addEventListener('loadeddata', loadedHandler);
-                videoElement.addEventListener('error', errorHandler);
+        // Wait for metadata to load
+        if (videoElement.readyState < 2) {
+            await new Promise((resolve) => {
+                videoElement.onloadedmetadata = () => resolve();
             });
-
-            if (document.hasFocus()) {
-                videoElement.muted = true;
-                await videoElement.play().catch(error => {
-                    console.warn('Initial play failed, retrying with user interaction:', error);
-                    addPlayButton(videoElement);
-                });
-            } else {
-                addPlayButton(videoElement);
-            }
         }
+        
+        // Ensure muted state for local video
+        if (videoElement.id === 'localVideo') {
+            videoElement.muted = true;
+        }
+        
+        // Attempt to play
+        await videoElement.play();
     } catch (error) {
         console.warn('Video play error:', error);
-        addPlayButton(videoElement);
+        // Only add play button for remote video
+        if (videoElement.id === 'remoteVideo') {
+            addPlayButton(videoElement);
+        }
     }
 }
-
 function addPlayButton(videoElement) {
     const wrapper = videoElement.parentElement;
     const existingButton = wrapper.querySelector('.play-button');
@@ -114,45 +99,51 @@ async function checkMediaPermissions() {
 
 async function startCall() {
     try {
-        // Check if permissions are granted
-        const permissions = await navigator.permissions.query({ name: 'camera' });
-        if (permissions.state === 'denied') {
-            showMessage('Camera access is required. Please enable it in your browser settings.', 'error');
+        // Check permissions first
+        const hasPermissions = await checkMediaPermissions();
+        if (!hasPermissions) {
+            showMessage('Camera and microphone access required', 'error');
             return;
         }
 
-        // Request permissions before starting stream
-        await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then((stream) => {
-                localStream = stream;
-                const localVideo = document.getElementById('localVideo');
-                if (localVideo) {
-                    localVideo.srcObject = stream;
-                    localVideo.play().catch(error => {
-                        console.warn('Video play error:', error);
-                        addPlayButton(localVideo);
-                    });
-                }
+        // Get media stream
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: true
+        });
 
-                document.getElementById('connect').style.display = 'none';
-                document.getElementById('leave').style.display = 'block';
-                document.querySelector('.selection-container').style.display = 'none';
-                document.querySelector('.video-container').style.display = 'grid';
+        // Set up local video first
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            // Ensure video plays properly
+            localVideo.muted = true; // Must be muted for autoplay
+            try {
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    localVideo.onloadedmetadata = () => {
+                        resolve();
+                    };
+                });
+                await localVideo.play();
+            } catch (error) {
+                console.warn('Local video autoplay failed:', error);
+                addPlayButton(localVideo);
+            }
+        }
 
-                return createPeerConnection();
-            })
-            .then(() => {
-                return initializeSocket();
-            })
-            .catch((error) => {
-                console.error('Media access error:', error);
-                if (error.name === 'NotAllowedError') {
-                    showMessage('Camera/Microphone access denied. Please grant permissions to use this feature.', 'error');
-                } else {
-                    showMessage('Failed to access media devices', 'error');
-                }
-                resetVideoCall();
-            });
+        // Update UI after video is set up
+        document.getElementById('connect').style.display = 'none';
+        document.getElementById('leave').style.display = 'block';
+        document.querySelector('.selection-container').style.display = 'none';
+        document.querySelector('.video-container').style.display = 'grid';
+
+        // Initialize connections after UI is updated
+        await createPeerConnection();
+        await initializeSocket();
 
     } catch (error) {
         console.error('Error starting call:', error);
