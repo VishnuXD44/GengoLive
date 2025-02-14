@@ -6,8 +6,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
-        'language-animation': './public/scripts/language-animation.js',
-        styles: './public/styles.css'
+        'language-animation': './public/scripts/language-animation.js'
     },
     output: {
         filename: '[name].bundle.js',
@@ -45,18 +44,18 @@ module.exports = {
     },
     plugins: [
         new MiniCssExtractPlugin({
-            filename: 'styles/[name].css'
+            filename: '[name].css'
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation', 'styles'],
+            chunks: ['main', 'language-animation'],
             inject: true
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'styles'],
+            chunks: ['main', 'language-animation'],
             inject: true
         }),
         new HtmlWebpackPlugin({
@@ -67,14 +66,10 @@ module.exports = {
         }),
         new CopyWebpackPlugin({
             patterns: [
-                { 
-                    from: 'public/assets',
-                    to: 'assets'
-                },
-                {
-                    from: 'favicon.ico',
-                    to: 'favicon.ico'
-                }
+                { from: 'public/assets', to: 'assets' },
+                { from: 'public/styles.css', to: 'styles.css' },
+                { from: 'public/styles2.css', to: 'styles2.css' },
+                { from: 'favicon.ico', to: 'favicon.ico' }
             ],
         }),
     ],
