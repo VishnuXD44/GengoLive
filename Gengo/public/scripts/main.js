@@ -16,6 +16,89 @@ const configuration = {
     ]
 };
 
+// Add this helper function at the top of the file
+async function playVideo(videoElement) {
+    try {
+        // Only attempt to play if the video has content
+        if (videoElement.srcObject) {
+            // Wait for the loadedmetadata event
+            await new Promise((resolve) => {
+                if (videoElement.readyState >= 2) {
+                    resolve();
+                } else {
+                    videoElement.addEventListener('loadedmetadata', () => {
+                        resolve();
+                    });
+                }
+            });
+            
+            await videoElement.play();
+        }
+    } catch (error) {
+        console.warn('Video play error:', error);
+        // We don't throw here as this is not a critical error
+    }
+}
+
+// Update the startCall function
+async function startCall() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: true
+        });
+        
+        // Update UI first
+        document.getElementById('connect').style.display = 'none';
+        document.getElementById('leave').style.display = 'block';
+        document.querySelector('.selection-container').style.display = 'none';
+        document.querySelector('.video-container').style.display = 'grid';
+
+        // Set up local video
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            await playVideo(localVideo);
+        }
+
+        // Initialize connections
+        await createPeerConnection();
+        await initializeSocket();
+    } catch (error) {
+        console.error('Error starting call:', error);
+        showMessage('Failed to access media devices', 'error');
+        resetVideoCall();
+    }
+}
+
+// Update the createPeerConnection function's ontrack handler
+function createPeerConnection() {
+    try {
+        peerConnection = new RTCPeerConnection(configuration);
+        
+        // ...existing code...
+
+        peerConnection.ontrack = async (event) => {
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+                await playVideo(remoteVideo);
+                showMessage('Connected to peer', 'success');
+            }
+        };
+
+        // ...rest of the existing code...
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        showMessage('Error creating connection', 'error');
+        throw error;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
     const leaveButton = document.getElementById('leave');
