@@ -4,6 +4,8 @@ let peerConnection;
 let socket;
 let currentRoom;
 
+let iceCandidatesQueue = [];
+
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -152,16 +154,17 @@ async function startCall() {
     }
 }
 
+// Add at the top with other global variables
+
 function setupSocketListeners() {
     socket.on('match', async ({ offer, room, role }) => {
         console.log(`Matched in room: ${room}, initiating offer: ${offer}, role: ${role}`);
         currentRoom = room;
 
         try {
-            await createPeerConnection(); // Always create new connection on match
+            await createPeerConnection();
 
             if (offer) {
-                // Create and send offer
                 const offerDescription = await createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
@@ -173,13 +176,44 @@ function setupSocketListeners() {
         }
     });
 
-    // Add these important socket listeners
+    socket.on('offer', async (offer) => {
+        try {
+            console.log('Received offer');
+            if (!peerConnection) {
+                await createPeerConnection();
+            }
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            
+            // Process any queued candidates after setting remote description
+            while (iceCandidatesQueue.length > 0) {
+                const candidate = iceCandidatesQueue.shift();
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added queued ICE candidate');
+            }
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('answer', answer, currentRoom);
+            console.log('Sent answer');
+        } catch (error) {
+            console.error('Error handling offer:', error);
+            showMessage('Error handling offer', 'error');
+        }
+    });
+
     socket.on('answer', async (answer) => {
         try {
             console.log('Received answer');
             if (peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
                 console.log('Set remote description from answer');
+                
+                // Process any queued candidates after setting remote description
+                while (iceCandidatesQueue.length > 0) {
+                    const candidate = iceCandidatesQueue.shift();
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('Added queued ICE candidate');
+                }
             }
         } catch (error) {
             console.error('Error handling answer:', error);
@@ -189,14 +223,25 @@ function setupSocketListeners() {
 
     socket.on('candidate', async (candidate) => {
         try {
-            if (peerConnection) {
+            if (peerConnection && peerConnection.remoteDescription) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 console.log('Added ICE candidate');
+            } else {
+                // Queue the candidate if remote description is not set yet
+                iceCandidatesQueue.push(candidate);
+                console.log('Queued ICE candidate');
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
         }
     });
+}
+
+// Also update resetVideoCall to clear the queue
+function resetVideoCall() {
+    // ... existing reset code ...
+    iceCandidatesQueue = []; // Clear the queue
+    // ... rest of reset code ...
 }
 function createPeerConnection() {
     if (peerConnection) {
@@ -351,6 +396,8 @@ function resetVideoCall() {
     document.querySelector('.selection-container').style.display = 'flex';
     document.getElementById('connect').style.display = 'block';
     document.getElementById('leave').style.display = 'none';
+
+    iceCandidatesQueue = [];
 }
 
 function leaveCall() {
