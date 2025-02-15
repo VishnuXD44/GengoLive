@@ -230,7 +230,7 @@ function setupSocketListeners() {
         }
     });
 
-    socket.on('offer', async (offer) => {
+        socket.on('offer', async (offer) => {
         try {
             console.log('Received offer');
             if (!peerConnection) {
@@ -238,12 +238,12 @@ function setupSocketListeners() {
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             
+            // Process any queued candidates immediately
             while (iceCandidatesQueue.length > 0) {
                 const candidate = iceCandidatesQueue.shift();
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added queued ICE candidate');
             }
-
+    
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
@@ -288,6 +288,23 @@ function setupSocketListeners() {
     });
 }
 
+peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE connection state:', peerConnection.iceConnectionState);
+    if (peerConnection.iceConnectionState === 'disconnected' || 
+        peerConnection.iceConnectionState === 'failed') {
+        showMessage('Connection lost. Please try again.', 'error');
+        resetVideoCall();
+    }
+};
+
+peerConnection.onconnectionstatechange = () => {
+    console.log('Connection state:', peerConnection.connectionState);
+    if (peerConnection.connectionState === 'failed') {
+        showMessage('Connection failed. Please try again.', 'error');
+        resetVideoCall();
+    }
+};
+
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
@@ -328,10 +345,18 @@ async function startCall() {
         resetVideoCall();
     }
 }
-
 function resetVideoCall() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop();
+            localStream.removeTrack(track);
+        });
+    }
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+            remoteStream.removeTrack(track);
+        });
     }
     if (peerConnection) {
         peerConnection.close();
@@ -349,8 +374,12 @@ function resetVideoCall() {
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
+    if (localVideo) {
+        localVideo.srcObject = null;
+    }
+    if (remoteVideo) {
+        remoteVideo.srcObject = null;
+    }
 
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
