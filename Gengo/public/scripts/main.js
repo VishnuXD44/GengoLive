@@ -154,18 +154,14 @@ async function startCall() {
 
 function setupSocketListeners() {
     socket.on('match', async ({ offer, room, role }) => {
-        console.log(`Matched in room: ${room}, initiating offer: ${offer}`);
+        console.log(`Matched in room: ${room}, initiating offer: ${offer}, role: ${role}`);
         currentRoom = room;
 
         try {
-            // Create peer connection if not exists
-            if (!peerConnection) {
-                await createPeerConnection();
-            }
+            await createPeerConnection(); // Always create new connection on match
 
             if (offer) {
-                // Wait a bit to ensure both peers are ready
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Create and send offer
                 const offerDescription = await createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
@@ -177,27 +173,46 @@ function setupSocketListeners() {
         }
     });
 
-    socket.on('offer', async (offer) => {
+    // Add these important socket listeners
+    socket.on('answer', async (answer) => {
         try {
-            console.log('Received offer');
-            if (!peerConnection) {
-                await createPeerConnection();
+            console.log('Received answer');
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('Set remote description from answer');
             }
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer, currentRoom);
-            console.log('Sent answer');
         } catch (error) {
-            console.error('Error handling offer:', error);
-            showMessage('Error handling offer', 'error');
+            console.error('Error handling answer:', error);
+            showMessage('Error handling answer', 'error');
+        }
+    });
+
+    socket.on('candidate', async (candidate) => {
+        try {
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added ICE candidate');
+            }
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
         }
     });
 }
-
 function createPeerConnection() {
+    if (peerConnection) {
+        peerConnection.close(); // Close any existing connection
+    }
+
     try {
         peerConnection = new RTCPeerConnection(configuration);
+        
+        // Add all local tracks immediately
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+                console.log('Added local track:', track.kind);
+            });
+        }
         
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
@@ -207,13 +222,11 @@ function createPeerConnection() {
         };
 
         peerConnection.ontrack = async (event) => {
-            console.log('Received remote track');
+            console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
+            if (remoteVideo) {
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
-                
-                // Ensure video plays
                 try {
                     await remoteVideo.play();
                     showMessage('Connected to peer', 'success');
@@ -224,21 +237,25 @@ function createPeerConnection() {
             }
         };
 
-        // Add all local tracks immediately
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-                console.log('Added local track:', track.kind);
-            });
-        }
-
         // Monitor connection state
         peerConnection.onconnectionstatechange = () => {
             console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed') {
-                showMessage('Connection failed, trying to reconnect...', 'error');
-                resetVideoCall();
+            switch (peerConnection.connectionState) {
+                case 'connected':
+                    showMessage('Successfully connected to peer', 'success');
+                    break;
+                case 'disconnected':
+                    showMessage('Peer disconnected', 'info');
+                    break;
+                case 'failed':
+                    showMessage('Connection failed', 'error');
+                    resetVideoCall();
+                    break;
             }
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
         };
 
         return peerConnection;
