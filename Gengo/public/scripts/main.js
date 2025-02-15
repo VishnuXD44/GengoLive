@@ -198,17 +198,23 @@ function createPeerConnection() {
 }
 
 function setupSocketListeners() {
-    socket.on('match', async ({ offer, room }) => {
+    socket.on('match', async ({ offer, room, role }) => {
         console.log(`Matched in room: ${room}, initiating offer: ${offer}`);
         currentRoom = room;
 
         try {
-            if (offer) {
+            // Create peer connection if not exists
+            if (!peerConnection) {
                 await createPeerConnection();
+            }
+
+            if (offer) {
+                // Wait a bit to ensure both peers are ready
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 const offerDescription = await createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
-                console.log('Sent offer');
+                console.log('Sent offer as:', role);
             }
         } catch (error) {
             console.error('Error in match handling:', error);
@@ -232,33 +238,60 @@ function setupSocketListeners() {
             showMessage('Error handling offer', 'error');
         }
     });
+}
 
-    socket.on('answer', async (answer) => {
-        try {
-            console.log('Received answer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            console.log('Set remote description from answer');
-        } catch (error) {
-            console.error('Error handling answer:', error);
-            showMessage('Error handling answer', 'error');
-        }
-    });
-
-    socket.on('candidate', async (candidate) => {
-        try {
-            if (peerConnection) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added ICE candidate');
+function createPeerConnection() {
+    try {
+        peerConnection = new RTCPeerConnection(configuration);
+        
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate && currentRoom) {
+                console.log('Sending ICE candidate');
+                socket.emit('candidate', event.candidate, currentRoom);
             }
-        } catch (error) {
-            console.error('Error handling ICE candidate:', error);
-        }
-    });
+        };
 
-    socket.on('user-disconnected', () => {
-        showMessage('Peer disconnected', 'info');
-        resetVideoCall();
-    });
+        peerConnection.ontrack = async (event) => {
+            console.log('Received remote track');
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+                
+                // Ensure video plays
+                try {
+                    await remoteVideo.play();
+                    showMessage('Connected to peer', 'success');
+                } catch (error) {
+                    console.warn('Remote video autoplay failed:', error);
+                    addPlayButton(remoteVideo);
+                }
+            }
+        };
+
+        // Add all local tracks immediately
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+                console.log('Added local track:', track.kind);
+            });
+        }
+
+        // Monitor connection state
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'failed') {
+                showMessage('Connection failed, trying to reconnect...', 'error');
+                resetVideoCall();
+            }
+        };
+
+        return peerConnection;
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        showMessage('Error creating connection', 'error');
+        throw error;
+    }
 }
 function initializeSocket() {
     try {

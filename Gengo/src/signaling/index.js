@@ -2,10 +2,10 @@ const users = new Map();
 const activeRooms = new Map(); // Track active connections
 
 function handleSignaling(socket, io) {
-    socket.on('join', ({ language, role }) => {
+        socket.on('join', ({ language, role }) => {
         console.log(`User ${socket.id} joined with language: ${language}, role: ${role}`);
         
-        // Create matching keys
+        // Create matching keys - ensure correct pairing
         const matchKey = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
         const userKey = `${language}-${role}`;
         
@@ -14,30 +14,40 @@ function handleSignaling(socket, io) {
             const otherSocket = users.get(matchKey);
             users.delete(matchKey);
             
-            // Create and store room info
+            // Create room and store both users
             const room = `${language}-${Date.now()}`;
-            activeRooms.set(room, {
-                users: [socket.id, otherSocket.id],
-                language,
-                startTime: Date.now()
+            
+            // Important: Always make 'practice' user initiate the offer
+            const isPractice = role === 'practice';
+            socket.emit('match', { 
+                offer: isPractice, 
+                room,
+                role: role
             });
-
-            // Join room and notify
+            otherSocket.emit('match', { 
+                offer: !isPractice, 
+                room,
+                role: role === 'practice' ? 'coach' : 'practice'
+            });
+    
+            // Join room after emitting match
             socket.join(room);
             otherSocket.join(room);
             
-            // Ensure proper offer/answer flow
-            const initiator = Math.random() < 0.5; // Randomize who initiates
-            socket.emit('match', { offer: initiator, room });
-            otherSocket.emit('match', { offer: !initiator, room });
-            
-            console.log(`Matched users in room ${room} (${initiator ? 'A->B' : 'B->A'})`);
+            activeRooms.set(room, {
+                users: [socket.id, otherSocket.id],
+                language,
+                roles: {
+                    [socket.id]: role,
+                    [otherSocket.id]: role === 'practice' ? 'coach' : 'practice'
+                },
+                startTime: Date.now()
+            });
+    
+            console.log(`Matched: ${role} user with ${role === 'practice' ? 'coach' : 'practice'} in room ${room}`);
         } else {
             // Add to waiting list
             users.set(userKey, socket);
-            console.log(`User ${socket.id} waiting (${userKey})`);
-            
-            // Notify user they're waiting
             socket.emit('waiting', { language, role });
         }
     });
