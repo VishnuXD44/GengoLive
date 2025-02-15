@@ -151,51 +151,6 @@ async function startCall() {
         resetVideoCall();
     }
 }
-function createPeerConnection() {
-    try {
-        peerConnection = new RTCPeerConnection(configuration);
-        
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate && currentRoom) {
-                console.log('Sending ICE candidate');
-                socket.emit('candidate', event.candidate, currentRoom);
-            }
-        };
-
-        peerConnection.ontrack = async (event) => {
-            console.log('Received remote track');
-            const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
-                await playVideo(remoteVideo);
-                showMessage('Connected to peer', 'success');
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'disconnected') {
-                showMessage('Peer connection lost', 'error');
-                resetVideoCall();
-            }
-        };
-
-        // Add local tracks to the connection
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                console.log('Adding local track to peer connection');
-                peerConnection.addTrack(track, localStream);
-            });
-        }
-
-        return peerConnection;
-    } catch (error) {
-        console.error('Error creating peer connection:', error);
-        showMessage('Error creating connection', 'error');
-        throw error;
-    }
-}
 
 function setupSocketListeners() {
     socket.on('match', async ({ offer, room, role }) => {
