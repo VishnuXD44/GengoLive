@@ -1,64 +1,99 @@
 const users = new Map();
+const activeRooms = new Map(); // Track active connections
 
 function handleSignaling(socket, io) {
     socket.on('join', ({ language, role }) => {
         console.log(`User ${socket.id} joined with language: ${language}, role: ${role}`);
         
-        // Create matching keys for both roles
+        // Create matching keys
         const matchKey = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
         const userKey = `${language}-${role}`;
         
-        // Check if there's a matching user waiting
+        // Check for existing match
         if (users.has(matchKey)) {
             const otherSocket = users.get(matchKey);
-            users.delete(matchKey); // Remove the waiting user
+            users.delete(matchKey);
             
-            // Create a unique room for these two users
+            // Create and store room info
             const room = `${language}-${Date.now()}`;
+            activeRooms.set(room, {
+                users: [socket.id, otherSocket.id],
+                language,
+                startTime: Date.now()
+            });
+
+            // Join room and notify
             socket.join(room);
             otherSocket.join(room);
             
-            // Notify both users about the match
-            socket.emit('match', { offer: true, room });
-            otherSocket.emit('match', { offer: false, room });
+            // Ensure proper offer/answer flow
+            const initiator = Math.random() < 0.5; // Randomize who initiates
+            socket.emit('match', { offer: initiator, room });
+            otherSocket.emit('match', { offer: !initiator, room });
             
-            // Log successful match
-            console.log(`Matched users in room ${room}`);
+            console.log(`Matched users in room ${room} (${initiator ? 'A->B' : 'B->A'})`);
         } else {
-            // No match found, add user to waiting list
+            // Add to waiting list
             users.set(userKey, socket);
-            console.log(`User ${socket.id} waiting for match with key ${userKey}`);
+            console.log(`User ${socket.id} waiting (${userKey})`);
+            
+            // Notify user they're waiting
+            socket.emit('waiting', { language, role });
         }
     });
 
-    // Handle disconnection
     socket.on('disconnect', () => {
-        // Remove user from waiting list if they were waiting
+        // Clean up waiting list
         for (const [key, value] of users.entries()) {
             if (value === socket) {
                 users.delete(key);
-                console.log(`Removed disconnected user from waiting list: ${key}`);
+                console.log(`Removed waiting user: ${socket.id}`);
                 break;
             }
         }
-        // Notify peers in any rooms
-        socket.broadcast.emit('user-disconnected', socket.id);
+
+        // Clean up active rooms
+        for (const [room, info] of activeRooms.entries()) {
+            if (info.users.includes(socket.id)) {
+                const otherUser = info.users.find(id => id !== socket.id);
+                if (otherUser) {
+                    io.to(otherUser).emit('user-disconnected');
+                }
+                activeRooms.delete(room);
+                console.log(`Cleaned up room: ${room}`);
+            }
+        }
     });
 
-    // Handle WebRTC signaling
+    // Enhanced WebRTC signaling
     socket.on('offer', (offer, room) => {
-        console.log(`Sending offer in room: ${room}`);
-        socket.to(room).emit('offer', offer);
+        if (activeRooms.has(room)) {
+            console.log(`Processing offer in room: ${room}`);
+            socket.to(room).emit('offer', offer);
+        }
     });
 
     socket.on('answer', (answer, room) => {
-        console.log(`Sending answer in room: ${room}`);
-        socket.to(room).emit('answer', answer);
+        if (activeRooms.has(room)) {
+            console.log(`Processing answer in room: ${room}`);
+            socket.to(room).emit('answer', answer);
+        }
     });
 
     socket.on('candidate', (candidate, room) => {
-        console.log(`Sending ICE candidate in room: ${room}`);
-        socket.to(room).emit('candidate', candidate);
+        if (activeRooms.has(room)) {
+            console.log(`Processing ICE candidate in room: ${room}`);
+            socket.to(room).emit('candidate', candidate);
+        }
+    });
+
+    // Add connection status tracking
+    socket.on('connection-status', ({ room, status }) => {
+        if (activeRooms.has(room)) {
+            const roomInfo = activeRooms.get(room);
+            roomInfo.status = status;
+            console.log(`Connection status in room ${room}: ${status}`);
+        }
     });
 }
 
