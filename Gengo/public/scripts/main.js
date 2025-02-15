@@ -115,12 +115,16 @@ async function createPeerConnection() {
             }
         };
 
-        peerConnection.ontrack = async (event) => {
+                peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                // Set srcObject directly to event.streams[0]
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = event.streams[0];
+                    remoteStream = event.streams[0];
+                }
+        
                 try {
                     await remoteVideo.play();
                     showMessage('Connected to peer', 'success');
