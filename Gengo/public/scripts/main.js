@@ -63,32 +63,25 @@ async function createPeerConnection() {
         }
 
                 // In createPeerConnection function, update the ontrack handler:
-        peerConnection.ontrack = (event) => {
+            peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Create new MediaStream if it doesn't exist
-                if (!remoteVideo.srcObject) {
-                    remoteStream = new MediaStream();
-                    remoteVideo.srcObject = remoteStream;
-                }
-                
-                // Add the track to the stream
-                remoteStream.addTrack(event.track);
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
                 
-                // Only attempt to play when we have both audio and video tracks
-                if (remoteStream.getTracks().length === 2) {
-                    console.log('Got both tracks, attempting to play');
-                    // Force play after a short delay to ensure tracks are properly added
-                    setTimeout(() => {
-                        remoteVideo.play().catch(error => {
-                            console.warn('Remote video play failed:', error);
-                            // One more retry after a longer delay
-                            setTimeout(() => remoteVideo.play(), 2000);
-                        });
-                    }, 100);
-                }
+                // Play when track is added
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing');
+                    } catch (error) {
+                        console.warn('Remote video play failed, retrying:', error);
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
@@ -232,14 +225,32 @@ async function startCall() {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            await localVideo.play();
+            
+            // Wait for metadata to load before playing
+            try {
+                await new Promise((resolve) => {
+                    if (localVideo.readyState >= 2) {
+                        resolve();
+                    } else {
+                        localVideo.onloadedmetadata = () => resolve();
+                    }
+                });
+                await localVideo.play();
+            } catch (error) {
+                console.warn('Local video play failed, retrying:', error);
+                // Add a small delay and try again
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await localVideo.play();
+            }
         }
 
+        // Update UI first
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
+        // Then initialize connection
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
@@ -247,7 +258,6 @@ async function startCall() {
         resetVideoCall();
     }
 }
-
 function resetVideoCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
