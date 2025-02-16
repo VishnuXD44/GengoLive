@@ -39,6 +39,10 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Add transceivers first for better negotiation
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -48,22 +52,25 @@ async function createPeerConnection() {
 
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
+            const [remoteStream] = event.streams;
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteStream = new MediaStream();
-                    remoteVideo.srcObject = remoteStream;
-                }
-                remoteStream.addTrack(event.track);
+            
+            if (remoteVideo && remoteStream) {
+                remoteVideo.srcObject = remoteStream;
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.play().catch(error => {
-                    console.warn('Remote video autoplay failed:', error);
-                });
+                
+                const playPromise = remoteVideo.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.warn('Remote video autoplay failed:', error);
+                    });
+                }
             }
         };
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
+                console.log('Sending ICE candidate:', event.candidate.type);
                 socket.emit('candidate', event.candidate, currentRoom);
             }
         };
@@ -72,6 +79,19 @@ async function createPeerConnection() {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
                 peerConnection.restartIce();
+            }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            switch(peerConnection.connectionState) {
+                case 'connected':
+                    showMessage('Connected successfully', 'success');
+                    break;
+                case 'failed':
+                    showMessage('Connection failed', 'error');
+                    resetVideoCall();
+                    break;
             }
         };
 
@@ -159,8 +179,10 @@ function setupSocketListeners() {
         try {
             if (peerConnection && peerConnection.remoteDescription) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added ICE candidate');
             } else {
                 iceCandidatesQueue.push(candidate);
+                console.log('Queued ICE candidate');
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
@@ -176,21 +198,18 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'user',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            },
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true
             }
         });
 
+        localStream = stream;
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
-            localVideo.srcObject = localStream;
+            localVideo.srcObject = stream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
             await localVideo.play();
@@ -211,10 +230,14 @@ async function startCall() {
 
 function resetVideoCall() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop();
+        });
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+        });
     }
     if (peerConnection) {
         peerConnection.close();
