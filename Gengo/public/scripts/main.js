@@ -34,11 +34,16 @@ async function playVideo(videoElement) {
     if (!videoElement.srcObject) return;
     
     try {
-        if (videoElement.readyState < 2) {
-            await new Promise((resolve) => {
-                videoElement.onloadedmetadata = () => resolve();
-            });
-        }
+        // Wait for metadata and a short delay
+        await new Promise((resolve) => {
+            if (videoElement.readyState >= 2) {
+                resolve();
+            } else {
+                videoElement.onloadedmetadata = () => {
+                    setTimeout(resolve, 100);
+                };
+            }
+        });
         
         if (videoElement.id === 'localVideo') {
             videoElement.muted = true;
@@ -74,7 +79,11 @@ function addPlayButton(videoElement) {
 
 async function checkMediaPermissions() {
     try {
-        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user' }, 
+            audio: true 
+        });
+        stream.getTracks().forEach(track => track.stop());
         return true;
     } catch (error) {
         console.error('Permission check error:', error);
@@ -91,10 +100,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
         
-        // Add transceivers for better media negotiation
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-        
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -105,17 +110,24 @@ async function createPeerConnection() {
         peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+            if (remoteVideo) {
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                remoteVideo.srcObject.addTrack(event.track);
                 remoteVideo.setAttribute('playsinline', '');
                 
-                try {
-                    await remoteVideo.play();
-                    showMessage('Connected to peer', 'success');
-                } catch (error) {
-                    console.warn('Remote video autoplay failed:', error);
-                    addPlayButton(remoteVideo);
+                // Only try to play after both audio and video tracks are added
+                const tracks = remoteVideo.srcObject.getTracks();
+                if (tracks.length === 2) {
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await remoteVideo.play();
+                        showMessage('Connected to peer', 'success');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed:', error);
+                        addPlayButton(remoteVideo);
+                    }
                 }
             }
         };
@@ -131,6 +143,7 @@ async function createPeerConnection() {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
                 peerConnection.restartIce();
+                showMessage('Connection issue, trying to reconnect...', 'info');
             }
         };
 
@@ -141,9 +154,11 @@ async function createPeerConnection() {
                     showMessage('Successfully connected to peer', 'success');
                     break;
                 case 'disconnected':
+                    showMessage('Connection lost, trying to reconnect...', 'info');
+                    break;
                 case 'failed':
                     showMessage('Connection failed', 'error');
-                    resetVideoCall();
+                    setTimeout(resetVideoCall, 2000);
                     break;
             }
         };
@@ -229,12 +244,7 @@ function setupSocketListeners() {
         try {
             console.log('Received answer');
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            
-            while (iceCandidatesQueue.length > 0) {
-                const candidate = iceCandidatesQueue.shift();
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added queued ICE candidate');
-            }
+            console.log('Set remote description from answer');
         } catch (error) {
             console.error('Error handling answer:', error);
             showMessage('Error handling answer', 'error');
@@ -270,17 +280,16 @@ async function startCall() {
             return;
         }
 
+        // Basic constraints that work across devices
         const constraints = {
             video: {
-                width: { ideal: 1280, max: 1920 },
-                height: { ideal: 720, max: 1080 },
-                aspectRatio: { ideal: 1.7777777778 },
-                frameRate: { max: 30 }
+                facingMode: 'user',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
             },
             audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
+                echoCancellation: { ideal: true },
+                noiseSuppression: { ideal: true }
             }
         };
 
@@ -320,20 +329,18 @@ function resetVideoCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => {
             track.stop();
-            localStream.removeTrack(track);
         });
     }
     if (remoteStream) {
         remoteStream.getTracks().forEach(track => {
             track.stop();
-            remoteStream.removeTrack(track);
         });
     }
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
-    if (socket) {
+    if (socket && socket.connected) {
         socket.disconnect();
     }
 
@@ -344,8 +351,14 @@ function resetVideoCall() {
 
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
+    if (localVideo) {
+        localVideo.srcObject = null;
+        localVideo.load();
+    }
+    if (remoteVideo) {
+        remoteVideo.srcObject = null;
+        remoteVideo.load();
+    }
 
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
