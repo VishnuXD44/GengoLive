@@ -49,6 +49,283 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
+    justify-content: flex-end;
+    padding: 1rem 2rem;
+    background-color: transparent;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-links a {
+    text-decoration: none;
+    font-weight: 600;
+    color: #1a1a1a;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -4px;
+    left: 0;
+    background-color: var(--pink);
+    transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after,
+.nav-links a.active::after {
+    width: 100%;
+}
+
+/* ============ CONTAINER STYLES ============ */
+.container {
+    min-height: 100vh;
+    height: auto;
+    padding: 80px 2rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    position: relative;
+    background-color: #fff;
+}
+
+.content-wrapper {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* ============ INDEX PAGE STYLES ============ */
+.logo-section {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.main-logo {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 700;
+    color: var(--dark);
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
+
+.hero-text {
+    text-align: center;
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    max-width: 800px;
+    margin: 0 auto;
+    color: var(--dark);
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin: 2rem auto;
+    width: 100%;
+}
+
+.feature-card {
+    text-align: center;
+    transition: all 0.3s ease;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
+}
+
+.feature-image {
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.feature-title {
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    font-weight: 700;
+    color: var(--dark);
+}
+
+/* ============ BUTTONS ============ */
+.connect-btn,
+.leave-btn,
+.get-started {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+    display: block;
+    margin: 0 auto;
+}
+
+.connect-btn {
+    background: var(--pink);
+    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+}
+
+.leave-btn {
+    background: var(--dark);
+    margin-top: 1rem;
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
+    display: none;
+}
+
+.connect-btn:hover,
+.get-started:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
+}
+
+.leave-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.4);
+}
+
+.get-started {
+    background: var(--pink);
+    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+}
+
+/* ============ RESPONSIVE STYLES ============ */
+@media (max-width: 767px) {
+    .navbar {
+        background-color: rgba(255, 255, 255, 0.6) !important;
+        padding: 0.8rem 1rem;
+    }
+
+    .nav-links {
+        gap: 1rem;
+    }
+
+    .nav-links a {
+        font-size: 0.9rem;
+    }
+
+    .container {
+        padding: 5rem 1rem 2rem;
+    }
+
+    .features {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .feature-card {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 575px) {
+    .navbar {
+        padding: 0.6rem;
+    }
+
+    .nav-links {
+        gap: 0.8rem;
+    }
+
+    .nav-links a {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .main-logo {
+        font-size: 2rem;
+    }
+
+    .feature-image {
+        max-width: 100px;
+    }
+}
+
+/* Rest of your original styles below... */
+/* (All other sections remain exactly the same as your original file) */
+/* Video styles, messages, animations, etc. preserved without changes */
+
+/* Note: The full file would include all your original styles */
+/* with only the above modifications for mobile optimization */
+:root {
+    --pink: #FF385C;
+    --orange: #FF9F1C;
+    --blue: #4DA8DA;
+    --dark: #2C3E50;
+    --light: #ECF0F1;
+}
+
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: 'Space Grotesk', sans-serif;
+    line-height: 1.6;
+    color: var(--dark);
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    min-height: -webkit-fill-available;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pink);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #ff1a1a;
+}
+
+/* ============ NAVBAR STYLES ============ */
+.navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    display: flex;
     justify-content: flex-end; 
     padding: 1rem 2rem;
     background-color: transparent;
@@ -907,4 +1184,151 @@ video[autoplay] {
 
 @keyframes spin {
     to { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Update the container for mobile */
+@media (max-width: 767px) and (orientation: portrait) {
+    .container {
+        height: 100vh;
+        min-height: 100vh;
+        padding: 80px 1rem 2rem; /* Increased top padding */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around; /* Changed from space-between to space-around */
+    }
+
+    /* More spacing for logo section */
+    .main-logo {
+        font-size: clamp(1.8rem, 5vw, 2.2rem);
+        margin: 1.5rem 0; /* Increased margin */
+    }
+
+    .hero-text {
+        font-size: clamp(0.9rem, 3vw, 1rem);
+        margin: 1.5rem 0; /* Increased margin */
+        padding: 0 0.8rem;
+    }
+
+    /* Adjust features section spacing */
+    .features {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem; /* Increased gap */
+        margin: 2rem 0; /* Increased margin */
+    }
+
+    /* Adjust selection container spacing */
+    .selection-container {
+        padding: 1.2rem;
+        margin: 2rem auto; /* Increased margin */
+        width: 90%;
+    }
+
+    /* Keep the middle feature card hidden */
+    .feature-card:nth-child(2) {
+        display: none;
+    }
+}
+
+/* Maintain desktop layout */
+@media (min-width: 768px) {
+    .features {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .feature-card:nth-child(2) {
+        display: flex;
+    }
+}
+
+/* Update feature cards for desktop */
+@media (min-width: 768px) {
+    .features {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2.5rem;
+    }
+
+    .feature-card {
+        background: transparent;
+        box-shadow: none;
+        border: none;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .feature-image {
+        width: auto;
+        height: 150px;
+        max-width: 150px;
+        object-fit: contain;
+        margin-bottom: 1.5rem;
+    }
+
+    .feature-title {
+        font-size: 1.8rem;
+        margin-top: 1rem;
+    }
+
+    .feature-card:nth-child(2) {
+        display: flex;
+    }
+}
+
+/* Keep mobile styling unchanged */
+@media (max-width: 767px) and (orientation: portrait) {
+    /* ...existing mobile styles... */
+}
+
+/* Update feature cards for mobile */
+@media (max-width: 767px) and (orientation: portrait) {
+    .feature-card {
+        background: transparent;
+        box-shadow: none;
+        border: none;
+        padding: 0.8rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .feature-image {
+        width: auto;
+        height: 120px;
+        max-width: 120px;
+        object-fit: contain;
+        margin-bottom: 1rem;
+    }
+
+    .feature-title {
+        font-size: 1.2rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Keep the middle feature card hidden */
+    .feature-card:nth-child(2) {
+        display: none;
+    }
+
+    /* Adjust features grid */
+    .features {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin: 1.5rem 0;
+    }
 }
