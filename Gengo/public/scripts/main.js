@@ -110,28 +110,34 @@ async function createPeerConnection() {
         peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                remoteVideo.srcObject.addTrack(event.track);
+            if (remoteVideo && event.streams[0]) {
+                // Set stream directly instead of adding tracks
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
                 
-                // Only try to play after both audio and video tracks are added
-                const tracks = remoteVideo.srcObject.getTracks();
-                if (tracks.length === 2) {
-                    try {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        await remoteVideo.play();
-                        showMessage('Connected to peer', 'success');
-                    } catch (error) {
-                        console.warn('Remote video autoplay failed:', error);
-                        addPlayButton(remoteVideo);
-                    }
+                try {
+                    // Ensure metadata is loaded
+                    await new Promise((resolve) => {
+                        if (remoteVideo.readyState >= 2) {
+                            resolve();
+                        } else {
+                            remoteVideo.onloadedmetadata = () => resolve();
+                        }
+                    });
+                    
+                    // Add a small delay before playing
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await remoteVideo.play();
+                    showMessage('Connected to peer', 'success');
+                } catch (error) {
+                    console.warn('Remote video autoplay failed:', error);
+                    addPlayButton(remoteVideo);
                 }
             }
         };
 
+        // Enhanced ICE handling
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
                 console.log('Sending ICE candidate:', event.candidate.type);
@@ -141,9 +147,20 @@ async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
-                peerConnection.restartIce();
-                showMessage('Connection issue, trying to reconnect...', 'info');
+            switch (peerConnection.iceConnectionState) {
+                case 'checking':
+                    showMessage('Establishing connection...', 'info');
+                    break;
+                case 'connected':
+                    showMessage('Connection established', 'success');
+                    break;
+                case 'disconnected':
+                    showMessage('Connection lost, reconnecting...', 'info');
+                    break;
+                case 'failed':
+                    console.log('ICE Failed - Attempting restart');
+                    peerConnection.restartIce();
+                    break;
             }
         };
 
@@ -154,11 +171,16 @@ async function createPeerConnection() {
                     showMessage('Successfully connected to peer', 'success');
                     break;
                 case 'disconnected':
-                    showMessage('Connection lost, trying to reconnect...', 'info');
+                    showMessage('Peer disconnected', 'info');
                     break;
                 case 'failed':
                     showMessage('Connection failed', 'error');
-                    setTimeout(resetVideoCall, 2000);
+                    // Add delay before reset
+                    setTimeout(() => {
+                        if (peerConnection.connectionState === 'failed') {
+                            resetVideoCall();
+                        }
+                    }, 5000);
                     break;
             }
         };
@@ -170,7 +192,6 @@ async function createPeerConnection() {
         throw error;
     }
 }
-
 // ============ SOCKET COMMUNICATION FUNCTIONS ============
 function initializeSocket() {
     try {
@@ -280,35 +301,26 @@ async function startCall() {
             return;
         }
 
-        // Basic constraints that work across devices
         const constraints = {
-            video: {
-                facingMode: 'user',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            },
-            audio: {
-                echoCancellation: { ideal: true },
-                noiseSuppression: { ideal: true }
-            }
+            video: true,  // Simplified constraints
+            audio: true
         };
 
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (error) {
-            console.warn('Failed with ideal constraints, trying basic setup:', error);
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
-        }
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            await playVideo(localVideo);
+            
+            // Ensure local video plays
+            try {
+                await localVideo.play();
+            } catch (error) {
+                console.warn('Local video autoplay failed:', error);
+                addPlayButton(localVideo);
+            }
         }
 
         document.getElementById('connect').style.display = 'none';
@@ -324,7 +336,6 @@ async function startCall() {
         resetVideoCall();
     }
 }
-
 function resetVideoCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => {
