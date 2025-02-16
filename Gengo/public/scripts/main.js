@@ -40,25 +40,26 @@ async function createPeerConnection() {
         peerConnection = new RTCPeerConnection(configuration);
 
         // Add transceivers before adding tracks
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+        peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
 
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
                 console.log('Added local track:', track.kind);
             });
+        } else {
+            console.warn('No local stream available when adding tracks.');
         }
 
+        // Handle incoming remote tracks.
         peerConnection.ontrack = (event) => {
-            console.log('Received remote track:', event.track.kind);
+            console.log('Received remote track:', event.track.kind, 'Stream count:', event.streams.length);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
-                // Always set srcObject to the new stream
-                remoteVideo.srcObject = event.streams[0];
+            if (remoteVideo && event.streams && event.streams[0]) {
                 remoteStream = event.streams[0];
+                remoteVideo.srcObject = remoteStream;
                 remoteVideo.setAttribute('playsinline', '');
-
                 // Force play with retry
                 const playVideo = async () => {
                     try {
@@ -70,18 +71,23 @@ async function createPeerConnection() {
                     }
                 };
                 playVideo();
+            } else {
+                console.warn('Remote video element not found or no stream available.');
             }
         };
 
+        // Exchange ICE candidates with the server.
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
                 socket.emit('candidate', event.candidate, currentRoom);
+                console.log('Sent ICE candidate:', event.candidate);
             }
         };
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
+                console.warn('ICE connection failed, restarting ICE...');
                 peerConnection.restartIce();
             }
         };
@@ -144,6 +150,7 @@ function setupSocketListeners() {
                 });
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
+                console.log('Offer sent:', offerDescription);
             }
         } catch (error) {
             console.error('Error in match:', error);
@@ -152,14 +159,27 @@ function setupSocketListeners() {
     });
 
     socket.on('offer', async (offer) => {
+        console.log('Received offer:', offer);
         try {
             if (!peerConnection) {
                 await createPeerConnection();
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            console.log('Set remote description for offer');
+
+            // Process any queued ICE candidates.
+            if (iceCandidatesQueue.length > 0) {
+                for (const queuedCandidate of iceCandidatesQueue) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+                    console.log('Added queued ICE candidate');
+                }
+                iceCandidatesQueue = [];
+            }
+
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
+            console.log('Answer sent:', answer);
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Error handling offer', 'error');
@@ -167,9 +187,20 @@ function setupSocketListeners() {
     });
 
     socket.on('answer', async (answer) => {
+        console.log('Received answer:', answer);
         try {
             if (peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('Set remote description for answer');
+
+                // Process any queued ICE candidates.
+                if (iceCandidatesQueue.length > 0) {
+                    for (const queuedCandidate of iceCandidatesQueue) {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+                        console.log('Added queued ICE candidate');
+                    }
+                    iceCandidatesQueue = [];
+                }
             }
         } catch (error) {
             console.error('Error handling answer:', error);
@@ -178,10 +209,16 @@ function setupSocketListeners() {
     });
 
     socket.on('candidate', async (candidate) => {
+        console.log('Received ICE candidate:', candidate);
         try {
-            if (peerConnection && peerConnection.remoteDescription) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added ICE candidate');
+            if (peerConnection) {
+                if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('Added ICE candidate');
+                } else {
+                    iceCandidatesQueue.push(candidate);
+                    console.log('Queued ICE candidate until remote description is set');
+                }
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
@@ -259,7 +296,7 @@ function resetVideoCall() {
 
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
-    
+
     if (localVideo) {
         localVideo.srcObject = null;
         localVideo.load();
@@ -298,11 +335,11 @@ function showMessage(message, type = 'info') {
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
     const leaveButton = document.getElementById('leave');
-    
+
     if (connectButton) {
         connectButton.addEventListener('click', startCall);
     }
-    
+
     if (leaveButton) {
         leaveButton.addEventListener('click', leaveCall);
         leaveButton.style.display = 'none';
