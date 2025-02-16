@@ -84,8 +84,16 @@ async function checkMediaPermissions() {
 
 // ============ WEBRTC CONNECTION FUNCTIONS ============
 async function createPeerConnection() {
+    if (peerConnection) {
+        peerConnection.close();
+    }
+
     try {
         peerConnection = new RTCPeerConnection(configuration);
+        
+        // Add transceivers for better media negotiation
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
         
         if (localStream) {
             localStream.getTracks().forEach(track => {
@@ -93,13 +101,15 @@ async function createPeerConnection() {
                 console.log('Added local track:', track.kind);
             });
         }
-        
+
         peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo && event.streams[0]) {
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
+                remoteVideo.setAttribute('playsinline', '');
+                
                 try {
                     await remoteVideo.play();
                     showMessage('Connected to peer', 'success');
@@ -112,17 +122,15 @@ async function createPeerConnection() {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
-                console.log('Sending ICE candidate');
+                console.log('Sending ICE candidate:', event.candidate.type);
                 socket.emit('candidate', event.candidate, currentRoom);
             }
         };
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'disconnected' || 
-                peerConnection.iceConnectionState === 'failed') {
-                showMessage('Connection lost. Please try again.', 'error');
-                resetVideoCall();
+            if (peerConnection.iceConnectionState === 'failed') {
+                peerConnection.restartIce();
             }
         };
 
@@ -155,7 +163,8 @@ function initializeSocket() {
             path: '/socket.io/',
             transports: ['websocket'],
             reconnection: true,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 5,
+            timeout: 20000
         });
 
         socket.on('connect', () => {
@@ -179,10 +188,7 @@ function setupSocketListeners() {
         currentRoom = room;
 
         try {
-            if (!peerConnection) {
-                await createPeerConnection();
-            }
-
+            await createPeerConnection();
             if (offer) {
                 const offerDescription = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
@@ -202,6 +208,13 @@ function setupSocketListeners() {
                 await createPeerConnection();
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            
+            while (iceCandidatesQueue.length > 0) {
+                const candidate = iceCandidatesQueue.shift();
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added queued ICE candidate');
+            }
+
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
@@ -216,7 +229,12 @@ function setupSocketListeners() {
         try {
             console.log('Received answer');
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            console.log('Set remote description from answer');
+            
+            while (iceCandidatesQueue.length > 0) {
+                const candidate = iceCandidatesQueue.shift();
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added queued ICE candidate');
+            }
         } catch (error) {
             console.error('Error handling answer:', error);
             showMessage('Error handling answer', 'error');
@@ -225,9 +243,12 @@ function setupSocketListeners() {
 
     socket.on('candidate', async (candidate) => {
         try {
-            if (peerConnection) {
+            if (peerConnection && peerConnection.remoteDescription) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 console.log('Added ICE candidate');
+            } else {
+                iceCandidatesQueue.push(candidate);
+                console.log('Queued ICE candidate');
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
@@ -249,15 +270,35 @@ async function startCall() {
             return;
         }
 
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
+        const constraints = {
+            video: {
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                aspectRatio: { ideal: 1.7777777778 },
+                frameRate: { max: 30 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        };
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (error) {
+            console.warn('Failed with ideal constraints, trying basic setup:', error);
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
+            });
+        }
 
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
+            localVideo.setAttribute('playsinline', '');
             await playVideo(localVideo);
         }
 
@@ -266,6 +307,7 @@ async function startCall() {
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
+        await createPeerConnection();
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
@@ -276,10 +318,16 @@ async function startCall() {
 
 function resetVideoCall() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop();
+            localStream.removeTrack(track);
+        });
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+            remoteStream.removeTrack(track);
+        });
     }
     if (peerConnection) {
         peerConnection.close();
@@ -292,6 +340,7 @@ function resetVideoCall() {
     localStream = null;
     remoteStream = null;
     currentRoom = null;
+    iceCandidatesQueue = [];
 
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');

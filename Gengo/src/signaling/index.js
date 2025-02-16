@@ -90,13 +90,17 @@ function handleSignaling(socket, io) {
         }
     });
 
-    socket.on('candidate', (candidate, room) => {
+        socket.on('candidate', (candidate, room) => {
         if (activeRooms.has(room)) {
             console.log(`Processing ICE candidate in room: ${room}`);
-            socket.to(room).emit('candidate', candidate);
+            // Ensure the candidate is sent to the other peer in the room
+            const roomInfo = activeRooms.get(room);
+            const otherUser = roomInfo.users.find(id => id !== socket.id);
+            if (otherUser) {
+                io.to(otherUser).emit('candidate', candidate);
+            }
         }
     });
-
     // Add connection status tracking
     socket.on('connection-status', ({ room, status }) => {
         if (activeRooms.has(room)) {
