@@ -62,17 +62,33 @@ async function createPeerConnection() {
             });
         }
 
+                // In createPeerConnection function, update the ontrack handler:
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                // Create new MediaStream if it doesn't exist
+                if (!remoteVideo.srcObject) {
+                    remoteStream = new MediaStream();
+                    remoteVideo.srcObject = remoteStream;
+                }
+                
+                // Add the track to the stream
+                remoteStream.addTrack(event.track);
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.play().catch(error => {
-                    console.warn('Remote video autoplay failed:', error);
-                    setTimeout(() => remoteVideo.play(), 1000);
-                });
+                
+                // Only attempt to play when we have both audio and video tracks
+                if (remoteStream.getTracks().length === 2) {
+                    console.log('Got both tracks, attempting to play');
+                    // Force play after a short delay to ensure tracks are properly added
+                    setTimeout(() => {
+                        remoteVideo.play().catch(error => {
+                            console.warn('Remote video play failed:', error);
+                            // One more retry after a longer delay
+                            setTimeout(() => remoteVideo.play(), 2000);
+                        });
+                    }, 100);
+                }
             }
         };
 
