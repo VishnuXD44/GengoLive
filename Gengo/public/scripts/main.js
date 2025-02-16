@@ -4,7 +4,6 @@ let remoteStream;
 let peerConnection;
 let socket;
 let currentRoom;
-let iceCandidatesQueue = [];
 
 const configuration = {
     iceServers: [
@@ -29,39 +28,6 @@ const configuration = {
     rtcpMuxPolicy: 'require'
 };
 
-// ============ MEDIA HANDLING FUNCTIONS ============
-async function playVideo(videoElement) {
-    if (!videoElement.srcObject) return;
-    
-    try {
-        await videoElement.play();
-    } catch (error) {
-        console.warn('Video play error:', error);
-        addPlayButton(videoElement);
-    }
-}
-
-function addPlayButton(videoElement) {
-    const wrapper = videoElement.parentElement;
-    const existingButton = wrapper.querySelector('.play-button');
-    if (existingButton) existingButton.remove();
-
-    const playButton = document.createElement('button');
-    playButton.className = 'play-button';
-    playButton.innerHTML = '▶';
-    wrapper.appendChild(playButton);
-
-    playButton.onclick = async () => {
-        try {
-            await videoElement.play();
-            playButton.remove();
-        } catch (error) {
-            console.error('Play failed:', error);
-            showMessage('Failed to play video', 'error');
-        }
-    };
-}
-
 // ============ WEBRTC CONNECTION FUNCTIONS ============
 async function createPeerConnection() {
     if (peerConnection) {
@@ -72,6 +38,10 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Add transceivers first
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -79,18 +49,15 @@ async function createPeerConnection() {
             });
         }
 
-        peerConnection.ontrack = async (event) => {
+        peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
+            if (remoteVideo) {
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
-                remoteVideo.setAttribute('playsinline', '');
-                try {
-                    await playVideo(remoteVideo);
-                } catch (error) {
-                    console.warn('Remote video play failed:', error);
-                }
+                remoteVideo.play().catch(error => {
+                    console.warn('Remote video autoplay failed:', error);
+                });
             }
         };
 
@@ -105,6 +72,16 @@ async function createPeerConnection() {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
                 peerConnection.restartIce();
+            }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                showMessage('Connected to peer', 'success');
+            } else if (peerConnection.connectionState === 'failed') {
+                showMessage('Connection failed', 'error');
+                resetVideoCall();
             }
         };
 
@@ -123,7 +100,8 @@ function initializeSocket() {
             path: '/socket.io/',
             transports: ['websocket'],
             reconnection: true,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 5,
+            timeout: 10000
         });
 
         socket.on('connect', () => {
@@ -149,7 +127,11 @@ function setupSocketListeners() {
         try {
             await createPeerConnection();
             if (offer) {
-                const offerDescription = await peerConnection.createOffer();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for peer setup
+                const offerDescription = await peerConnection.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
             }
@@ -170,6 +152,7 @@ function setupSocketListeners() {
             socket.emit('answer', answer, currentRoom);
         } catch (error) {
             console.error('Error handling offer:', error);
+            showMessage('Error handling offer', 'error');
         }
     });
 
@@ -180,28 +163,40 @@ function setupSocketListeners() {
             }
         } catch (error) {
             console.error('Error handling answer:', error);
+            showMessage('Error handling answer', 'error');
         }
     });
 
     socket.on('candidate', async (candidate) => {
         try {
-            if (peerConnection) {
+            if (peerConnection && peerConnection.remoteDescription) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added ICE candidate');
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
         }
     });
 
-    socket.on('user-disconnected', resetVideoCall);
+    socket.on('user-disconnected', () => {
+        showMessage('Peer disconnected', 'info');
+        resetVideoCall();
+    });
 }
 
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
+            video: {
+                width: { ideal: 640, max: 1280 },
+                height: { ideal: 480, max: 720 },
+                facingMode: 'user'
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+            }
         });
 
         const localVideo = document.getElementById('localVideo');
@@ -209,7 +204,7 @@ async function startCall() {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            await playVideo(localVideo);
+            await localVideo.play();
         }
 
         document.getElementById('connect').style.display = 'none';
@@ -227,10 +222,14 @@ async function startCall() {
 
 function resetVideoCall() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop();
+        });
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+        });
     }
     if (peerConnection) {
         peerConnection.close();
@@ -243,13 +242,18 @@ function resetVideoCall() {
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
+    if (localVideo) {
+        localVideo.srcObject = null;
+        localVideo.load();
+    }
+    if (remoteVideo) {
+        remoteVideo.srcObject = null;
+        remoteVideo.load();
+    }
 
     localStream = null;
     remoteStream = null;
     currentRoom = null;
-    iceCandidatesQueue = [];
 
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
