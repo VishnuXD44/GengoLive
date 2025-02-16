@@ -55,15 +55,14 @@ async function createPeerConnection() {
         // Enhanced remote track handler with fallback
         peerConnection.ontrack = (event) => {
             console.log('ontrack event fired:', event);
-            if (event.streams && event.streams[0]) {
-                remoteStream = event.streams[0];
-                console.log('Received remote stream via streams array:', remoteStream);
-            } else {
-                // Fallback: create a new stream from the track
-                remoteStream = new MediaStream();
-                remoteStream.addTrack(event.track);
-                console.warn('No stream in event; created new MediaStream with track:', event.track);
+            let stream = event.streams && event.streams[0];
+            if (!stream) {
+                // Fallback: create a new stream from the received track
+                stream = new MediaStream();
+                stream.addTrack(event.track);
+                console.warn('No stream provided in event; created fallback stream', stream);
             }
+            remoteStream = stream;
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
                 remoteVideo.srcObject = remoteStream;
@@ -169,7 +168,7 @@ function setupSocketListeners() {
                 await createPeerConnection();
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            console.log('Set remote description for offer');
+            console.log('Remote description set for offer');
 
             // Process any queued ICE candidates
             if (iceCandidatesQueue.length > 0) {
@@ -195,7 +194,7 @@ function setupSocketListeners() {
         try {
             if (peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                console.log('Set remote description for answer');
+                console.log('Remote description set for answer');
 
                 // Process any queued ICE candidates
                 if (iceCandidatesQueue.length > 0) {
@@ -251,6 +250,7 @@ async function startCall() {
             }
         });
 
+        console.log('Local stream obtained:', localStream);
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
