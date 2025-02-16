@@ -63,7 +63,6 @@ async function createPeerConnection() {
                 console.warn('No stream provided in event; created fallback stream', stream);
             }
             remoteStream = stream;
-            // Log details about the remote stream tracks
             console.log("Remote stream video tracks:", remoteStream.getVideoTracks());
             console.log("Remote stream audio tracks:", remoteStream.getAudioTracks());
             const remoteVideo = document.getElementById('remoteVideo');
@@ -71,7 +70,7 @@ async function createPeerConnection() {
                 remoteVideo.srcObject = remoteStream;
                 remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.autoplay = true;
-                // Delay play() to allow the element to settle
+                // Delay play() slightly to allow the element to settle
                 setTimeout(() => {
                     remoteVideo.play().then(() => {
                         console.log('Remote video playing successfully');
@@ -86,6 +85,8 @@ async function createPeerConnection() {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
+                // Log candidate type (if available)
+                console.log('Generated ICE candidate:', event.candidate.candidate);
                 socket.emit('candidate', event.candidate, currentRoom);
                 console.log('Sent ICE candidate:', event.candidate);
             }
@@ -93,8 +94,10 @@ async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
-                console.warn('ICE connection failed, restarting ICE...');
+            // Restart ICE if connection goes down
+            if (peerConnection.iceConnectionState === 'failed' ||
+                peerConnection.iceConnectionState === 'disconnected') {
+                console.warn('ICE connection state is', peerConnection.iceConnectionState, '; restarting ICE...');
                 peerConnection.restartIce();
             }
         };
@@ -308,11 +311,9 @@ function resetVideoCall() {
 
     if (localVideo) {
         localVideo.srcObject = null;
-        // Avoid calling load() immediately after setting srcObject
     }
     if (remoteVideo) {
         remoteVideo.srcObject = null;
-        // Avoid calling load() here as it might interrupt play()
     }
 
     localStream = null;
