@@ -29,6 +29,22 @@ const configuration = {
     rtcpMuxPolicy: 'require'
 };
 
+// ============ MEDIA HANDLING FUNCTIONS ============
+async function checkMediaPermissions() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+    } catch (error) {
+        console.error('Permission check error:', error);
+        showMessage('Camera and microphone access required', 'error');
+        return false;
+    }
+}
+
 // ============ WEBRTC CONNECTION FUNCTIONS ============
 async function createPeerConnection() {
     if (peerConnection) {
@@ -39,10 +55,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add transceivers first for better negotiation
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -52,19 +64,15 @@ async function createPeerConnection() {
 
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
-            const [remoteStream] = event.streams;
             const remoteVideo = document.getElementById('remoteVideo');
-            
-            if (remoteVideo && remoteStream) {
-                remoteVideo.srcObject = remoteStream;
+            if (remoteVideo) {
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-                
-                const playPromise = remoteVideo.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                    });
-                }
+                remoteVideo.play().catch(error => {
+                    console.warn('Remote video autoplay failed:', error);
+                    setTimeout(() => remoteVideo.play(), 1000);
+                });
             }
         };
 
@@ -75,23 +83,13 @@ async function createPeerConnection() {
             }
         };
 
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
-                peerConnection.restartIce();
-            }
-        };
-
         peerConnection.onconnectionstatechange = () => {
             console.log('Connection state:', peerConnection.connectionState);
-            switch(peerConnection.connectionState) {
-                case 'connected':
-                    showMessage('Connected successfully', 'success');
-                    break;
-                case 'failed':
-                    showMessage('Connection failed', 'error');
-                    resetVideoCall();
-                    break;
+            if (peerConnection.connectionState === 'connected') {
+                showMessage('Connected successfully', 'success');
+            } else if (peerConnection.connectionState === 'failed') {
+                showMessage('Connection failed', 'error');
+                resetVideoCall();
             }
         };
 
@@ -198,18 +196,24 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+        const hasPermissions = await checkMediaPermissions();
+        if (!hasPermissions) return;
+
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'user',
+                width: { ideal: 640, max: 1280 },
+                height: { ideal: 480, max: 720 }
+            },
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true
             }
         });
 
-        localStream = stream;
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
-            localVideo.srcObject = stream;
+            localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
             await localVideo.play();
@@ -230,14 +234,10 @@ async function startCall() {
 
 function resetVideoCall() {
     if (localStream) {
-        localStream.getTracks().forEach(track => {
-            track.stop();
-        });
+        localStream.getTracks().forEach(track => track.stop());
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => {
-            track.stop();
-        });
+        remoteStream.getTracks().forEach(track => track.stop());
     }
     if (peerConnection) {
         peerConnection.close();
