@@ -4,6 +4,7 @@ let remoteStream;
 let peerConnection;
 let socket;
 let currentRoom;
+let iceCandidatesQueue = [];
 
 const configuration = {
     iceServers: [
@@ -38,10 +39,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add transceivers first
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -53,10 +50,17 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = event.streams[0];
+                    remoteStream = event.streams[0];
+                }
+                remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.play().catch(error => {
                     console.warn('Remote video autoplay failed:', error);
+                    // Try playing again after a short delay
+                    setTimeout(() => {
+                        remoteVideo.play().catch(console.error);
+                    }, 1000);
                 });
             }
         };
@@ -70,7 +74,9 @@ async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
+            if (peerConnection.iceConnectionState === 'connected') {
+                showMessage('Connection established', 'success');
+            } else if (peerConnection.iceConnectionState === 'failed') {
                 peerConnection.restartIce();
             }
         };
@@ -81,7 +87,7 @@ async function createPeerConnection() {
                 showMessage('Connected to peer', 'success');
             } else if (peerConnection.connectionState === 'failed') {
                 showMessage('Connection failed', 'error');
-                resetVideoCall();
+                setTimeout(resetVideoCall, 2000);
             }
         };
 
@@ -127,11 +133,7 @@ function setupSocketListeners() {
         try {
             await createPeerConnection();
             if (offer) {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for peer setup
-                const offerDescription = await peerConnection.createOffer({
-                    offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
-                });
+                const offerDescription = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
             }
@@ -187,12 +189,9 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
+        // Basic constraints for better iOS compatibility
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 640, max: 1280 },
-                height: { ideal: 480, max: 720 },
-                facingMode: 'user'
-            },
+            video: true,
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true
@@ -204,7 +203,14 @@ async function startCall() {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            await localVideo.play();
+            try {
+                await localVideo.play();
+            } catch (error) {
+                console.warn('Local video autoplay failed:', error);
+                setTimeout(() => {
+                    localVideo.play().catch(console.error);
+                }, 1000);
+            }
         }
 
         document.getElementById('connect').style.display = 'none';
@@ -244,16 +250,15 @@ function resetVideoCall() {
     
     if (localVideo) {
         localVideo.srcObject = null;
-        localVideo.load();
     }
     if (remoteVideo) {
         remoteVideo.srcObject = null;
-        remoteVideo.load();
     }
 
     localStream = null;
     remoteStream = null;
     currentRoom = null;
+    iceCandidatesQueue = [];
 
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
