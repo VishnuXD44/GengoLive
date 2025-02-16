@@ -52,7 +52,7 @@ async function createPeerConnection() {
             console.warn('Local stream not available while adding tracks.');
         }
 
-        // Enhanced remote track handler with fallback and delayed play
+        // Enhanced remote track handler with detailed logging and fallback
         peerConnection.ontrack = (event) => {
             console.log('ontrack event fired:', event);
             let stream = event.streams && event.streams[0];
@@ -63,12 +63,15 @@ async function createPeerConnection() {
                 console.warn('No stream provided in event; created fallback stream', stream);
             }
             remoteStream = stream;
+            // Log details about the remote stream tracks
+            console.log("Remote stream video tracks:", remoteStream.getVideoTracks());
+            console.log("Remote stream audio tracks:", remoteStream.getAudioTracks());
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
                 remoteVideo.srcObject = remoteStream;
                 remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.autoplay = true;
-                // Delay play() slightly to allow the element to settle
+                // Delay play() to allow the element to settle
                 setTimeout(() => {
                     remoteVideo.play().then(() => {
                         console.log('Remote video playing successfully');
@@ -305,11 +308,11 @@ function resetVideoCall() {
 
     if (localVideo) {
         localVideo.srcObject = null;
-        localVideo.load();
+        // Avoid calling load() immediately after setting srcObject
     }
     if (remoteVideo) {
         remoteVideo.srcObject = null;
-        remoteVideo.load();
+        // Avoid calling load() here as it might interrupt play()
     }
 
     localStream = null;
