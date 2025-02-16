@@ -111,23 +111,11 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo && event.streams[0]) {
-                // Set stream directly instead of adding tracks
                 remoteVideo.srcObject = event.streams[0];
                 remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
                 
                 try {
-                    // Ensure metadata is loaded
-                    await new Promise((resolve) => {
-                        if (remoteVideo.readyState >= 2) {
-                            resolve();
-                        } else {
-                            remoteVideo.onloadedmetadata = () => resolve();
-                        }
-                    });
-                    
-                    // Add a small delay before playing
-                    await new Promise(resolve => setTimeout(resolve, 100));
                     await remoteVideo.play();
                     showMessage('Connected to peer', 'success');
                 } catch (error) {
@@ -137,7 +125,6 @@ async function createPeerConnection() {
             }
         };
 
-        // Enhanced ICE handling
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
                 console.log('Sending ICE candidate:', event.candidate.type);
@@ -175,12 +162,7 @@ async function createPeerConnection() {
                     break;
                 case 'failed':
                     showMessage('Connection failed', 'error');
-                    // Add delay before reset
-                    setTimeout(() => {
-                        if (peerConnection.connectionState === 'failed') {
-                            resetVideoCall();
-                        }
-                    }, 5000);
+                    setTimeout(resetVideoCall, 2000);
                     break;
             }
         };
@@ -192,6 +174,7 @@ async function createPeerConnection() {
         throw error;
     }
 }
+
 // ============ SOCKET COMMUNICATION FUNCTIONS ============
 function initializeSocket() {
     try {
@@ -224,8 +207,13 @@ function setupSocketListeners() {
         currentRoom = room;
 
         try {
-            await createPeerConnection();
+            if (!peerConnection) {
+                await createPeerConnection();
+            }
+
             if (offer) {
+                // Add delay before creating offer
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 const offerDescription = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
@@ -301,9 +289,13 @@ async function startCall() {
             return;
         }
 
+        // Basic constraints for better compatibility
         const constraints = {
-            video: true,  // Simplified constraints
-            audio: true
+            video: true,
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+            }
         };
 
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -314,8 +306,10 @@ async function startCall() {
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
             
-            // Ensure local video plays
             try {
+                await new Promise((resolve) => {
+                    localVideo.onloadedmetadata = () => resolve();
+                });
                 await localVideo.play();
             } catch (error) {
                 console.warn('Local video autoplay failed:', error);
@@ -323,11 +317,13 @@ async function startCall() {
             }
         }
 
+        // Update UI first
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
+        // Then create connection and initialize socket
         await createPeerConnection();
         await initializeSocket();
     } catch (error) {
@@ -336,32 +332,23 @@ async function startCall() {
         resetVideoCall();
     }
 }
+
 function resetVideoCall() {
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            track.stop();
-        });
-    }
-    if (remoteStream) {
-        remoteStream.getTracks().forEach(track => {
-            track.stop();
-        });
-    }
+    cleanupMediaStream(localStream);
+    cleanupMediaStream(remoteStream);
+
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
+
     if (socket && socket.connected) {
         socket.disconnect();
     }
 
-    localStream = null;
-    remoteStream = null;
-    currentRoom = null;
-    iceCandidatesQueue = [];
-
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
+    
     if (localVideo) {
         localVideo.srcObject = null;
         localVideo.load();
@@ -370,6 +357,11 @@ function resetVideoCall() {
         remoteVideo.srcObject = null;
         remoteVideo.load();
     }
+
+    localStream = null;
+    remoteStream = null;
+    currentRoom = null;
+    iceCandidatesQueue = [];
 
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
@@ -389,6 +381,14 @@ function showMessage(message, type = 'info') {
     messageDiv.className = `message ${type}-message`;
     document.body.appendChild(messageDiv);
     setTimeout(() => messageDiv.remove(), 5000);
+}
+
+function cleanupMediaStream(stream) {
+    if (stream) {
+        stream.getTracks().forEach(track => {
+            track.stop();
+        });
+    }
 }
 
 // ============ EVENT LISTENERS ============
