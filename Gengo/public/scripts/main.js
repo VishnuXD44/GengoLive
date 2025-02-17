@@ -32,6 +32,7 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Add local tracks first
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -39,44 +40,32 @@ async function createPeerConnection() {
             });
         }
 
-        // Add transceivers first
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+        // Remove transceivers - they might be causing issues
+        // peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        // peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
 
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use the stream directly from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
+                remoteVideo.setAttribute('autoplay', true);
 
-                // Only attempt to play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    const playVideo = async () => {
-                        try {
-                            // Wait for metadata to load
-                            await new Promise((resolve) => {
-                                if (remoteVideo.readyState >= 2) {
-                                    resolve();
-                                } else {
-                                    remoteVideo.onloadedmetadata = () => resolve();
-                                }
-                            });
-                            await remoteVideo.play();
-                            console.log('Remote video playing successfully');
-                        } catch (error) {
-                            console.warn('Remote video autoplay failed:', error);
-                            setTimeout(playVideo, 1000);
-                        }
-                    };
-                    playVideo();
-                }
+                // Play video when we receive tracks
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed:', error);
+                        // Try again after a delay
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
@@ -89,7 +78,9 @@ async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
+            if (peerConnection.iceConnectionState === 'connected') {
+                console.log('ICE Connected');
+            } else if (peerConnection.iceConnectionState === 'failed') {
                 console.log('ICE Failed - Restarting');
                 peerConnection.restartIce();
             }
@@ -174,13 +165,11 @@ function setupSocketListeners() {
             while (iceCandidatesQueue.length > 0) {
                 const candidate = iceCandidatesQueue.shift();
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added queued ICE candidate');
             }
             
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
-            console.log('Sent answer');
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Error handling offer', 'error');
