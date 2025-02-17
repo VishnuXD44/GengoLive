@@ -31,10 +31,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add transceivers first
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         // Add local tracks first
         if (localStream) {
             localStream.getTracks().forEach(track => {
@@ -42,6 +38,10 @@ async function createPeerConnection() {
                 console.log('Added local track:', track.kind);
             });
         }
+
+        // Add transceivers first
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
 
         // Remove transceivers - they might be causing issues
         // peerConnection.addTransceiver('video', {direction: 'sendrecv'});
@@ -51,26 +51,22 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use the stream directly from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.muted = false;
-
-                // Only try to play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                        // Add user gesture requirement
-                        document.addEventListener('click', () => {
-                            remoteVideo.play();
-                        }, { once: true });
-                    });
-                }
+                remoteVideo.muted = false;  // Ensure audio is not muted
+                
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed, retrying:', error);
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
@@ -143,7 +139,10 @@ function setupSocketListeners() {
             await createPeerConnection();
             
             if (offer) {
-                const offerDescription = await peerConnection.createOffer();
+                const offerDescription = await peerConnection.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
                 console.log('Sent offer');
