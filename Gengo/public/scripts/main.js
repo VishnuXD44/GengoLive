@@ -47,24 +47,36 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Directly use the stream from the event
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('autoplay', '');
 
-                // Ensure video plays
-                const playVideo = async () => {
-                    try {
-                        await remoteVideo.play();
-                        console.log('Remote video playing');
-                    } catch (error) {
-                        console.warn('Remote video autoplay failed:', error);
-                        // Retry after a short delay
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-                playVideo();
+                // Only attempt to play when we have both tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    const playVideo = async () => {
+                        try {
+                            // Wait for metadata to load
+                            await new Promise((resolve) => {
+                                if (remoteVideo.readyState >= 2) {
+                                    resolve();
+                                } else {
+                                    remoteVideo.onloadedmetadata = () => resolve();
+                                }
+                            });
+                            await remoteVideo.play();
+                            console.log('Remote video playing successfully');
+                        } catch (error) {
+                            console.warn('Remote video autoplay failed:', error);
+                            setTimeout(playVideo, 1000);
+                        }
+                    };
+                    playVideo();
+                }
             }
         };
 
