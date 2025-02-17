@@ -5,26 +5,21 @@ let peerConnection;
 let socket;
 let currentRoom;
 let iceCandidatesQueue = [];
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        },
         {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        }
+        },
+        // Add multiple TURN servers for reliability
     ],
-    iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all',
+    iceTransportPolicy: 'all',  // Try both UDP and TCP
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -82,6 +77,25 @@ async function checkMediaPermissions() {
     }
 }
 
+async function setVideoQuality(quality = 'medium') {
+    const qualities = {
+        low: { width: 320, height: 240, frameRate: 15 },
+        medium: { width: 640, height: 480, frameRate: 30 },
+        high: { width: 1280, height: 720, frameRate: 30 }
+    };
+
+    if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            await videoTrack.applyConstraints({
+                width: { ideal: qualities[quality].width },
+                height: { ideal: qualities[quality].height },
+                frameRate: { ideal: qualities[quality].frameRate }
+            });
+        }
+    }
+}
+
 // ============ WEBRTC CONNECTION FUNCTIONS ============
 async function createPeerConnection() {
     try {
@@ -97,14 +111,22 @@ async function createPeerConnection() {
         peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+            if (remoteVideo) {
+                // Important: Set srcObject to the entire stream, not individual tracks
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = event.streams[0];
+                    remoteStream = event.streams[0];
+                }
+                // Remove muted attribute from remote video
+                remoteVideo.muted = false;
+                
                 try {
+                    // Force play when track is received
                     await remoteVideo.play();
                     showMessage('Connected to peer', 'success');
                 } catch (error) {
                     console.warn('Remote video autoplay failed:', error);
+                    // Add manual play button for mobile browsers
                     addPlayButton(remoteVideo);
                 }
             }
@@ -134,8 +156,7 @@ async function createPeerConnection() {
                     break;
                 case 'disconnected':
                 case 'failed':
-                    showMessage('Connection failed', 'error');
-                    resetVideoCall();
+                    handleDisconnection();
                     break;
             }
         };
@@ -309,6 +330,20 @@ function leaveCall() {
     showMessage('Call ended', 'info');
 }
 
+function handleDisconnection() {
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        showMessage("Connection lost, attempting to reconnect...", "info");
+        reconnectAttempts++;
+        setTimeout(() => {
+            resetVideoCall();
+            startCall();
+        }, 2000);
+    } else {
+        showMessage("Unable to reconnect. Please try again later.", "error");
+        resetVideoCall();
+    }
+}
+
 // ============ UI FUNCTIONS ============
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
@@ -332,3 +367,22 @@ document.addEventListener('DOMContentLoaded', () => {
         leaveButton.style.display = 'none';
     }
 });
+
+// ============ CONNECTION QUALITY MONITORING ============
+function monitorConnectionQuality() {
+    if (peerConnection) {
+        peerConnection.getStats(null).then(stats => {
+            stats.forEach(report => {
+                if (report.type === "inbound-rtp" && report.kind === "video") {
+                    // Monitor packet loss
+                    if (report.packetsLost > 100) {
+                        showMessage("Poor connection quality", "warning");
+                    }
+                }
+            });
+        });
+    }
+}
+
+// Call every 3 seconds
+setInterval(monitorConnectionQuality, 3000);
