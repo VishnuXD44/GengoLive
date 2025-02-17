@@ -219,30 +219,94 @@ function setupSocketListeners() {
 }
 
 // ============ CALL MANAGEMENT FUNCTIONS ============
-async function startCall() {
+async function checkMediaPermissions() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
+        // Only check if the API exists
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Media devices not supported');
+        }
+
+        // Try to get permissions
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
         });
+
+        // Stop the test stream immediately
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+    } catch (error) {
+        console.error('Permission check error:', error);
+        showMessage('Camera and microphone access required', 'error');
+        return false;
+    }
+}
+
+async function startCall() {
+    try {
+        // First check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Media devices not supported');
+        }
+
+        // Try to get user media with more specific constraints for mobile
+        const constraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            },
+            video: {
+                facingMode: 'user',
+                width: { ideal: 640, max: 1280 },
+                height: { ideal: 480, max: 720 }
+            }
+        };
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (mediaError) {
+            console.warn('Failed with ideal constraints, trying basic setup:', mediaError);
+            // Fallback to basic constraints
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
+            });
+        }
 
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            await localVideo.play();
+            
+            // Wait for metadata before playing
+            try {
+                await new Promise((resolve) => {
+                    if (localVideo.readyState >= 2) {
+                        resolve();
+                    } else {
+                        localVideo.onloadedmetadata = () => resolve();
+                    }
+                });
+                await localVideo.play();
+            } catch (playError) {
+                console.warn('Local video play failed, retrying:', playError);
+                setTimeout(() => localVideo.play(), 1000);
+            }
         }
 
+        // Update UI first
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
+        // Then initialize connection
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access camera/microphone', 'error');
+        showMessage('Please ensure camera and microphone permissions are granted', 'error');
         resetVideoCall();
     }
 }
@@ -303,7 +367,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const leaveButton = document.getElementById('leave');
     
     if (connectButton) {
-        connectButton.addEventListener('click', startCall);
+        connectButton.addEventListener('click', async () => {
+            const hasPermissions = await checkMediaPermissions();
+            if (hasPermissions) {
+                startCall();
+            }
+        });
     }
     
     if (leaveButton) {
