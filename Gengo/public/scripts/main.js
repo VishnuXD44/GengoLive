@@ -32,11 +32,10 @@ const configuration = {
 // ============ MEDIA HANDLING FUNCTIONS ============
 async function checkMediaPermissions() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-        });
-        stream.getTracks().forEach(track => track.stop());
+        // Only check if the API exists
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Media devices not supported');
+        }
         return true;
     } catch (error) {
         console.error('Permission check error:', error);
@@ -222,32 +221,52 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        const hasPermissions = await checkMediaPermissions();
-        if (!hasPermissions) return;
+        // First check API availability
+        if (await checkMediaPermissions()) {
+            // Try to get media with more specific constraints
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640, max: 1280 },
+                    height: { ideal: 480, max: 720 },
+                    facingMode: 'user'
+                },
+                audio: {
+                    echoCancellation: { ideal: true },
+                    noiseSuppression: { ideal: true }
+                }
+            }).catch(async (err) => {
+                console.warn('Failed with ideal constraints, trying basic setup:', err);
+                // Fallback to basic constraints
+                return await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+            });
 
-        // Simpler constraints for better compatibility
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
+            const localVideo = document.getElementById('localVideo');
+            if (localVideo) {
+                localVideo.srcObject = localStream;
+                localVideo.muted = true;
+                localVideo.setAttribute('playsinline', '');
+                try {
+                    await localVideo.play();
+                } catch (playError) {
+                    console.warn('Local video autoplay failed:', playError);
+                    // Try playing again after a short delay
+                    setTimeout(() => localVideo.play(), 1000);
+                }
+            }
 
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            localVideo.muted = true;
-            localVideo.setAttribute('playsinline', '');
-            await localVideo.play();
+            document.getElementById('connect').style.display = 'none';
+            document.getElementById('leave').style.display = 'block';
+            document.querySelector('.selection-container').style.display = 'none';
+            document.querySelector('.video-container').style.display = 'grid';
+
+            await initializeSocket();
         }
-
-        document.getElementById('connect').style.display = 'none';
-        document.getElementById('leave').style.display = 'block';
-        document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'grid';
-
-        await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access camera/microphone', 'error');
+        showMessage('Failed to access camera/microphone. Please ensure permissions are granted.', 'error');
         resetVideoCall();
     }
 }
