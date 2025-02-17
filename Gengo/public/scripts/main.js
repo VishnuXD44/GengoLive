@@ -35,7 +35,6 @@ async function checkMediaPermissions() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('Media devices not supported');
         }
-        // Actually test media access
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => track.stop());
         return true;
@@ -59,30 +58,27 @@ async function createPeerConnection() {
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
-                console.log('Added local track:', track.kind);
+                console.log('✅ Added local track:', track.kind);
             });
         }
 
         peerConnection.ontrack = (event) => {
-            console.log('Received remote track:', event.track.kind);
+            console.log('📡 Received remote track:', event.track.kind);
+            if (!remoteStream) {
+                remoteStream = new MediaStream();
+            }
+            remoteStream.addTrack(event.track);
+            
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                remoteVideo.srcObject = remoteStream;
                 remoteVideo.setAttribute('playsinline', '');
+                console.log('🎥 Remote video stream set');
 
-                // Play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                        setTimeout(() => remoteVideo.play(), 1000);
-                    });
-                }
+                remoteVideo.play().catch(error => {
+                    console.warn('🚨 Remote video autoplay failed:', error);
+                    setTimeout(() => remoteVideo.play(), 1000);
+                });
             }
         };
 
@@ -90,25 +86,6 @@ async function createPeerConnection() {
             if (event.candidate && currentRoom) {
                 console.log('Sending ICE candidate:', event.candidate.type);
                 socket.emit('candidate', event.candidate, currentRoom);
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
-                peerConnection.restartIce();
-            } else if (peerConnection.iceConnectionState === 'connected') {
-                console.log('ICE connection established');
-            }
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                console.log('Peer connection established');
-            } else if (peerConnection.connectionState === 'failed') {
-                console.log('Peer connection failed');
-                resetVideoCall();
             }
         };
 
@@ -141,174 +118,73 @@ function initializeSocket() {
     } catch (error) {
         console.error('Socket initialization error:', error);
         showMessage('Failed to connect to server', 'error');
-        resetVideoCall();
     }
 }
 
 function setupSocketListeners() {
     socket.on('match', async ({ offer, room }) => {
-        console.log(`Matched in room: ${room}, initiating offer: ${offer}`);
+        console.log(`🤝 Matched in room: ${room}, initiating offer: ${offer}`);
         currentRoom = room;
-
-        try {
-            await createPeerConnection();
-            
-            if (offer) {
-                const offerDescription = await peerConnection.createOffer({
-                    offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
-                });
-                await peerConnection.setLocalDescription(offerDescription);
-                socket.emit('offer', offerDescription, room);
-                console.log('Sent offer');
-            }
-        } catch (error) {
-            console.error('Error in match:', error);
-            showMessage('Connection error', 'error');
+        await createPeerConnection();
+        
+        if (offer) {
+            console.log('🎬 Creating offer...');
+            const offerDescription = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offerDescription);
+            socket.emit('offer', offerDescription, room);
+            console.log('📤 Sent offer');
+        } else {
+            console.log('🛑 Waiting for offer...');
         }
     });
 
     socket.on('offer', async (offer) => {
-        try {
-            if (!peerConnection) {
-                await createPeerConnection();
-            }
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            
-            // Process any queued candidates
-            while (iceCandidatesQueue.length > 0) {
-                const candidate = iceCandidatesQueue.shift();
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added queued ICE candidate');
-            }
-            
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer, currentRoom);
-            console.log('Sent answer');
-        } catch (error) {
-            console.error('Error handling offer:', error);
-            showMessage('Error handling offer', 'error');
+        if (!peerConnection) {
+            await createPeerConnection();
         }
-    });
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        console.log('📩 Set remote offer description');
 
-    socket.on('answer', async (answer) => {
-        try {
-            if (peerConnection) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                console.log('Set remote description from answer');
-            }
-        } catch (error) {
-            console.error('Error handling answer:', error);
-            showMessage('Error handling answer', 'error');
+        while (iceCandidatesQueue.length > 0) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(iceCandidatesQueue.shift()));
         }
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('answer', answer, currentRoom);
     });
 
     socket.on('candidate', async (candidate) => {
-        try {
-            if (peerConnection && peerConnection.remoteDescription) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log('Added ICE candidate');
-            } else {
-                iceCandidatesQueue.push(candidate);
-                console.log('Queued ICE candidate');
-            }
-        } catch (error) {
-            console.error('Error handling ICE candidate:', error);
+        if (peerConnection && peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+            iceCandidatesQueue.push(candidate);
         }
-    });
-
-    socket.on('user-disconnected', () => {
-        showMessage('Peer disconnected', 'info');
-        resetVideoCall();
     });
 }
 
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        const hasPermissions = await checkMediaPermissions();
-        if (!hasPermissions) return;
-
-        // Get media stream with basic constraints first
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
+        if (!await checkMediaPermissions()) return;
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
         const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            localVideo.muted = true;
-            localVideo.setAttribute('playsinline', '');
-            
-            // Wait for metadata before playing
-            await new Promise((resolve) => {
-                if (localVideo.readyState >= 2) {
-                    resolve();
-                } else {
-                    localVideo.onloadedmetadata = () => resolve();
-                }
-            });
-            
-            try {
-                await localVideo.play();
-            } catch (error) {
-                console.warn('Local video autoplay failed:', error);
-                // Add small delay and try again
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                await localVideo.play();
-            }
-        }
-
-        // Update UI after successful media setup
-        document.getElementById('connect').style.display = 'none';
-        document.getElementById('leave').style.display = 'block';
-        document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'grid';
+        localVideo.srcObject = localStream;
+        localVideo.muted = true;
+        await localVideo.play();
 
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access media devices. Please ensure permissions are granted.', 'error');
-        resetVideoCall();
     }
 }
 
 function resetVideoCall() {
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-    if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
-    }
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    if (socket) {
-        socket.disconnect();
-    }
-
-    const localVideo = document.getElementById('localVideo');
-    const remoteVideo = document.getElementById('remoteVideo');
-    
-    if (localVideo) {
-        localVideo.srcObject = null;
-    }
-    if (remoteVideo) {
-        remoteVideo.srcObject = null;
-    }
-
-    localStream = null;
-    remoteStream = null;
-    currentRoom = null;
-    iceCandidatesQueue = [];
-
-    document.querySelector('.video-container').style.display = 'none';
-    document.querySelector('.selection-container').style.display = 'flex';
-    document.getElementById('connect').style.display = 'block';
-    document.getElementById('leave').style.display = 'none';
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
+    if (remoteStream) remoteStream.getTracks().forEach(track => track.stop());
+    if (peerConnection) peerConnection.close();
+    if (socket) socket.disconnect();
 }
 
 function leaveCall() {
@@ -316,26 +192,8 @@ function leaveCall() {
     showMessage('Call ended', 'info');
 }
 
-// ============ UI FUNCTIONS ============
-function showMessage(message, type = 'info') {
-    const messageDiv = document.createElement('div');
-    messageDiv.textContent = message;
-    messageDiv.className = `message ${type}-message`;
-    document.body.appendChild(messageDiv);
-    setTimeout(() => messageDiv.remove(), 5000);
-}
-
 // ============ EVENT LISTENERS ============
 document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connect');
-    const leaveButton = document.getElementById('leave');
-    
-    if (connectButton) {
-        connectButton.addEventListener('click', startCall);
-    }
-    
-    if (leaveButton) {
-        leaveButton.addEventListener('click', leaveCall);
-        leaveButton.style.display = 'none';
-    }
+    document.getElementById('connect').addEventListener('click', startCall);
+    document.getElementById('leave').addEventListener('click', leaveCall);
 });
