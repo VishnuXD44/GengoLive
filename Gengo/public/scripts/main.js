@@ -15,7 +15,7 @@ const configuration = {
         }
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'relay', // Changed from 'relay' to allow STUN
+    iceTransportPolicy: 'relay',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -42,52 +42,44 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Create new MediaStream if it doesn't exist
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                
-                // Add the track to the stream
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
-                
-                // Set video attributes
+                // Use event stream directly
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+                console.log('Set remote stream:', remoteStream.getTracks().map(t => t.kind));
+
+                // Set required attributes
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.muted = true; // Initially mute to allow autoplay
+                remoteVideo.setAttribute('autoplay', '');
+                remoteVideo.muted = false;
 
-                // Only try to play when we have both audio and video tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    
-                    // Create a single play attempt function
-                    const attemptPlay = async () => {
-                        try {
-                            // Wait for metadata
-                            await new Promise((resolve) => {
-                                if (remoteVideo.readyState >= 2) {
-                                    resolve();
-                                } else {
-                                    remoteVideo.onloadedmetadata = () => resolve();
-                                }
-                            });
-                            
-                            await remoteVideo.play();
-                            remoteVideo.muted = false; // Unmute after successful play
-                            console.log('Remote video playing successfully');
-                        } catch (error) {
-                            console.warn('Remote video play failed:', error);
-                            // Add user interaction fallback
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video play failed:', error);
+                        if (error.name === 'NotAllowedError') {
+                            // Handle autoplay restriction
                             document.addEventListener('click', () => {
-                                remoteVideo.play().then(() => {
-                                    remoteVideo.muted = false;
-                                });
+                                remoteVideo.play().catch(console.error);
                             }, { once: true });
+                        } else {
+                            // Retry after delay for other errors
+                            setTimeout(playVideo, 1000);
                         }
-                    };
+                    }
+                };
 
-                    attemptPlay();
-                }
+                // Monitor connection state
+                peerConnection.addEventListener('connectionstatechange', () => {
+                    console.log('Connection state changed:', peerConnection.connectionState);
+                    if (peerConnection.connectionState === 'connected') {
+                        playVideo();
+                    }
+                });
+
+                // Initial play attempt
+                playVideo();
             }
         };
 
