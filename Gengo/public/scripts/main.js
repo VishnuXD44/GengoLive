@@ -48,24 +48,28 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Use the stream directly from the event
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('autoplay', true);
 
-                // Play video when we receive tracks
-                const playVideo = async () => {
-                    try {
-                        await remoteVideo.play();
-                        console.log('Remote video playing successfully');
-                    } catch (error) {
-                        console.warn('Remote video autoplay failed:', error);
-                        // Try again after a delay
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-                playVideo();
+                // Only try to play when we have both tracks
+                if (stream.getTracks().length === 2) { 
+                    console.log('Both tracks received, attempting to play');
+                    // Wait for metadata before playing
+                    remoteVideo.addEventListener('loadedmetadata', () => {
+                        remoteVideo.play().catch(error => {
+                            console.warn('Remote video autoplay failed:', error);
+                            // Try again after user interaction
+                            document.addEventListener('click', () => {
+                                remoteVideo.play();
+                            }, { once: true });
+                        });
+                    });
+                }
             }
         };
 

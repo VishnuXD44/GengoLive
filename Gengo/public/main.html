@@ -54,7 +54,7 @@
                     <video id="localVideo" playsinline autoplay></video>
                 </div>
                 <div class="video-wrapper">
-                    <video id="remoteVideo" playsinline ></video>
+                    <video id="remoteVideo" playsinline autoplay muted ></video>
                 </div>
             </div>
         </div>
@@ -62,5 +62,35 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="scripts/language-animation.js"></script>
     <script src="scripts/main.js"></script>
+    <script>
+        peerConnection.ontrack = (event) => {
+            console.log('Received remote track:', event.track.kind);
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
+                remoteVideo.setAttribute('playsinline', '');
+
+                // Only try to play when we have both tracks
+                if (stream.getTracks().length === 2) { 
+                    console.log('Both tracks received, attempting to play');
+                    // Wait for metadata before playing
+                    remoteVideo.addEventListener('loadedmetadata', () => {
+                        remoteVideo.play().catch(error => {
+                            console.warn('Remote video autoplay failed:', error);
+                            // Try again after user interaction
+                            document.addEventListener('click', () => {
+                                remoteVideo.play();
+                            }, { once: true });
+                        });
+                    });
+                }
+            }
+        };
+    </script>
 </body>
 </html>
