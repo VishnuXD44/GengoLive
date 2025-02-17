@@ -9,9 +9,9 @@ let iceCandidatesQueue = [];
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun1.l.google.com:19302' },
+        { urls: 'stun2.l.google.com:19302' },
+        { urls: 'stun3.l.google.com:19302' },
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -32,7 +32,6 @@ const configuration = {
 // ============ MEDIA HANDLING FUNCTIONS ============
 async function checkMediaPermissions() {
     try {
-        // Only check if the API exists
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('Media devices not supported');
         }
@@ -53,6 +52,13 @@ async function createPeerConnection() {
 
     try {
         peerConnection = new RTCPeerConnection(configuration);
+        remoteStream = new MediaStream();
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) {
+            remoteVideo.srcObject = remoteStream;
+            remoteVideo.setAttribute('playsinline', '');
+            remoteVideo.setAttribute('autoplay', '');
+        }
 
         // Add transceivers before adding tracks
         peerConnection.addTransceiver('video', {direction: 'sendrecv'});
@@ -65,36 +71,23 @@ async function createPeerConnection() {
             });
         }
 
-        // Update the ontrack handler in createPeerConnection function
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
+            remoteStream.addTrack(event.track);
+            
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Use the stream directly from the event
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
-                remoteVideo.setAttribute('playsinline', '');
-
-                // Ensure video plays when tracks are added
-                const playVideo = async () => {
-                    try {
-                        // Wait for loadedmetadata event
-                        await new Promise((resolve) => {
-                            if (remoteVideo.readyState >= 2) {
-                                resolve();
-                            } else {
-                                remoteVideo.onloadedmetadata = () => resolve();
-                            }
+                // Try to play when we have both audio and video tracks
+                if (remoteStream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    const playPromise = remoteVideo.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.warn('Remote video autoplay failed:', error);
+                            createPlayButton(remoteVideo);
                         });
-                        await remoteVideo.play();
-                        console.log('Remote video playing successfully');
-                    } catch (error) {
-                        console.warn('Remote video autoplay failed, retrying:', error);
-                        // Retry after a delay
-                        setTimeout(playVideo, 1000);
                     }
-                };
-                playVideo();
+                }
             }
         };
 
@@ -108,7 +101,7 @@ async function createPeerConnection() {
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
-                peerConnection.restartIce();
+                handleConnectionFailure();
             } else if (peerConnection.iceConnectionState === 'connected') {
                 console.log('ICE connection established');
             }
@@ -120,7 +113,7 @@ async function createPeerConnection() {
                 console.log('Peer connection established');
             } else if (peerConnection.connectionState === 'failed') {
                 console.log('Peer connection failed');
-                resetVideoCall();
+                handleConnectionFailure();
             }
         };
 
@@ -130,6 +123,38 @@ async function createPeerConnection() {
         showMessage('Error creating connection', 'error');
         throw error;
     }
+}
+
+function handleConnectionFailure() {
+    console.log('Connection failed, attempting recovery...');
+    setTimeout(async () => {
+        try {
+            if (peerConnection) {
+                await peerConnection.restartIce();
+                console.log('ICE restart initiated');
+            }
+        } catch (error) {
+            console.error('Failed to recover connection:', error);
+            showMessage('Connection lost. Please try reconnecting.', 'error');
+            resetVideoCall();
+        }
+    }, 1000);
+}
+
+function createPlayButton(videoElement) {
+    const existingButton = videoElement.parentElement.querySelector('.play-button');
+    if (existingButton) {
+        existingButton.remove();
+    }
+
+    const playButton = document.createElement('button');
+    playButton.textContent = 'Play Video';
+    playButton.className = 'play-button';
+    playButton.onclick = () => {
+        videoElement.play().catch(console.error);
+        playButton.remove();
+    };
+    videoElement.parentElement.appendChild(playButton);
 }
 
 // ============ SOCKET COMMUNICATION FUNCTIONS ============
@@ -164,10 +189,7 @@ function setupSocketListeners() {
 
         try {
             await createPeerConnection();
-            
             if (offer) {
-                // Add delay before creating offer
-                await new Promise(resolve => setTimeout(resolve, 1000));
                 const offerDescription = await peerConnection.createOffer({
                     offerToReceiveAudio: true,
                     offerToReceiveVideo: true
@@ -192,6 +214,13 @@ function setupSocketListeners() {
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
             console.log('Sent answer');
+
+            // Process any queued candidates after setting remote description
+            while (iceCandidatesQueue.length > 0) {
+                const candidate = iceCandidatesQueue.shift();
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added queued ICE candidate');
+            }
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Error handling offer', 'error');
@@ -233,49 +262,49 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        // First check API availability
         if (await checkMediaPermissions()) {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,  // Simplified constraints
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640, max: 1280 },
+                    height: { ideal: 480, max: 720 },
+                    facingMode: 'user'
+                },
+                audio: {
+                    echoCancellation: { ideal: true },
+                    noiseSuppression: { ideal: true }
+                }
+            }).catch(async (err) => {
+                console.warn('Failed with ideal constraints, trying basic setup:', err);
+                return await navigator.mediaDevices.getUserMedia({
+                    video: true,
                     audio: true
                 });
+            });
 
-                const localVideo = document.getElementById('localVideo');
-                if (localVideo) {
-                    localVideo.srcObject = localStream;
-                    localVideo.muted = true;
-                    localVideo.setAttribute('playsinline', '');
-                    
-                    // Wait for metadata before playing
-                    await new Promise((resolve) => {
-                        if (localVideo.readyState >= 2) {
-                            resolve();
-                        } else {
-                            localVideo.onloadedmetadata = () => resolve();
-                        }
-                    });
-                    
+            const localVideo = document.getElementById('localVideo');
+            if (localVideo) {
+                localVideo.srcObject = localStream;
+                localVideo.muted = true;
+                localVideo.setAttribute('playsinline', '');
+                localVideo.setAttribute('autoplay', '');
+                try {
                     await localVideo.play();
+                } catch (playError) {
+                    console.warn('Local video autoplay failed:', playError);
+                    setTimeout(() => localVideo.play().catch(console.error), 1000);
                 }
-
-                // Update UI first
-                document.getElementById('connect').style.display = 'none';
-                document.getElementById('leave').style.display = 'block';
-                document.querySelector('.selection-container').style.display = 'none';
-                document.querySelector('.video-container').style.display = 'grid';
-
-                // Then initialize connection
-                await initializeSocket();
-            } catch (mediaError) {
-                console.error('Media error:', mediaError);
-                showMessage('Failed to access camera/microphone', 'error');
-                resetVideoCall();
             }
+
+            document.getElementById('connect').style.display = 'none';
+            document.getElementById('leave').style.display = 'block';
+            document.querySelector('.selection-container').style.display = 'none';
+            document.querySelector('.video-container').style.display = 'grid';
+
+            await initializeSocket();
         }
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to start call', 'error');
+        showMessage('Failed to access camera/microphone. Please ensure permissions are granted.', 'error');
         resetVideoCall();
     }
 }
