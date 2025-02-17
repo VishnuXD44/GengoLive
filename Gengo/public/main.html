@@ -49,12 +49,12 @@
                 <button id="connect" class="connect-btn">Connect</button>
                 <button id="leave" class="leave-btn">Leave</button>
             </div>
-            <div class="video-container" style="display: grid;">
+            <!-- Hide video container initially -->
+            <div class="video-container" style="display: none;">
                 <div class="video-wrapper">
                     <video id="localVideo" playsinline autoplay muted></video>
                 </div>
                 <div class="video-wrapper">
-                    <!-- Remove muted attribute for remote video -->
                     <video id="remoteVideo" playsinline autoplay></video>
                 </div>
             </div>

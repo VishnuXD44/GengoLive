@@ -112,23 +112,26 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Important: Set srcObject to the entire stream, not individual tracks
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = event.streams[0];
-                    remoteStream = event.streams[0];
-                }
-                // Remove muted attribute from remote video
-                remoteVideo.muted = false;
+                remoteStream = event.streams[0];
+                remoteVideo.srcObject = remoteStream;
+                
+                // Ensure video track is enabled
+                event.track.enabled = true;
+                
+                // Force a layout refresh
+                remoteVideo.style.display = 'none';
+                remoteVideo.offsetHeight; // Force reflow
+                remoteVideo.style.display = 'block';
                 
                 try {
-                    // Force play when track is received
                     await remoteVideo.play();
-                    showMessage('Connected to peer', 'success');
+                    console.log('Remote video playing');
                 } catch (error) {
                     console.warn('Remote video autoplay failed:', error);
-                    // Add manual play button for mobile browsers
                     addPlayButton(remoteVideo);
                 }
+
+                addVideoFallback(remoteVideo);
             }
         };
 
@@ -140,11 +143,13 @@ async function createPeerConnection() {
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'disconnected' || 
-                peerConnection.iceConnectionState === 'failed') {
-                showMessage('Connection lost. Please try again.', 'error');
-                resetVideoCall();
+            console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            console.log('Connection State:', peerConnection.connectionState);
+            console.log('Signaling State:', peerConnection.signalingState);
+            
+            if (peerConnection.iceConnectionState === 'connected') {
+                console.log('Remote streams:', peerConnection.getRemoteStreams());
+                console.log('Local streams:', peerConnection.getLocalStreams());
             }
         };
 
@@ -224,6 +229,8 @@ function setupSocketListeners() {
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
+            const modifiedAnswer = await setBandwidthConstraints(answer.sdp);
+            answer.sdp = modifiedAnswer;
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
             console.log('Sent answer');
@@ -264,30 +271,48 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
+        // Show loading state
+        const connectBtn = document.getElementById('connect');
+        connectBtn.disabled = true;
+        connectBtn.classList.add('loading');
+
+        // Check permissions first before showing video containers
         const hasPermissions = await checkMediaPermissions();
         if (!hasPermissions) {
             showMessage('Camera and microphone access required', 'error');
+            connectBtn.disabled = false;
+            connectBtn.classList.remove('loading');
             return;
         }
 
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 30 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
         });
 
+        // Only show video container after successful media access
+        document.querySelector('.video-container').style.display = 'grid';
+        document.querySelector('.selection-container').style.display = 'none';
+        
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
-            localVideo.muted = true;
             await playVideo(localVideo);
         }
 
-        document.getElementById('connect').style.display = 'none';
+        connectBtn.style.display = 'none';
         document.getElementById('leave').style.display = 'block';
-        document.querySelector('.selection-container').style.display = 'none';
-        document.querySelector('.video-container').style.display = 'grid';
 
         await initializeSocket();
+
     } catch (error) {
         console.error('Error starting call:', error);
         showMessage('Failed to access media devices', 'error');
@@ -386,3 +411,36 @@ function monitorConnectionQuality() {
 
 // Call every 3 seconds
 setInterval(monitorConnectionQuality, 3000);
+
+// ============ BANDWIDTH CONSTRAINTS ============
+async function setBandwidthConstraints(sdp) {
+    const videoBandwidth = 1000; // 1000 kbps
+    const audioBandwidth = 50; // 50 kbps
+
+    const sdpLines = sdp.split('\r\n');
+    const mediaLines = sdpLines.map((line, index) => {
+        if (line.startsWith('m=video')) {
+            sdpLines.splice(index + 1, 0, `b=AS:${videoBandwidth}`);
+        }
+        if (line.startsWith('m=audio')) {
+            sdpLines.splice(index + 1, 0, `b=AS:${audioBandwidth}`);
+        }
+        return line;
+    });
+
+    return mediaLines.join('\r\n');
+}
+
+// ============ VIDEO FALLBACK ============
+function addVideoFallback(videoElement) {
+    videoElement.addEventListener('loadedmetadata', async () => {
+        try {
+            if (videoElement.paused) {
+                await videoElement.play();
+            }
+        } catch (error) {
+            console.warn('Playback failed:', error);
+            addPlayButton(videoElement);
+        }
+    });
+}
