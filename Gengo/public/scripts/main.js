@@ -71,13 +71,22 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.play().catch(error => {
-                    console.warn('Remote video autoplay failed:', error);
-                    setTimeout(() => remoteVideo.play(), 1000);
-                });
+
+                // Play when we have both audio and video tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    remoteVideo.play().catch(error => {
+                        console.warn('Remote video autoplay failed:', error);
+                        setTimeout(() => remoteVideo.play(), 1000);
+                    });
+                }
             }
         };
 
@@ -148,12 +157,9 @@ function setupSocketListeners() {
         try {
             await createPeerConnection();
             if (offer) {
-                // Add delay before creating offer
-                await new Promise(resolve => setTimeout(resolve, 1000));
                 const offerDescription = await peerConnection.createOffer({
                     offerToReceiveAudio: true,
-                    offerToReceiveVideo: true,
-                    voiceActivityDetection: false
+                    offerToReceiveVideo: true
                 });
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
@@ -219,16 +225,10 @@ async function startCall() {
         const hasPermissions = await checkMediaPermissions();
         if (!hasPermissions) return;
 
+        // Simpler constraints for better compatibility
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'user',
-                width: { ideal: 640, max: 1280 },
-                height: { ideal: 480, max: 720 }
-            },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true
-            }
+            video: true,
+            audio: true
         });
 
         const localVideo = document.getElementById('localVideo');
@@ -236,32 +236,14 @@ async function startCall() {
             localVideo.srcObject = localStream;
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
-            
-            // Wait for metadata to load before playing
-            try {
-                await new Promise((resolve) => {
-                    if (localVideo.readyState >= 2) {
-                        resolve();
-                    } else {
-                        localVideo.onloadedmetadata = () => resolve();
-                    }
-                });
-                await localVideo.play();
-            } catch (error) {
-                console.warn('Local video play failed, retrying:', error);
-                // Add a small delay and try again
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                await localVideo.play();
-            }
+            await localVideo.play();
         }
 
-        // Update UI first
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
         document.querySelector('.video-container').style.display = 'grid';
 
-        // Then initialize connection
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
@@ -269,6 +251,7 @@ async function startCall() {
         resetVideoCall();
     }
 }
+
 function resetVideoCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
