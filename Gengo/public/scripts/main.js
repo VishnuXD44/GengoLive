@@ -12,9 +12,6 @@ const configuration = {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        },
-        {
-            urls: 'stun:stun.l.google.com:19302'
         }
     ],
     iceCandidatePoolSize: 10,
@@ -45,35 +42,20 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use the stream directly from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-
-                // Only attempt to play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    const playVideo = async () => {
-                        try {
-                            await new Promise((resolve) => {
-                                if (remoteVideo.readyState >= 2) {
-                                    resolve();
-                                } else {
-                                    remoteVideo.onloadedmetadata = () => resolve();
-                                }
-                            });
-                            await remoteVideo.play();
-                            console.log('Remote video playing successfully');
-                        } catch (error) {
-                            console.warn('Remote video play failed:', error);
-                            setTimeout(playVideo, 1000);
-                        }
-                    };
-                    playVideo();
-                }
+                remoteVideo.setAttribute('autoplay', '');
+                
+                // Simple play attempt with retry
+                const playVideo = () => {
+                    remoteVideo.play().catch(error => {
+                        console.warn('Remote video play failed:', error);
+                        setTimeout(playVideo, 1000);
+                    });
+                };
+                playVideo();
             }
         };
 
