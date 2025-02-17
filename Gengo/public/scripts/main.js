@@ -56,10 +56,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add transceivers before adding tracks
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -67,33 +63,26 @@ async function createPeerConnection() {
             });
         }
 
-        // Update the ontrack handler in createPeerConnection function
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
-                
-                // Play when metadata is loaded
-                const playVideo = async () => {
-                    try {
-                        await new Promise((resolve) => {
-                            if (remoteVideo.readyState >= 2) {
-                                resolve();
-                            } else {
-                                remoteVideo.onloadedmetadata = () => resolve();
-                            }
-                        });
-                        await remoteVideo.play();
-                        console.log('Remote video playing');
-                    } catch (error) {
-                        console.warn('Remote video play failed, retrying:', error);
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-                playVideo();
+
+                // Play when we have both tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    remoteVideo.play().catch(error => {
+                        console.warn('Remote video autoplay failed:', error);
+                        setTimeout(() => remoteVideo.play(), 1000);
+                    });
+                }
             }
         };
 
