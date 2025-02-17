@@ -56,6 +56,7 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Add tracks before setting up handlers
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -67,22 +68,29 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use the event stream directly instead of creating a new MediaStream
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-
-                // Play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                        setTimeout(() => remoteVideo.play(), 1000);
-                    });
-                }
+                
+                // Play immediately when we receive the stream
+                const playVideo = async () => {
+                    try {
+                        await new Promise((resolve) => {
+                            if (remoteVideo.readyState >= 2) {
+                                resolve();
+                            } else {
+                                remoteVideo.onloadedmetadata = () => resolve();
+                            }
+                        });
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed, retrying:', error);
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
@@ -230,10 +238,23 @@ async function startCall() {
         const hasPermissions = await checkMediaPermissions();
         if (!hasPermissions) return;
 
-        // Get media stream with basic constraints first
+        // More specific constraints for better compatibility
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
+            video: {
+                width: { ideal: 640, max: 1280 },
+                height: { ideal: 480, max: 720 },
+                facingMode: 'user'
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+            }
+        }).catch(async () => {
+            // Fallback to basic constraints if ideal fails
+            return await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
+            });
         });
 
         const localVideo = document.getElementById('localVideo');
@@ -242,7 +263,6 @@ async function startCall() {
             localVideo.muted = true;
             localVideo.setAttribute('playsinline', '');
             
-            // Wait for metadata before playing
             await new Promise((resolve) => {
                 if (localVideo.readyState >= 2) {
                     resolve();
@@ -250,18 +270,9 @@ async function startCall() {
                     localVideo.onloadedmetadata = () => resolve();
                 }
             });
-            
-            try {
-                await localVideo.play();
-            } catch (error) {
-                console.warn('Local video autoplay failed:', error);
-                // Add small delay and try again
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                await localVideo.play();
-            }
+            await localVideo.play();
         }
 
-        // Update UI after successful media setup
         document.getElementById('connect').style.display = 'none';
         document.getElementById('leave').style.display = 'block';
         document.querySelector('.selection-container').style.display = 'none';
@@ -270,7 +281,7 @@ async function startCall() {
         await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access media devices. Please ensure permissions are granted.', 'error');
+        showMessage('Failed to access media devices', 'error');
         resetVideoCall();
     }
 }
