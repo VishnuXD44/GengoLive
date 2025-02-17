@@ -90,10 +90,9 @@ function handleSignaling(socket, io) {
         }
     });
 
-        socket.on('candidate', (candidate, room) => {
+    socket.on('candidate', (candidate, room) => {
         if (activeRooms.has(room)) {
             console.log(`Processing ICE candidate in room: ${room}`);
-            // Ensure the candidate is sent to the other peer in the room
             const roomInfo = activeRooms.get(room);
             const otherUser = roomInfo.users.find(id => id !== socket.id);
             if (otherUser) {
@@ -101,6 +100,7 @@ function handleSignaling(socket, io) {
             }
         }
     });
+
     // Add connection status tracking
     socket.on('connection-status', ({ room, status }) => {
         if (activeRooms.has(room)) {

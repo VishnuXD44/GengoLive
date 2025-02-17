@@ -509,11 +509,11 @@ video {
     height: 100%;
     object-fit: cover;
     background: #2C3E50;
+    transform: scaleX(-1); /* Mirror local video */
 }
 
-video[autoplay] {
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
+#remoteVideo {
+    transform: scaleX(1); /* Don't mirror remote video */
 }
 
 .video-wrapper {
