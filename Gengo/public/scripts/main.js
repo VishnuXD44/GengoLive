@@ -42,25 +42,30 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Set stream directly from event
                 remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-                
-                // Only try to play once when the metadata is loaded
-                remoteVideo.addEventListener('loadedmetadata', () => {
-                    const playPromise = remoteVideo.play();
-                    if (playPromise !== undefined) {
-                        playPromise.catch(error => {
-                            console.warn('Remote video autoplay failed:', error);
-                            // Single click-to-play fallback
-                            const playOnClick = () => {
-                                remoteVideo.play();
-                                document.removeEventListener('click', playOnClick);
-                            };
-                            document.addEventListener('click', playOnClick);
-                        });
+                remoteVideo.muted = false;
+
+                // Handle playback when track is added
+                const playVideo = () => {
+                    if (remoteVideo.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+                        remoteVideo.play()
+                            .then(() => console.log('Remote video playing'))
+                            .catch(error => {
+                                console.warn('Remote video play failed:', error);
+                                // Retry after a short delay
+                                setTimeout(playVideo, 1000);
+                            });
+                    } else {
+                        remoteVideo.addEventListener('loadeddata', () => {
+                            remoteVideo.play()
+                                .catch(() => setTimeout(playVideo, 1000));
+                        }, { once: true });
                     }
-                }, { once: true }); // Ensure event listener only fires once
+                };
+
+                playVideo();
             }
         };
 

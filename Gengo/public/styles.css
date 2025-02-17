@@ -522,7 +522,6 @@ html, body {
     background: var(--dark);
     border-radius: 12px;
     overflow: hidden;
-    transform: translateZ(0); /* Force hardware acceleration */
 }
 
 video {
@@ -530,11 +529,6 @@ video {
     height: 100%;
     object-fit: cover;
     background: #2C3E50;
-    transform: scaleX(-1); /* Mirror local video */
-}
-
-#remoteVideo {
-    transform: scaleX(1); /* Don't mirror remote video */
 }
 
 /* ============ BUTTONS ============ */
