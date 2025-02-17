@@ -55,6 +55,10 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Add transceivers before adding tracks
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -62,25 +66,18 @@ async function createPeerConnection() {
             });
         }
 
+        // Simplified ontrack handler
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteStream = new MediaStream();
-                    remoteVideo.srcObject = remoteStream;
-                }
-                remoteStream.addTrack(event.track);
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-
-                // Only try to play when we have both audio and video tracks
-                if (remoteStream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                        setTimeout(() => remoteVideo.play(), 1000);
-                    });
-                }
+                remoteVideo.play().catch(error => {
+                    console.warn('Remote video autoplay failed:', error);
+                    setTimeout(() => remoteVideo.play(), 1000);
+                });
             }
         };
 
@@ -94,8 +91,19 @@ async function createPeerConnection() {
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
             if (peerConnection.iceConnectionState === 'failed') {
-                console.log('ICE failed, restarting');
                 peerConnection.restartIce();
+            } else if (peerConnection.iceConnectionState === 'connected') {
+                console.log('ICE connection established');
+            }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                console.log('Peer connection established');
+            } else if (peerConnection.connectionState === 'failed') {
+                console.log('Peer connection failed');
+                resetVideoCall();
             }
         };
 
