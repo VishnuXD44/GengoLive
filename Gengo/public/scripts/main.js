@@ -12,11 +12,10 @@ const configuration = {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        },
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        }
     ],
-    iceTransportPolicy: 'relay',  // Force TURN usage
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'relay',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -39,43 +38,36 @@ async function createPeerConnection() {
             });
         }
 
-        // Only add transceivers once
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
-
-                // Set video element attributes
+                // Use the stream directly from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('autoplay', '');
-                remoteVideo.muted = false;
 
-                // Only try to play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    // Wait for metadata before playing
-                    remoteVideo.addEventListener('loadedmetadata', () => {
-                        const playPromise = remoteVideo.play();
-                        if (playPromise !== undefined) {
-                            playPromise.catch(error => {
-                                console.warn('Remote video autoplay failed:', error);
-                                // Add user interaction fallback
-                                document.addEventListener('click', () => {
-                                    remoteVideo.play();
-                                }, { once: true });
-                            });
-                        }
-                    }, { once: true });
-                }
+                const playVideo = async () => {
+                    try {
+                        // Wait for metadata to load
+                        await new Promise((resolve) => {
+                            if (remoteVideo.readyState >= 2) {
+                                resolve();
+                            } else {
+                                remoteVideo.onloadedmetadata = () => resolve();
+                            }
+                        });
+                        
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed:', error);
+                        // Add retry mechanism
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+
+                playVideo();
             }
         };
 
@@ -88,9 +80,7 @@ async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'connected') {
-                console.log('ICE Connected');
-            } else if (peerConnection.iceConnectionState === 'failed') {
+            if (peerConnection.iceConnectionState === 'failed') {
                 console.log('ICE Failed - Restarting');
                 peerConnection.restartIce();
             }
@@ -98,9 +88,7 @@ async function createPeerConnection() {
 
         peerConnection.onconnectionstatechange = () => {
             console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                console.log('Peer connection established');
-            } else if (peerConnection.connectionState === 'failed') {
+            if (peerConnection.connectionState === 'failed') {
                 console.log('Peer connection failed - Resetting');
                 resetVideoCall();
             }
