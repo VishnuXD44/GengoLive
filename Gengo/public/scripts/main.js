@@ -8,16 +8,15 @@ let iceCandidatesQueue = [];
 
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
         {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        }
+        },
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
     ],
-    iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all', // Changed from 'relay' to 'all'
+    iceTransportPolicy: 'relay',  // Force TURN usage
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -31,6 +30,10 @@ async function createPeerConnection() {
 
     try {
         peerConnection = new RTCPeerConnection(configuration);
+
+        // Add transceivers first
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
 
         // Add local tracks first
         if (localStream) {
@@ -48,34 +51,26 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Use event stream directly instead of creating new MediaStream
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.muted = false;
 
-                // Play video when we receive tracks
-                const playVideo = async () => {
-                    try {
-                        // Wait for metadata to load
-                        await new Promise((resolve) => {
-                            if (remoteVideo.readyState >= 2) {
-                                resolve();
-                            } else {
-                                remoteVideo.onloadedmetadata = () => resolve();
-                            }
-                        });
-                        
-                        await remoteVideo.play();
-                        console.log('Remote video playing successfully');
-                    } catch (error) {
+                // Only try to play when we have both tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    remoteVideo.play().catch(error => {
                         console.warn('Remote video autoplay failed:', error);
-                        // Retry with delay
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-
-                playVideo();
+                        // Add user gesture requirement
+                        document.addEventListener('click', () => {
+                            remoteVideo.play();
+                        }, { once: true });
+                    });
+                }
             }
         };
 
@@ -148,12 +143,7 @@ function setupSocketListeners() {
             await createPeerConnection();
             
             if (offer) {
-                // Add delay before creating offer
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const offerDescription = await peerConnection.createOffer({
-                    offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
-                });
+                const offerDescription = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
                 console.log('Sent offer');
