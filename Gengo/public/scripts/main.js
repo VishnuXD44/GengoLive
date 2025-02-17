@@ -32,10 +32,12 @@ const configuration = {
 // ============ MEDIA HANDLING FUNCTIONS ============
 async function checkMediaPermissions() {
     try {
-        // Only check if the API exists
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('Media devices not supported');
         }
+        // Actually test media access
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(track => track.stop());
         return true;
     } catch (error) {
         console.error('Permission check error:', error);
@@ -70,21 +72,28 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
-
-                if (stream.getTracks().length === 2) { // Both audio and video tracks received
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
-                        console.warn('Remote video autoplay failed:', error);
-                        setTimeout(() => remoteVideo.play(), 1000);
-                    });
-                }
+                
+                // Play when metadata is loaded
+                const playVideo = async () => {
+                    try {
+                        await new Promise((resolve) => {
+                            if (remoteVideo.readyState >= 2) {
+                                resolve();
+                            } else {
+                                remoteVideo.onloadedmetadata = () => resolve();
+                            }
+                        });
+                        await remoteVideo.play();
+                        console.log('Remote video playing');
+                    } catch (error) {
+                        console.warn('Remote video play failed, retrying:', error);
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
@@ -229,43 +238,50 @@ function setupSocketListeners() {
 // ============ CALL MANAGEMENT FUNCTIONS ============
 async function startCall() {
     try {
-        if (await checkMediaPermissions()) {
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: 640, max: 1280 },
-                    height: { ideal: 480, max: 720 },
-                    facingMode: 'user'
-                },
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true
-                }
-            }).catch(async (err) => {
-                console.warn('Failed with ideal constraints, trying basic setup:', err);
-                return await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
-            });
+        const hasPermissions = await checkMediaPermissions();
+        if (!hasPermissions) return;
 
-            const localVideo = document.getElementById('localVideo');
-            if (localVideo) {
-                localVideo.srcObject = localStream;
-                localVideo.muted = true;
-                localVideo.setAttribute('playsinline', '');
+        // Get media stream with basic constraints first
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
+
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            localVideo.muted = true;
+            localVideo.setAttribute('playsinline', '');
+            
+            // Wait for metadata before playing
+            await new Promise((resolve) => {
+                if (localVideo.readyState >= 2) {
+                    resolve();
+                } else {
+                    localVideo.onloadedmetadata = () => resolve();
+                }
+            });
+            
+            try {
+                await localVideo.play();
+            } catch (error) {
+                console.warn('Local video autoplay failed:', error);
+                // Add small delay and try again
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 await localVideo.play();
             }
-
-            document.getElementById('connect').style.display = 'none';
-            document.getElementById('leave').style.display = 'block';
-            document.querySelector('.selection-container').style.display = 'none';
-            document.querySelector('.video-container').style.display = 'grid';
-
-            await initializeSocket();
         }
+
+        // Update UI after successful media setup
+        document.getElementById('connect').style.display = 'none';
+        document.getElementById('leave').style.display = 'block';
+        document.querySelector('.selection-container').style.display = 'none';
+        document.querySelector('.video-container').style.display = 'grid';
+
+        await initializeSocket();
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access media devices', 'error');
+        showMessage('Failed to access media devices. Please ensure permissions are granted.', 'error');
         resetVideoCall();
     }
 }
