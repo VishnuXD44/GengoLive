@@ -8,6 +8,8 @@ let iceCandidatesQueue = [];
 
 const configuration = {
     iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
         {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
@@ -15,7 +17,7 @@ const configuration = {
         }
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'relay', // Force TURN usage
+    iceTransportPolicy: 'all', // Changed from 'relay' to 'all'
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -30,10 +32,6 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
-        // Add transceivers first
-        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
@@ -41,32 +39,32 @@ async function createPeerConnection() {
             });
         }
 
+        // Add transceivers first
+        peerConnection.addTransceiver('video', {direction: 'sendrecv'});
+        peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
+
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
-
-                // Set video element attributes
+                // Directly use the stream from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
                 remoteVideo.setAttribute('autoplay', '');
 
-                // Play when we have both tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    remoteVideo.play().catch(error => {
+                // Ensure video plays
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing');
+                    } catch (error) {
                         console.warn('Remote video autoplay failed:', error);
-                        // Force play after interaction
-                        document.addEventListener('click', () => {
-                            remoteVideo.play();
-                        }, { once: true });
-                    });
-                }
+                        // Retry after a short delay
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
