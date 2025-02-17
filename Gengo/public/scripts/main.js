@@ -48,28 +48,24 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                if (!remoteVideo.srcObject) {
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use the stream directly from the event
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
                 remoteVideo.setAttribute('playsinline', '');
+                remoteVideo.muted = false; // Ensure audio is not muted
 
-                // Only try to play when we have both tracks
-                if (stream.getTracks().length === 2) { 
-                    console.log('Both tracks received, attempting to play');
-                    // Wait for metadata before playing
-                    remoteVideo.addEventListener('loadedmetadata', () => {
-                        remoteVideo.play().catch(error => {
-                            console.warn('Remote video autoplay failed:', error);
-                            // Try again after user interaction
-                            document.addEventListener('click', () => {
-                                remoteVideo.play();
-                            }, { once: true });
-                        });
-                    });
-                }
+                // Play as soon as we get the stream
+                const playVideo = async () => {
+                    try {
+                        await remoteVideo.play();
+                        console.log('Remote video playing successfully');
+                    } catch (error) {
+                        console.warn('Remote video autoplay failed:', error);
+                        // Add retry mechanism
+                        setTimeout(playVideo, 1000);
+                    }
+                };
+                playVideo();
             }
         };
 
