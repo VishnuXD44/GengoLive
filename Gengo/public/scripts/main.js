@@ -39,35 +39,43 @@ async function createPeerConnection() {
             });
         }
 
-        // Add transceivers first
+        // Only add transceivers once
         peerConnection.addTransceiver('video', {direction: 'sendrecv'});
         peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
-
-        // Remove transceivers - they might be causing issues
-        // peerConnection.addTransceiver('video', {direction: 'sendrecv'});
-        // peerConnection.addTransceiver('audio', {direction: 'sendrecv'});
 
         peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Use the stream directly from the event
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
+
+                // Set video element attributes
                 remoteVideo.setAttribute('playsinline', '');
+                remoteVideo.setAttribute('autoplay', '');
                 remoteVideo.muted = false;
 
-                // Try to play when we receive the stream
-                const playVideo = async () => {
-                    try {
-                        await remoteVideo.play();
-                        console.log('Remote video playing successfully');
-                    } catch (error) {
-                        console.warn('Remote video autoplay failed:', error);
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-                playVideo();
+                // Only try to play when we have both tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    // Wait for metadata before playing
+                    remoteVideo.addEventListener('loadedmetadata', () => {
+                        const playPromise = remoteVideo.play();
+                        if (playPromise !== undefined) {
+                            playPromise.catch(error => {
+                                console.warn('Remote video autoplay failed:', error);
+                                // Add user interaction fallback
+                                document.addEventListener('click', () => {
+                                    remoteVideo.play();
+                                }, { once: true });
+                            });
+                        }
+                    }, { once: true });
+                }
             }
         };
 
