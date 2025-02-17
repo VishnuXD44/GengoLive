@@ -42,41 +42,35 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Set the remote stream as soon as we get it
-                if (!remoteVideo.srcObject) {
-                    console.log('Setting new remote stream');
-                    remoteVideo.srcObject = new MediaStream();
-                }
-                
-                // Add the track to the stream
-                const stream = remoteVideo.srcObject;
-                stream.addTrack(event.track);
-                remoteStream = stream;
+                // Use event stream directly
+                remoteVideo.srcObject = event.streams[0];
+                remoteStream = event.streams[0];
+                console.log('Set remote stream directly');
 
-                // Set video attributes
+                // Set required attributes
                 remoteVideo.setAttribute('playsinline', '');
-                
-                // Only attempt to play when we have both audio and video tracks
-                if (stream.getTracks().length === 2) {
-                    console.log('Both tracks received, attempting to play');
-                    
-                    // Create a single play attempt function
-                    const attemptPlay = () => {
-                        remoteVideo.play()
-                            .then(() => {
-                                console.log('Remote video playing successfully');
-                                remoteVideo.muted = false;
-                            })
-                            .catch(error => {
-                                console.warn('Remote video play failed:', error);
-                                // Retry after a short delay
-                                setTimeout(attemptPlay, 1000);
-                            });
-                    };
+                remoteVideo.muted = true; // Start muted to bypass autoplay restrictions
 
-                    // Start the first play attempt
-                    attemptPlay();
-                }
+                // Wait for metadata before attempting playback
+                remoteVideo.addEventListener('loadedmetadata', () => {
+                    console.log('Remote video metadata loaded');
+                    
+                    // Attempt playback
+                    remoteVideo.play().then(() => {
+                        console.log('Remote video playing successfully');
+                        remoteVideo.muted = false; // Unmute after successful play
+                    }).catch(error => {
+                        console.warn('Remote video play failed:', error);
+                        // Add user interaction fallback
+                        const playOnClick = () => {
+                            remoteVideo.play().then(() => {
+                                remoteVideo.muted = false;
+                                document.removeEventListener('click', playOnClick);
+                            });
+                        };
+                        document.addEventListener('click', playOnClick);
+                    });
+                }, { once: true });
             }
         };
 
