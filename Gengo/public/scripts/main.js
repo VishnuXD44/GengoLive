@@ -62,26 +62,25 @@ async function createPeerConnection() {
             });
         }
 
-                // In createPeerConnection function, update the ontrack handler:
-            peerConnection.ontrack = (event) => {
+        peerConnection.ontrack = (event) => {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteStream = new MediaStream();
+                    remoteVideo.srcObject = remoteStream;
+                }
+                remoteStream.addTrack(event.track);
                 remoteVideo.setAttribute('playsinline', '');
-                
-                // Play when track is added
-                const playVideo = async () => {
-                    try {
-                        await remoteVideo.play();
-                        console.log('Remote video playing');
-                    } catch (error) {
-                        console.warn('Remote video play failed, retrying:', error);
-                        setTimeout(playVideo, 1000);
-                    }
-                };
-                playVideo();
+
+                // Only try to play when we have both audio and video tracks
+                if (remoteStream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    remoteVideo.play().catch(error => {
+                        console.warn('Remote video autoplay failed:', error);
+                        setTimeout(() => remoteVideo.play(), 1000);
+                    });
+                }
             }
         };
 
@@ -92,13 +91,11 @@ async function createPeerConnection() {
             }
         };
 
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                showMessage('Connected successfully', 'success');
-            } else if (peerConnection.connectionState === 'failed') {
-                showMessage('Connection failed', 'error');
-                resetVideoCall();
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'failed') {
+                console.log('ICE failed, restarting');
+                peerConnection.restartIce();
             }
         };
 
@@ -143,12 +140,16 @@ function setupSocketListeners() {
         try {
             await createPeerConnection();
             if (offer) {
+                // Add delay before creating offer
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 const offerDescription = await peerConnection.createOffer({
                     offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
+                    offerToReceiveVideo: true,
+                    voiceActivityDetection: false
                 });
                 await peerConnection.setLocalDescription(offerDescription);
                 socket.emit('offer', offerDescription, room);
+                console.log('Sent offer');
             }
         } catch (error) {
             console.error('Error in match:', error);
@@ -165,6 +166,7 @@ function setupSocketListeners() {
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('answer', answer, currentRoom);
+            console.log('Sent answer');
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Error handling offer', 'error');
@@ -175,6 +177,7 @@ function setupSocketListeners() {
         try {
             if (peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('Set remote description from answer');
             }
         } catch (error) {
             console.error('Error handling answer:', error);
