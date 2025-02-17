@@ -18,7 +18,7 @@ const configuration = {
         }
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all', // Changed from 'relay' to allow STUN
+    iceTransportPolicy: 'relay', // Changed from 'relay' to allow STUN
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require'
 };
@@ -45,29 +45,35 @@ async function createPeerConnection() {
             console.log('Received remote track:', event.track.kind);
             const remoteVideo = document.getElementById('remoteVideo');
             if (remoteVideo) {
-                // Use the first stream from the event directly
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
+                if (!remoteVideo.srcObject) {
+                    remoteVideo.srcObject = new MediaStream();
+                }
+                const stream = remoteVideo.srcObject;
+                stream.addTrack(event.track);
+                remoteStream = stream;
                 remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('autoplay', '');
 
-                // Wait for loadedmetadata event before playing
-                remoteVideo.addEventListener('loadedmetadata', () => {
-                    console.log('Remote video metadata loaded');
-                    const playVideo = () => {
-                        remoteVideo.play().catch(error => {
-                            console.warn('Remote video autoplay failed:', error);
-                            // Try again after user interaction
-                            const playOnInteraction = () => {
-                                remoteVideo.muted = false;
-                                remoteVideo.play().catch(console.error);
-                                document.removeEventListener('click', playOnInteraction);
-                            };
-                            document.addEventListener('click', playOnInteraction);
-                        });
+                // Only attempt to play when we have both tracks
+                if (stream.getTracks().length === 2) {
+                    console.log('Both tracks received, attempting to play');
+                    const playVideo = async () => {
+                        try {
+                            await new Promise((resolve) => {
+                                if (remoteVideo.readyState >= 2) {
+                                    resolve();
+                                } else {
+                                    remoteVideo.onloadedmetadata = () => resolve();
+                                }
+                            });
+                            await remoteVideo.play();
+                            console.log('Remote video playing successfully');
+                        } catch (error) {
+                            console.warn('Remote video play failed:', error);
+                            setTimeout(playVideo, 1000);
+                        }
                     };
                     playVideo();
-                }, { once: true });
+                }
             }
         };
 

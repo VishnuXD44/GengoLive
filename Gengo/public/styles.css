@@ -503,30 +503,6 @@ html, body {
 }
 
 /* ============ VIDEO CONTAINER ============ */
-/* Video element fixes */
-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: #2C3E50;
-    transform: scaleX(-1); /* Mirror local video */
-}
-
-#remoteVideo {
-    transform: scaleX(1); /* Don't mirror remote video */
-}
-
-.video-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 300px;
-    background: var(--dark);
-    border-radius: 12px;
-    overflow: hidden;
-    transform: translateZ(0);
-}
-
 .video-container {
     display: none;
     grid-template-columns: repeat(2, 1fr);
@@ -538,40 +514,27 @@ video {
     padding: 2rem;
 }
 
-.video-wrapper::before {
-    content: 'Loading...';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-size: 1rem;
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    background: var(--dark);
+    border-radius: 12px;
+    overflow: hidden;
+    transform: translateZ(0); /* Force hardware acceleration */
 }
 
-.play-button {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(255, 56, 92, 0.9);
-    border: none;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    font-size: 24px;
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #2C3E50;
+    transform: scaleX(-1); /* Mirror local video */
 }
 
-.play-button:hover {
-    transform: translate(-50%, -50%) scale(1.1);
-    background: rgba(255, 56, 92, 1);
+#remoteVideo {
+    transform: scaleX(1); /* Don't mirror remote video */
 }
 
 /* ============ BUTTONS ============ */
