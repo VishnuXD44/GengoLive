@@ -9,13 +9,11 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Updated allowed origins for Heroku
 const allowedOrigins = [
     'https://gengolive-f8fb09d3fdf5.herokuapp.com',
     'http://localhost:3000',
     'http://localhost:9000'
 ];
-
 
 // CORS configuration
 app.use(cors({
@@ -23,14 +21,17 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(null, false);
+            callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST'],
     credentials: true
 }));
 
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Serve styles and scripts with correct MIME types
 app.use('/styles', express.static(path.join(__dirname, '../public/styles'), {
     setHeaders: (res, path) => {
         if (path.endsWith('.css')) {
@@ -47,9 +48,6 @@ app.use('/scripts', express.static(path.join(__dirname, '../public/scripts'), {
     }
 }));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../dist')));
-
 // Socket.IO configuration
 const io = new Server(server, {
     cors: {
@@ -57,25 +55,42 @@ const io = new Server(server, {
         methods: ['GET', 'POST'],
         credentials: true
     },
-    path: '/socket.io/'
+    path: '/socket.io/',
+    transports: ['websocket'],
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 // Socket connection handling
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    console.log('New connection:', socket.id);
+    
     handleSignaling(socket, io);
 
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log(`Client disconnected (${reason}):`, socket.id);
     });
 });
 
-// Health check endpoint for Heroku
+// Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-// Start server
+// Error handling
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+});
+
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
