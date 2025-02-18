@@ -6,19 +6,37 @@ let currentRoom = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
 
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+if (isMobile) {
+    // Add mobile-specific event handlers
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // Page is hidden (app in background)
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.enabled = false);
+            }
+        } else {
+            // Page is visible again
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.enabled = true);
+            }
+        }
+    });
+}
+
 const configuration = {
     iceServers: [
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
     ],
-    iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'relay',
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
-    sdpSemantics: 'unified-plan'
+    sdpSemantics: 'unified-plan',
+    iceCandidatePoolSize: 10
 };
 
 // Video handling functions
@@ -26,6 +44,9 @@ async function playVideo(videoElement) {
     if (!videoElement.srcObject) return;
     
     try {
+        videoElement.setAttribute('playsinline', '');
+        videoElement.setAttribute('webkit-playsinline', '');
+        
         if (videoElement.readyState < 2) {
             await new Promise((resolve) => {
                 videoElement.onloadedmetadata = () => resolve();
@@ -36,9 +57,15 @@ async function playVideo(videoElement) {
             videoElement.muted = true;
         }
         
-        await videoElement.play();
+        const playPromise = videoElement.play();
+        if (playPromise !== undefined) {
+            await playPromise;
+        }
     } catch (error) {
         console.warn('Video play error:', error);
+        if (error.name === 'NotAllowedError') {
+            showMessage('Please allow autoplay for this site', 'warning');
+        }
         addPlayButton(videoElement);
     }
 }
@@ -261,18 +288,34 @@ async function startCall() {
             return;
         }
 
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                frameRate: { ideal: 30 }
-            },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640, max: 1280 },
+                    height: { ideal: 480, max: 720 },
+                    frameRate: { max: 30 },
+                    facingMode: 'user' // This ensures front camera on mobile
+                },
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 48000,
+                    sampleSize: 16
+                }
+            });
+        } catch (mediaError) {
+            // Try fallback to basic constraints if initial attempt fails
+            if (mediaError.name === 'NotReadableError') {
+                console.log('Attempting fallback media constraints...');
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+            } else {
+                throw mediaError;
             }
-        });
+        }
 
         document.querySelector('.video-container').style.display = 'grid';
         document.querySelector('.selection-container').style.display = 'none';
@@ -280,6 +323,7 @@ async function startCall() {
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = localStream;
+            localVideo.setAttribute('playsinline', ''); // Important for iOS
             await playVideo(localVideo);
         }
 
@@ -290,7 +334,7 @@ async function startCall() {
 
     } catch (error) {
         console.error('Error starting call:', error);
-        showMessage('Failed to access media devices', 'error');
+        showMessage('Failed to access media devices. Please check camera permissions.', 'error');
         resetVideoCall();
     }
 }
