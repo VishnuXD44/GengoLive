@@ -127,7 +127,18 @@ async function createPeerConnection() {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
-                socket.emit('candidate', event.candidate, currentRoom);
+                console.log('Sending ICE candidate');
+                socket.emit('ice-candidate', {
+                    candidate: event.candidate,
+                    room: currentRoom
+                });
+            }
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'failed') {
+                handleDisconnection();
             }
         };
 
@@ -136,39 +147,16 @@ async function createPeerConnection() {
             if (event.streams && event.streams[0]) {
                 console.log('Setting remote stream from ontrack');
                 remoteStream = event.streams[0];
-                const remoteVideo = document.getElementById('remoteVideo');
-                if (remoteVideo && remoteVideo.srcObject !== event.streams[0]) {
-                    remoteVideo.srcObject = event.streams[0];
-                    await handleRemoteStream(remoteStream);
-                }
-            }
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-                socket.emit('connection-status', { room: currentRoom, status: 'connected' });
-                showMessage('Peer connection established', 'info');
-            } else if (peerConnection.connectionState === 'failed') {
-                handleDisconnection();
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'disconnected') {
-                showMessage('Connection unstable', 'warning');
+                await handleRemoteStream(remoteStream);
             }
         };
 
         if (localStream) {
             localStream.getTracks().forEach(track => {
+                console.log('Adding local track:', track.kind);
                 peerConnection.addTrack(track, localStream);
             });
         }
-
-        // Start monitoring connection quality
-        setInterval(monitorConnectionQuality, 5000);
 
         return peerConnection;
     } catch (error) {
@@ -176,6 +164,7 @@ async function createPeerConnection() {
         throw error;
     }
 }
+
 
 // Socket handling
 function initializeSocket() {
@@ -204,74 +193,57 @@ function initializeSocket() {
 }
 
 function setupSocketListeners() {
-    socket.on('match', async (data) => {
+    socket.on('match-found', async (data) => {
+        console.log('Match found in room:', data.room);
+        currentRoom = data.room;
+        
         try {
-            currentRoom = data.room;
-            console.log(`Matched in room: ${currentRoom}, role: ${data.role}`);
-            showMessage(`Found a ${data.role === 'practice' ? 'coach' : 'practice partner'}!`, 'info');
-            
             peerConnection = await createPeerConnection();
-            
-            if (data.offer) {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                socket.emit('offer', offer, currentRoom);
-            }
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('offer', { offer, room: currentRoom });
         } catch (error) {
-            console.error('Error handling match:', error);
+            console.error('Error creating offer:', error);
             showMessage('Failed to create connection', 'error');
         }
     });
 
-    socket.on('waiting', (data) => {
-        showMessage(`Waiting for a ${data.role === 'practice' ? 'coach' : 'practice partner'} who speaks ${data.language}...`, 'info');
-    });
-
-    socket.on('offer', async (offer) => {
+    socket.on('offer', async (data) => {
+        console.log('Received offer from peer');
+        currentRoom = data.room;
+        
         try {
-            if (!peerConnection) {
-                peerConnection = await createPeerConnection();
-            }
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            peerConnection = await createPeerConnection();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer, currentRoom);
+            socket.emit('answer', { answer, room: currentRoom });
         } catch (error) {
             console.error('Error handling offer:', error);
-            showMessage('Failed to process offer', 'error');
         }
     });
 
-    socket.on('answer', async (answer) => {
+    socket.on('answer', async (data) => {
+        console.log('Received answer from peer');
         try {
-            if (peerConnection.signalingState !== 'stable') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            }
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         } catch (error) {
             console.error('Error handling answer:', error);
-            showMessage('Failed to process answer', 'error');
         }
     });
 
-    socket.on('candidate', async (candidate) => {
+    socket.on('ice-candidate', async (data) => {
+        console.log('Received ICE candidate');
         try {
-            if (peerConnection && peerConnection.remoteDescription) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
             }
         } catch (error) {
             console.error('Error adding ICE candidate:', error);
         }
     });
-
-    socket.on('user-disconnected', () => {
-        showMessage('Other user disconnected', 'info');
-        resetVideoCall();
-    });
-
-    socket.on('disconnect', () => {
-        handleDisconnection();
-    });
 }
+
 
 // Call handling
 async function startCall() {
@@ -449,12 +421,13 @@ async function handleRemoteStream(stream) {
         console.log('Handling remote stream:', stream.id);
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo) {
-            if (!remoteVideo.srcObject) {
-                remoteVideo.srcObject = stream;
-                await playVideo(remoteVideo);
-                addVideoFallback(remoteVideo);
-                showMessage('Connected to remote user', 'info');
-            }
+            remoteVideo.srcObject = null; // Clear any existing stream
+            remoteVideo.srcObject = stream;
+            remoteVideo.setAttribute('playsinline', '');
+            remoteVideo.setAttribute('autoplay', '');
+            await playVideo(remoteVideo);
+            addVideoFallback(remoteVideo);
+            showMessage('Connected to remote user', 'info');
         } else {
             console.error('Remote video element not found');
             showMessage('Error: Remote video element not found', 'error');
@@ -464,6 +437,7 @@ async function handleRemoteStream(stream) {
         showMessage('Failed to display remote video', 'error');
     }
 }
+
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {

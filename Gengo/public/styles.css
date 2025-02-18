@@ -503,30 +503,33 @@ html, body {
 }
 
 /* ============ VIDEO CONTAINER ============ */
+
 .video-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
-    padding: 20px;
-    height: calc(100vh - 200px);
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .video-wrapper {
     position: relative;
     width: 100%;
-    height: 100%;
-    min-height: 300px;
-    background: #000;
-    border-radius: 8px;
-    overflow: hidden;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
 }
 
-video {
+.video-wrapper video {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     background: #000;
 }
+
+
 
 /* ============ BUTTONS ============ */
 .connect-btn,
