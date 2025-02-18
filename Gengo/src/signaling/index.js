@@ -41,26 +41,38 @@ function handleSignaling(socket, io) {
         }
     });
 
-    socket.on('offer', ({ offer, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding offer in room: ${room}`);
-            socket.to(room).emit('offer', { offer, room });
-        }
-    });
+    socket.on('offer', (data) => {
+    if (activeRooms.has(data.room)) {
+        console.log(`Forwarding offer in room: ${data.room}`);
+        // Forward to everyone in the room except sender
+        socket.to(data.room).emit('offer', {
+            offer: data.offer,
+            room: data.room
+        });
+    }
+});
 
-    socket.on('answer', ({ answer, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding answer in room: ${room}`);
-            socket.to(room).emit('answer', { answer, room });
-        }
-    });
+socket.on('answer', (data) => {
+    if (activeRooms.has(data.room)) {
+        console.log(`Forwarding answer in room: ${data.room}`);
+        // Forward to everyone in the room except sender
+        socket.to(data.room).emit('answer', {
+            answer: data.answer,
+            room: data.room
+        });
+    }
+});
 
-    socket.on('ice-candidate', ({ candidate, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding ICE candidate in room: ${room}`);
-            socket.to(room).emit('ice-candidate', { candidate, room });
-        }
-    });
+socket.on('ice-candidate', (data) => {
+    if (activeRooms.has(data.room)) {
+        console.log(`Forwarding ICE candidate in room: ${data.room}`);
+        socket.to(data.room).emit('ice-candidate', {
+            candidate: data.candidate,
+            room: data.room
+        });
+    }
+});
+
 
     socket.on('disconnect', () => {
         // Clean up waiting users

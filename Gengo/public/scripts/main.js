@@ -447,16 +447,24 @@ async function handleRemoteStream(stream) {
         console.log('Handling remote stream:', stream.id);
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo) {
-            remoteVideo.srcObject = null; // Clear any existing stream
-            remoteVideo.srcObject = stream;
-            remoteVideo.setAttribute('playsinline', '');
-            remoteVideo.setAttribute('autoplay', '');
-            await playVideo(remoteVideo);
-            addVideoFallback(remoteVideo);
-            showMessage('Connected to remote user', 'info');
+            if (remoteVideo.srcObject !== stream) {  // Only set if different
+                console.log('Setting new remote stream');
+                remoteVideo.srcObject = stream;
+                remoteVideo.setAttribute('playsinline', '');
+                remoteVideo.setAttribute('autoplay', '');
+                
+                // Force a play attempt
+                try {
+                    await remoteVideo.play();
+                    console.log('Remote video playing');
+                } catch (playError) {
+                    console.warn('Auto-play failed:', playError);
+                    // Add play button only if auto-play fails
+                    addPlayButton(remoteVideo);
+                }
+            }
         } else {
             console.error('Remote video element not found');
-            showMessage('Error: Remote video element not found', 'error');
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
