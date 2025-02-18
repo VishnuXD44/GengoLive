@@ -165,10 +165,16 @@ async function createPeerConnection() {
     }
 }
 
-
-// Socket handling
 function initializeSocket() {
     try {
+        const language = document.getElementById('language').value;
+        const role = document.getElementById('role').value;
+
+        if (!language || !role) {
+            showMessage('Please select both language and role', 'error');
+            return;
+        }
+
         socket = io('https://gengolive-f8fb09d3fdf5.herokuapp.com', {
             path: '/socket.io/',
             transports: ['websocket'],
@@ -177,11 +183,9 @@ function initializeSocket() {
         });
 
         socket.on('connect', () => {
-            console.log('Connected to server');
-            const language = document.getElementById('language').value;
-            const role = document.getElementById('role').value;
+            console.log('Connected to server with role:', role, 'language:', language);
             socket.emit('join', { language, role });
-            showMessage(`Looking for a ${role === 'practice' ? 'coach' : 'practice partner'}...`, 'info');
+            showMessage(`Looking for a ${role === 'practice' ? 'coach' : 'practice partner'} for ${language}...`, 'info');
         });
 
         setupSocketListeners();
@@ -192,16 +196,21 @@ function initializeSocket() {
     }
 }
 
+
 function setupSocketListeners() {
     socket.on('match-found', async (data) => {
-        console.log('Match found in room:', data.room);
+        console.log('Match found in room:', data.room, 'Role:', data.role);
         currentRoom = data.room;
         
         try {
-            peerConnection = await createPeerConnection();
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('offer', { offer, room: currentRoom });
+            // Only the practice user initiates the offer
+            if (document.getElementById('role').value === 'practice') {
+                console.log('Creating peer connection as practice user');
+                peerConnection = await createPeerConnection();
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('offer', { offer, room: currentRoom });
+            }
         } catch (error) {
             console.error('Error creating offer:', error);
             showMessage('Failed to create connection', 'error');
@@ -209,38 +218,55 @@ function setupSocketListeners() {
     });
 
     socket.on('offer', async (data) => {
-        console.log('Received offer from peer');
+        console.log('Received offer from peer in room:', data.room);
         currentRoom = data.room;
         
         try {
-            peerConnection = await createPeerConnection();
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', { answer, room: currentRoom });
+            if (document.getElementById('role').value === 'coach') {
+                console.log('Creating peer connection as coach');
+                peerConnection = await createPeerConnection();
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('answer', { answer, room: currentRoom });
+            }
         } catch (error) {
             console.error('Error handling offer:', error);
         }
     });
 
     socket.on('answer', async (data) => {
-        console.log('Received answer from peer');
+        console.log('Received answer in room:', data.room);
         try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            if (peerConnection && document.getElementById('role').value === 'practice') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                console.log('Remote description set successfully');
+            }
         } catch (error) {
             console.error('Error handling answer:', error);
         }
     });
 
     socket.on('ice-candidate', async (data) => {
-        console.log('Received ICE candidate');
+        console.log('Received ICE candidate for room:', data.room);
         try {
-            if (peerConnection) {
+            if (peerConnection && currentRoom === data.room) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                console.log('Added ICE candidate successfully');
             }
         } catch (error) {
             console.error('Error adding ICE candidate:', error);
         }
+    });
+
+    socket.on('user-disconnected', () => {
+        showMessage('Other user disconnected', 'info');
+        resetVideoCall();
+    });
+
+    socket.on('match-error', (error) => {
+        showMessage(error.message || 'Failed to find a match', 'error');
+        resetVideoCall();
     });
 }
 
