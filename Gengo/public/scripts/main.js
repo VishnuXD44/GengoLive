@@ -465,6 +465,9 @@ async function handleRemoteStream(stream) {
         return;
     }
     
+    console.log('playing remote video:', videoElement.id);
+    console.log('Video readyState:', videoElement.readyState);
+    console.log('Video tracks:', videoElement.srcObject.getVideoTracks());
     remoteVideo.srcObject = stream;
     
     // Add these attributes to help with autoplay
@@ -475,6 +478,15 @@ async function handleRemoteStream(stream) {
         await playVideo(remoteVideo);
     } catch (error) {
         console.error('Error playing remote video:', error);
+        console.log('Video element state:', {
+            paused: videoElement.paused,
+            currentTime: videoElement.currentTime,
+            duration: videoElement.duration,
+            readyState: videoElement.readyState
+        });
+        if (error.name === 'NotAllowedError') {
+            showMessage('Please allow autoplay for this site', 'warning');
+        }
         addPlayButton(remoteVideo);
     }
 }
