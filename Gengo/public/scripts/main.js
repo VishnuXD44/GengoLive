@@ -456,111 +456,26 @@ function addVideoFallback(videoElement) {
 }
 
 async function handleRemoteStream(stream) {
+    console.log('Handling remote stream:', stream.id);
+    console.log('Stream tracks:', stream.getTracks());
+    
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (!remoteVideo) {
+        console.error('Remote video element not found');
+        return;
+    }
+    
+    remoteVideo.srcObject = stream;
+    
+    // Add these attributes to help with autoplay
+    remoteVideo.setAttribute('playsinline', '');
+    remoteVideo.setAttribute('webkit-playsinline', '');
+    
     try {
-        console.log('Handling remote stream:', stream.id);
-        
-        // Log track information
-        const tracks = stream.getTracks();
-        console.log('Stream tracks:', tracks.map(track => ({
-            kind: track.kind,
-            enabled: track.enabled,
-            readyState: track.readyState,
-            muted: track.muted
-        })));
-
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (!remoteVideo) {
-            throw new Error('Remote video element not found');
-        }
-
-        // Ensure video track exists and is enabled
-        const videoTrack = tracks.find(track => track.kind === 'video');
-        if (!videoTrack) {
-            throw new Error('No video track found in remote stream');
-        }
-
-        // Setup video element
-        remoteVideo.setAttribute('playsinline', '');
-        remoteVideo.setAttribute('autoplay', '');
-        remoteVideo.muted = false;
-
-        // Add event listeners before setting srcObject
-        const playPromise = new Promise((resolve) => {
-            const events = ['loadedmetadata', 'loadeddata', 'playing'];
-            const eventStates = {};
-            
-            const checkReady = () => {
-                console.log('Video element states:', eventStates);
-                if (events.every(event => eventStates[event])) {
-                    cleanup();
-                    resolve();
-                }
-            };
-
-            const handleEvent = (event) => {
-                console.log(`Video event fired: ${event.type}`);
-                eventStates[event.type] = true;
-                checkReady();
-            };
-
-            const cleanup = () => {
-                events.forEach(event => {
-                    remoteVideo.removeEventListener(event, handleEvent);
-                });
-            };
-
-            events.forEach(event => {
-                eventStates[event] = false;
-                remoteVideo.addEventListener(event, handleEvent);
-            });
-
-            // Cleanup if not resolved in 10 seconds
-            setTimeout(() => {
-                if (!events.every(event => eventStates[event])) {
-                    console.log('Video element setup timeout - continuing anyway');
-                    cleanup();
-                    resolve();
-                }
-            }, 10000);
-        });
-
-        // Set stream and wait for events
-        remoteVideo.srcObject = stream;
-        
-        try {
-            await playPromise;
-            console.log('Remote video setup complete');
-            
-            // Monitor video dimensions
-            const checkDimensions = setInterval(() => {
-                if (remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0) {
-                    console.log(`Video dimensions: ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
-                    clearInterval(checkDimensions);
-                }
-            }, 1000);
-
-            // Clear dimension check after 10 seconds
-            setTimeout(() => clearInterval(checkDimensions), 10000);
-            
-        } catch (error) {
-            console.warn('Video setup warning:', error);
-            // Continue even if there's an error - the video might still work
-        }
-
-        // Ensure video plays
-        if (remoteVideo.paused) {
-            try {
-                await remoteVideo.play();
-                console.log('Remote video playing');
-            } catch (playError) {
-                console.warn('Auto-play failed:', playError);
-                addPlayButton(remoteVideo);
-            }
-        }
-
+        await playVideo(remoteVideo);
     } catch (error) {
-        console.error('Error handling remote stream:', error);
-        showMessage('Failed to display remote video. Please try refreshing.', 'error');
+        console.error('Error playing remote video:', error);
+        addPlayButton(remoteVideo);
     }
 }
 
