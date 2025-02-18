@@ -56,21 +56,6 @@ async function createPeerConnection() {
         peerConnection.onconnectionstatechange = () => {
             console.log('Connection State:', peerConnection.connectionState);
         };
-
-        peerConnection.ontrack = (event) => {
-            console.log('Received track:', event.track.kind);
-            if (event.streams && event.streams[0]) {
-                const remoteVideo = document.getElementById('remoteVideo');
-                if (remoteVideo) {
-                    console.log('Setting remote stream to video element');
-                    remoteVideo.srcObject = event.streams[0];
-                    remoteVideo.play().catch(err => {
-                        console.error('Error playing remote video:', err);
-                    });
-                }
-            }
-        };
-
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 console.log('Adding local track:', track.kind);
