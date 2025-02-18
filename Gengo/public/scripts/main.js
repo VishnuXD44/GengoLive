@@ -109,30 +109,15 @@ async function createPeerConnection() {
         }
         
         peerConnection.ontrack = async (event) => {
-            console.log('Received remote track:', event.track.kind);
-            const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo) {
-                remoteStream = event.streams[0];
-                remoteVideo.srcObject = remoteStream;
-                
-                // Ensure video track is enabled
-                event.track.enabled = true;
-                
-                // Force a layout refresh
-                remoteVideo.style.display = 'none';
-                remoteVideo.offsetHeight; // Force reflow
-                remoteVideo.style.display = 'block';
-                
-                try {
-                    await remoteVideo.play();
-                    console.log('Remote video playing');
-                } catch (error) {
-                    console.warn('Remote video autoplay failed:', error);
-                    addPlayButton(remoteVideo);
-                }
+            await handleRemoteStream(event.streams[0]);
 
-                addVideoFallback(remoteVideo);
-            }
+            peerConnection.ontrack = async (event) => {
+                console.log('Received remote track');
+                if (event.streams && event.streams[0]) {
+                    remoteStream = event.streams[0];
+                    await handleRemoteStream(remoteStream);
+                }
+            };
         };
 
         peerConnection.onicecandidate = (event) => {
@@ -326,6 +311,10 @@ function resetVideoCall() {
     }
     if (remoteStream) {
         remoteStream.getTracks().forEach(track => track.stop());
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) {
+            remoteVideo.srcObject = null;
+        }
     }
     if (peerConnection) {
         peerConnection.close();
@@ -443,4 +432,13 @@ function addVideoFallback(videoElement) {
             addPlayButton(videoElement);
         }
     });
+}
+
+async function handleRemoteStream(stream) {
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (remoteVideo) {
+        remoteVideo.srcObject = stream;
+        await playVideo(remoteVideo);
+        addVideoFallback(remoteVideo);
+    }
 }
