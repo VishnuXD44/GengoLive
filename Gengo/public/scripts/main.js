@@ -8,15 +8,18 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
     ],
-    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'relay',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan'
 };
-
 
 // Video handling functions
 async function playVideo(videoElement) {
@@ -96,23 +99,38 @@ async function createPeerConnection() {
         peerConnection = new RTCPeerConnection(configuration);
 
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice-candidate', event.candidate);
+            if (event.candidate && currentRoom) {
+                socket.emit('candidate', event.candidate, currentRoom);
             }
         };
 
         peerConnection.ontrack = async (event) => {
-            console.log('Received remote track');
+            console.log('Received remote track:', event.track.kind);
             if (event.streams && event.streams[0]) {
+                console.log('Setting remote stream from ontrack');
                 remoteStream = event.streams[0];
-                await handleRemoteStream(remoteStream);
+                const remoteVideo = document.getElementById('remoteVideo');
+                if (remoteVideo && remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    await handleRemoteStream(remoteStream);
+                }
             }
         };
 
         peerConnection.onconnectionstatechange = () => {
             console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed') {
+            if (peerConnection.connectionState === 'connected') {
+                socket.emit('connection-status', { room: currentRoom, status: 'connected' });
+                showMessage('Peer connection established', 'info');
+            } else if (peerConnection.connectionState === 'failed') {
                 handleDisconnection();
+            }
+        };
+
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'disconnected') {
+                showMessage('Connection unstable', 'warning');
             }
         };
 
@@ -147,6 +165,7 @@ function initializeSocket() {
             const language = document.getElementById('language').value;
             const role = document.getElementById('role').value;
             socket.emit('join', { language, role });
+            showMessage(`Looking for a ${role === 'practice' ? 'coach' : 'practice partner'}...`, 'info');
         });
 
         setupSocketListeners();
@@ -158,41 +177,58 @@ function initializeSocket() {
 }
 
 function setupSocketListeners() {
-    socket.on('match-found', async () => {
+    socket.on('match', async (data) => {
         try {
+            currentRoom = data.room;
+            console.log(`Matched in room: ${currentRoom}, role: ${data.role}`);
+            showMessage(`Found a ${data.role === 'practice' ? 'coach' : 'practice partner'}!`, 'info');
+            
             peerConnection = await createPeerConnection();
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('offer', offer);
+            
+            if (data.offer) {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('offer', offer, currentRoom);
+            }
         } catch (error) {
-            console.error('Error creating offer:', error);
+            console.error('Error handling match:', error);
             showMessage('Failed to create connection', 'error');
         }
     });
 
+    socket.on('waiting', (data) => {
+        showMessage(`Waiting for a ${data.role === 'practice' ? 'coach' : 'practice partner'} who speaks ${data.language}...`, 'info');
+    });
+
     socket.on('offer', async (offer) => {
         try {
-            peerConnection = await createPeerConnection();
+            if (!peerConnection) {
+                peerConnection = await createPeerConnection();
+            }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', answer);
+            socket.emit('answer', answer, currentRoom);
         } catch (error) {
             console.error('Error handling offer:', error);
+            showMessage('Failed to process offer', 'error');
         }
     });
 
     socket.on('answer', async (answer) => {
         try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            if (peerConnection.signalingState !== 'stable') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            }
         } catch (error) {
             console.error('Error handling answer:', error);
+            showMessage('Failed to process answer', 'error');
         }
     });
 
-    socket.on('ice-candidate', async (candidate) => {
+    socket.on('candidate', async (candidate) => {
         try {
-            if (peerConnection) {
+            if (peerConnection && peerConnection.remoteDescription) {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             }
         } catch (error) {
@@ -227,8 +263,8 @@ async function startCall() {
 
         localStream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
                 frameRate: { ideal: 30 }
             },
             audio: {
@@ -286,6 +322,8 @@ function resetVideoCall() {
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.selection-container').style.display = 'flex';
     document.getElementById('connect').style.display = 'block';
+    document.getElementById('connect').disabled = false;
+    document.getElementById('connect').classList.remove('loading');
     document.getElementById('leave').style.display = 'none';
 }
 
@@ -363,11 +401,23 @@ function addVideoFallback(videoElement) {
 }
 
 async function handleRemoteStream(stream) {
-    const remoteVideo = document.getElementById('remoteVideo');
-    if (remoteVideo) {
-        remoteVideo.srcObject = stream;
-        await playVideo(remoteVideo);
-        addVideoFallback(remoteVideo);
+    try {
+        console.log('Handling remote stream:', stream.id);
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) {
+            if (!remoteVideo.srcObject) {
+                remoteVideo.srcObject = stream;
+                await playVideo(remoteVideo);
+                addVideoFallback(remoteVideo);
+                showMessage('Connected to remote user', 'info');
+            }
+        } else {
+            console.error('Remote video element not found');
+            showMessage('Error: Remote video element not found', 'error');
+        }
+    } catch (error) {
+        console.error('Error handling remote stream:', error);
+        showMessage('Failed to display remote video', 'error');
     }
 }
 
