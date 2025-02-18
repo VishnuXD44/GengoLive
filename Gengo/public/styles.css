@@ -525,8 +525,17 @@ html, body {
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    background: #000;
+    object-fit: contain;
+    background-color: #000;
+    border-radius: 8px;
+    transform: scaleX(1); /* Ensure correct orientation */
+}
+
+/* Add a border to make video boundaries visible */
+.video-wrapper {
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 

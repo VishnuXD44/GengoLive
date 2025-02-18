@@ -445,30 +445,65 @@ function addVideoFallback(videoElement) {
 async function handleRemoteStream(stream) {
     try {
         console.log('Handling remote stream:', stream.id);
+        console.log('Stream tracks:', stream.getTracks().map(track => ({
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState
+        })));
+
         const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) {
-            if (remoteVideo.srcObject !== stream) {  // Only set if different
-                console.log('Setting new remote stream');
-                remoteVideo.srcObject = stream;
-                remoteVideo.setAttribute('playsinline', '');
-                remoteVideo.setAttribute('autoplay', '');
+        if (!remoteVideo) {
+            throw new Error('Remote video element not found');
+        }
+
+        // Reset video element
+        remoteVideo.srcObject = null;
+        remoteVideo.load();
+
+        // Configure video element
+        remoteVideo.setAttribute('playsinline', '');
+        remoteVideo.setAttribute('autoplay', '');
+        remoteVideo.muted = false;
+
+        // Set new stream
+        remoteVideo.srcObject = stream;
+
+        // Wait for metadata to load
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Metadata timeout')), 5000);
+            remoteVideo.onloadedmetadata = () => {
+                clearTimeout(timeout);
+                resolve();
+            };
+        });
+
+        console.log('Video metadata loaded');
+
+        // Force play with retry
+        for (let i = 0; i < 3; i++) {
+            try {
+                await remoteVideo.play();
+                console.log('Remote video playing successfully');
                 
-                // Force a play attempt
-                try {
-                    await remoteVideo.play();
-                    console.log('Remote video playing');
-                } catch (playError) {
-                    console.warn('Auto-play failed:', playError);
-                    // Add play button only if auto-play fails
-                    addPlayButton(remoteVideo);
+                // Verify video is actually playing
+                if (remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0) {
+                    console.log(`Video dimensions: ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
+                    return; // Success
                 }
+                
+                throw new Error('Video dimensions are 0');
+            } catch (playError) {
+                console.warn(`Play attempt ${i + 1} failed:`, playError);
+                if (i === 2) { // Last attempt
+                    addPlayButton(remoteVideo);
+                    throw playError;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
             }
-        } else {
-            console.error('Remote video element not found');
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
-        showMessage('Failed to display remote video', 'error');
+        showMessage('Failed to display remote video. Please try refreshing.', 'error');
     }
 }
 
