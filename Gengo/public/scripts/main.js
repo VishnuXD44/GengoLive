@@ -1,3 +1,10 @@
+import { configuration, startLocalStream } from './webrtc.js';
+
+let localStream = null;
+let remoteStream = null;
+let peerConnection = null;
+let currentRoom = null;
+
 async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
@@ -17,7 +24,8 @@ async function createPeerConnection() {
             
             if (['failed', 'disconnected', 'closed'].includes(peerConnection.iceConnectionState)) {
                 console.log('Connection state changed to:', peerConnection.iceConnectionState);
-                handleDisconnection();
+                resetVideoCall();
+                showMessage('Connection lost', 'error');
             }
         };
 
@@ -247,41 +255,88 @@ function addPlayButton(videoElement) {
     };
 }
 
+function resetVideoCall() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+    }
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    localStream = null;
+    remoteStream = null;
+    currentRoom = null;
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (localVideo) localVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
+
+    const videoContainer = document.querySelector('.video-container');
+    const selectionContainer = document.querySelector('.selection-container');
+    const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+
+    if (videoContainer) videoContainer.style.display = 'none';
+    if (selectionContainer) selectionContainer.style.display = 'flex';
+    if (connectButton) {
+        connectButton.style.display = 'block';
+        connectButton.disabled = false;
+    }
+    if (leaveButton) leaveButton.style.display = 'none';
+}
+
+function showMessage(message, type = 'info') {
+    const messageDiv = document.createElement('div');
+    messageDiv.textContent = message;
+    messageDiv.className = `message ${type}-message`;
+    document.body.appendChild(messageDiv);
+    setTimeout(() => messageDiv.remove(), 5000);
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
-    const disconnectButton = document.getElementById('disconnect');
+    const leaveButton = document.getElementById('leave');
     const languageSelect = document.getElementById('language');
     const roleSelect = document.getElementById('role');
 
-    connectButton.addEventListener('click', async () => {
-        try {
-            const language = languageSelect.value;
-            const role = roleSelect.value;
+    if (connectButton && languageSelect && roleSelect) {
+        connectButton.addEventListener('click', async () => {
+            try {
+                const language = languageSelect.value;
+                const role = roleSelect.value;
 
-            if (!language || !role) {
-                showMessage('Please select both language and role', 'warning');
-                return;
+                if (!language || !role) {
+                    showMessage('Please select both language and role', 'warning');
+                    return;
+                }
+
+                connectButton.disabled = true;
+                showMessage('Requesting media access...', 'info');
+
+                localStream = await startLocalStream();
+                
+                socket.emit('join', { language, role });
+                showMessage('Waiting for match...', 'info');
+            } catch (error) {
+                console.error('Error starting connection:', error);
+                showMessage('Failed to access camera/microphone', 'error');
+                connectButton.disabled = false;
             }
+        });
+    }
 
-            connectButton.disabled = true;
-            showMessage('Requesting media access...', 'info');
-
-            localStream = await startLocalStream();
-            
-            socket.emit('join', { language, role });
-            showMessage('Waiting for match...', 'info');
-        } catch (error) {
-            console.error('Error starting connection:', error);
-            showMessage('Failed to access camera/microphone', 'error');
-            connectButton.disabled = false;
-        }
-    });
-
-    disconnectButton.addEventListener('click', () => {
-        resetVideoCall();
-        showMessage('Disconnected', 'info');
-    });
+    if (leaveButton) {
+        leaveButton.addEventListener('click', () => {
+            resetVideoCall();
+            showMessage('Disconnected', 'info');
+        });
+    }
 });
 
 // Initialize socket connection and set up listeners
