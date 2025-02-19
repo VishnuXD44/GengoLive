@@ -207,25 +207,49 @@ async function handleRemoteStream(stream) {
     const remoteVideo = document.getElementById('remoteVideo');
     
     try {
+        // Wait for any existing stream to be properly cleaned up
         if (remoteVideo.srcObject) {
             remoteVideo.srcObject = null;
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         // Set up new stream
-        remoteVideo.srcObject = stream;
-        remoteVideo.setAttribute('playsinline', '');
-        remoteVideo.setAttribute('autoplay', '');
         remoteVideo.muted = false;
+        
+        // Create a promise to handle the loadedmetadata event
+        const metadataLoaded = new Promise((resolve, reject) => {
+            remoteVideo.onloadedmetadata = () => resolve();
+            remoteVideo.onerror = (e) => reject(e);
+        });
 
+        // Set the stream
+        remoteVideo.srcObject = stream;
+
+        // Wait for metadata to load
         try {
-            await remoteVideo.play();
-            console.log('Remote video playback started successfully');
-            showMessage('Connected to remote user', 'success');
+            await metadataLoaded;
+            console.log('Video metadata loaded successfully');
+        } catch (error) {
+            console.error('Error loading video metadata:', error);
+            throw error;
+        }
+
+        // Attempt to play the video
+        try {
+            // Use a play promise to handle autoplay restrictions
+            const playPromise = remoteVideo.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+                console.log('Remote video playback started successfully');
+                showMessage('Connected to remote user', 'success');
+            }
         } catch (playError) {
             console.error('Error playing remote video:', playError);
-            if (playError.name === 'NotAllowedError') {
+            if (playError.name === 'NotAllowedError' || playError.name === 'AbortError') {
                 showMessage('Autoplay blocked. Click to play video.', 'warning');
                 addPlayButton(remoteVideo);
+            } else {
+                throw playError;
             }
         }
     } catch (error) {
