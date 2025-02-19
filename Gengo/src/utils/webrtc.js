@@ -1,12 +1,16 @@
 export const configuration = {
     iceServers: [
         {
+            urls: [
+                'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302'
+            ]
+        },
+        {
+            // Using Google's STUN servers as primary, and keeping openrelay as backup
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        },
-        {
-            urls: 'stun:stun.l.google.com:19302'
         }
     ],
     iceCandidatePoolSize: 10,
@@ -51,6 +55,10 @@ export async function createPeerConnection() {
 
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'failed') {
+                // If the primary connection fails, try reconnecting
+                peerConnection.restartIce();
+            }
         };
 
         peerConnection.onconnectionstatechange = () => {
@@ -139,8 +147,12 @@ export async function handleIceCandidate(candidate) {
     try {
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (err) {
-        console.error('Error adding ICE candidate:', err);
-        throw err;
+        // Only log the error if it's not related to an invalid state
+        // (which can happen during normal connection teardown)
+        if (err.name !== 'InvalidStateError') {
+            console.error('Error adding ICE candidate:', err);
+            throw err;
+        }
     }
 }
 
