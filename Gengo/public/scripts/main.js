@@ -126,9 +126,14 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Enhanced ICE candidate handling
         peerConnection.onicecandidate = (event) => {
             if (event.candidate && currentRoom) {
-                console.log('Sending ICE candidate');
+                console.log('Sending ICE candidate:', {
+                    type: event.candidate.type,
+                    protocol: event.candidate.protocol,
+                    address: event.candidate.address
+                });
                 socket.emit('ice-candidate', {
                     candidate: event.candidate,
                     room: currentRoom
@@ -136,28 +141,89 @@ async function createPeerConnection() {
             }
         };
 
+        // Enhanced connection state monitoring
         peerConnection.oniceconnectionstatechange = () => {
             console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            console.log('Connection State:', peerConnection.connectionState);
+            console.log('Signaling State:', peerConnection.signalingState);
+            
             if (['failed', 'disconnected', 'closed'].includes(peerConnection.iceConnectionState)) {
                 console.log('Connection state changed to:', peerConnection.iceConnectionState);
                 handleDisconnection();
             }
         };
 
+        // Enhanced track handling
         peerConnection.ontrack = async (event) => {
-            console.log('Received remote track:', event.track.kind);
+            console.log('Received remote track:', {
+                kind: event.track.kind,
+                id: event.track.id,
+                enabled: event.track.enabled,
+                readyState: event.track.readyState
+            });
+
+            // Ensure track is enabled and ready
+            if (!event.track.enabled) {
+                console.log('Enabling disabled track');
+                event.track.enabled = true;
+            }
+
             if (event.streams && event.streams[0]) {
                 console.log('Setting remote stream from ontrack');
                 remoteStream = event.streams[0];
+                
+                // Log stream details
+                console.log('Remote stream details:', {
+                    id: remoteStream.id,
+                    active: remoteStream.active,
+                    videoTracks: remoteStream.getVideoTracks().length,
+                    audioTracks: remoteStream.getAudioTracks().length
+                });
+
+                // Monitor track changes
+                remoteStream.onaddtrack = (e) => console.log('Track added to remote stream:', e.track.kind);
+                remoteStream.onremovetrack = (e) => console.log('Track removed from remote stream:', e.track.kind);
+
                 await handleRemoteStream(remoteStream);
+            } else {
+                console.warn('Received track without associated stream');
             }
         };
 
+        // Add local tracks with enhanced error handling
         if (localStream) {
-            localStream.getTracks().forEach(track => {
-                console.log('Adding local track:', track.kind);
-                peerConnection.addTrack(track, localStream);
-            });
+            try {
+                const tracks = localStream.getTracks();
+                console.log(`Adding ${tracks.length} local tracks to peer connection`);
+                
+                for (const track of tracks) {
+                    try {
+                        console.log('Adding local track:', {
+                            kind: track.kind,
+                            id: track.id,
+                            enabled: track.enabled,
+                            readyState: track.readyState
+                        });
+                        const sender = peerConnection.addTrack(track, localStream);
+                        
+                        // Monitor track changes
+                        track.onended = () => {
+                            console.log(`Local ${track.kind} track ended`);
+                            if (peerConnection.signalingState !== 'closed') {
+                                peerConnection.removeTrack(sender);
+                            }
+                        };
+                    } catch (trackError) {
+                        console.error(`Error adding ${track.kind} track:`, trackError);
+                        showMessage(`Failed to add ${track.kind} track`, 'warning');
+                    }
+                }
+            } catch (tracksError) {
+                console.error('Error processing local tracks:', tracksError);
+                throw new Error('Failed to add local tracks to peer connection');
+            }
+        } else {
+            console.warn('No local stream available when creating peer connection');
         }
 
         return peerConnection;
@@ -206,15 +272,48 @@ function setupSocketListeners() {
         try {
             // Only the practice user initiates the offer
             if (document.getElementById('role').value === 'practice') {
+                // Clean up any existing connection
+                if (peerConnection) {
+                    console.log('Cleaning up existing peer connection');
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+
                 console.log('Creating peer connection as practice user');
                 peerConnection = await createPeerConnection();
-                const offer = await peerConnection.createOffer();
+
+                // Create and set local description with bandwidth constraints
+                const offer = await peerConnection.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
+
+                // Apply bandwidth constraints to the offer
+                offer.sdp = await setBandwidthConstraints(offer.sdp);
+                
+                console.log('Setting local description (offer)');
                 await peerConnection.setLocalDescription(offer);
+                
+                // Wait for ICE gathering to complete
+                await new Promise((resolve) => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        peerConnection.onicegatheringstatechange = () => {
+                            if (peerConnection.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                    }
+                });
+
+                console.log('Sending offer to peer');
                 socket.emit('offer', { offer, room: currentRoom });
             }
         } catch (error) {
             console.error('Error creating offer:', error);
             showMessage('Failed to create connection', 'error');
+            resetVideoCall();
         }
     });
 
@@ -224,15 +323,62 @@ function setupSocketListeners() {
         
         try {
             if (document.getElementById('role').value === 'coach') {
+                // Verify offer structure
+                if (!data.offer || !data.offer.type || !data.offer.sdp) {
+                    throw new Error('Invalid offer format received');
+                }
+
                 console.log('Creating peer connection as coach');
+                console.log('Offer SDP type:', data.offer.type);
+                
+                // Clean up any existing connection
+                if (peerConnection) {
+                    console.log('Cleaning up existing peer connection');
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+
                 peerConnection = await createPeerConnection();
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit('answer', { answer, room: currentRoom });
+                
+                try {
+                    console.log('Setting remote description (offer)');
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    console.log('Remote description set successfully');
+
+                    console.log('Creating answer');
+                    const answer = await peerConnection.createAnswer();
+                    
+                    // Apply bandwidth constraints to the answer
+                    answer.sdp = await setBandwidthConstraints(answer.sdp);
+                    
+                    console.log('Setting local description (answer)');
+                    await peerConnection.setLocalDescription(answer);
+                    
+                    // Wait for ICE gathering to complete
+                    await new Promise((resolve) => {
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            resolve();
+                        } else {
+                            peerConnection.onicegatheringstatechange = () => {
+                                if (peerConnection.iceGatheringState === 'complete') {
+                                    resolve();
+                                }
+                            };
+                        }
+                    });
+
+                    console.log('Sending answer to peer');
+                    socket.emit('answer', { answer, room: currentRoom });
+                } catch (rtcError) {
+                    console.error('RTC operation failed:', rtcError);
+                    showMessage('Failed to establish connection', 'error');
+                    resetVideoCall();
+                }
             }
         } catch (error) {
             console.error('Error handling offer:', error);
+            showMessage('Failed to process offer', 'error');
+            resetVideoCall();
         }
     });
 
@@ -240,23 +386,122 @@ function setupSocketListeners() {
         console.log('Received answer in room:', data.room);
         try {
             if (peerConnection && document.getElementById('role').value === 'practice') {
+                // Verify answer structure
+                if (!data.answer || !data.answer.type || !data.answer.sdp) {
+                    throw new Error('Invalid answer format received');
+                }
+
+                console.log('Answer SDP type:', data.answer.type);
+                
+                // Verify connection state
+                if (peerConnection.signalingState === 'stable') {
+                    console.warn('Peer connection is already stable, ignoring answer');
+                    return;
+                }
+
+                console.log('Setting remote description (answer)');
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 console.log('Remote description set successfully');
+                
+                // Start monitoring connection quality
+                monitorConnectionQuality();
+                
+                // Verify connection after setting remote description
+                if (peerConnection.iceConnectionState === 'failed') {
+                    throw new Error('ICE connection failed after setting remote description');
+                }
+                
+                console.log('Connection state after answer:', {
+                    iceConnectionState: peerConnection.iceConnectionState,
+                    signalingState: peerConnection.signalingState,
+                    connectionState: peerConnection.connectionState
+                });
             }
         } catch (error) {
             console.error('Error handling answer:', error);
+            showMessage('Failed to establish connection', 'error');
+            resetVideoCall();
         }
     });
 
     socket.on('ice-candidate', async (data) => {
         console.log('Received ICE candidate for room:', data.room);
         try {
-            if (peerConnection && currentRoom === data.room) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            if (!peerConnection) {
+                console.warn('No peer connection available for ICE candidate');
+                return;
+            }
+
+            if (currentRoom !== data.room) {
+                console.warn('Received ICE candidate for wrong room');
+                return;
+            }
+
+            // Verify candidate structure
+            if (!data.candidate || !data.candidate.candidate) {
+                console.warn('Invalid ICE candidate format received');
+                return;
+            }
+
+            // Log candidate details
+            const candidateDetails = {
+                type: data.candidate.type,
+                protocol: data.candidate.protocol,
+                address: data.candidate.address,
+                port: data.candidate.port,
+                priority: data.candidate.priority
+            };
+            console.log('Processing ICE candidate:', candidateDetails);
+
+            // Check connection state
+            if (peerConnection.signalingState === 'closed') {
+                console.warn('Peer connection is closed, cannot add ICE candidate');
+                return;
+            }
+
+            // Add the candidate with timeout
+            try {
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('ICE candidate addition timeout')), 5000);
+                });
+
+                await Promise.race([
+                    peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)),
+                    timeoutPromise
+                ]);
+                
                 console.log('Added ICE candidate successfully');
+
+                // Log updated ICE connection state
+                console.log('ICE connection state after adding candidate:', {
+                    iceConnectionState: peerConnection.iceConnectionState,
+                    iceGatheringState: peerConnection.iceGatheringState,
+                    signalingState: peerConnection.signalingState
+                });
+
+                // Check if we have a working connection
+                if (peerConnection.iceConnectionState === 'connected' ||
+                    peerConnection.iceConnectionState === 'completed') {
+                    console.log('ICE connection established successfully');
+                }
+            } catch (addError) {
+                // Handle specific ICE candidate errors
+                if (addError.name === 'OperationError') {
+                    console.warn('ICE candidate could not be added, possibly invalid or redundant');
+                } else if (addError.message === 'ICE candidate addition timeout') {
+                    console.warn('Timeout while adding ICE candidate');
+                    showMessage('Connection taking longer than expected', 'warning');
+                } else {
+                    throw addError;
+                }
             }
         } catch (error) {
-            console.error('Error adding ICE candidate:', error);
+            console.error('Error processing ICE candidate:', error);
+            if (error.name === 'InvalidStateError') {
+                console.warn('Invalid state for adding ICE candidate, connection may be closing');
+            } else {
+                showMessage('Connection issue detected', 'warning');
+            }
         }
     });
 
@@ -500,6 +745,15 @@ async function handleRemoteStream(stream) {
             remoteVideo.srcObject = null;
         }
 
+        // Verify stream has active tracks
+        const videoTracks = stream.getVideoTracks();
+        const audioTracks = stream.getAudioTracks();
+        console.log(`Stream tracks - Video: ${videoTracks.length}, Audio: ${audioTracks.length}`);
+        
+        if (videoTracks.length === 0 && audioTracks.length === 0) {
+            throw new Error('Stream has no active tracks');
+        }
+
         // Set up new stream
         remoteVideo.srcObject = stream;
         remoteVideo.setAttribute('playsinline', '');
@@ -508,29 +762,73 @@ async function handleRemoteStream(stream) {
 
         // Monitor stream status
         stream.getTracks().forEach(track => {
+            console.log(`Track status - Kind: ${track.kind}, Enabled: ${track.enabled}, Ready: ${track.readyState}`);
             track.onended = () => {
                 console.log('Track ended:', track.kind);
                 showMessage(`${track.kind} track ended`, 'warning');
             };
         });
 
+        // Wait for metadata to load
+        await new Promise((resolve, reject) => {
+            if (remoteVideo.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+                resolve();
+            } else {
+                remoteVideo.onloadeddata = resolve;
+                remoteVideo.onerror = reject;
+                // Set a timeout in case metadata never loads
+                setTimeout(reject, 5000, new Error('Timeout waiting for video metadata'));
+            }
+        });
+
         try {
-            await remoteVideo.play();
-            console.log('Remote video playback started successfully');
-            showMessage('Connected to remote user', 'success');
+            const playPromise = remoteVideo.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+                console.log('Remote video playback started successfully');
+                showMessage('Connected to remote user', 'success');
+            }
         } catch (playError) {
             console.error('Error playing remote video:', playError);
             if (playError.name === 'NotAllowedError') {
                 showMessage('Autoplay blocked. Click to play video.', 'warning');
+                addPlayButton(remoteVideo);
+            } else {
+                // Try to recover by muting and retrying play
+                console.log('Attempting recovery by muting video...');
+                remoteVideo.muted = true;
+                try {
+                    await remoteVideo.play();
+                    showMessage('Video playing muted. Click to unmute.', 'info');
+                    addUnmuteButton(remoteVideo);
+                } catch (retryError) {
+                    console.error('Recovery attempt failed:', retryError);
+                    addPlayButton(remoteVideo);
+                }
             }
-            addPlayButton(remoteVideo);
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
-        showMessage('Failed to display remote video', 'error');
+        showMessage('Failed to display remote video: ' + error.message, 'error');
     } finally {
         playAttemptInProgress = false;
     }
+}
+
+function addUnmuteButton(videoElement) {
+    const wrapper = videoElement.parentElement;
+    const existingButton = wrapper.querySelector('.unmute-button');
+    if (existingButton) existingButton.remove();
+
+    const unmuteButton = document.createElement('button');
+    unmuteButton.className = 'unmute-button';
+    unmuteButton.innerHTML = '🔇';
+    wrapper.appendChild(unmuteButton);
+
+    unmuteButton.onclick = () => {
+        videoElement.muted = false;
+        unmuteButton.remove();
+    };
 }
 
 // Event listeners
