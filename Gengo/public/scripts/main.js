@@ -1,5 +1,11 @@
 import { configuration, startLocalStream } from './webrtc.js';
 
+// Initialize socket connection
+const socket = io(window.location.origin, {
+    path: '/socket.io/',
+    transports: ['websocket']
+});
+
 let localStream = null;
 let remoteStream = null;
 let peerConnection = null;
@@ -363,10 +369,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Initialize socket connection and set up listeners
-const socket = io(window.location.origin, {
-    path: '/socket.io/',
-    transports: ['websocket']
-});
-
+// Set up socket listeners
 setupSocketListeners();
