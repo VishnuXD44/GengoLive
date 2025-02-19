@@ -5,6 +5,7 @@ let socket = null;
 let currentRoom = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 3;
+let playAttemptInProgress = false;
 
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -136,8 +137,9 @@ async function createPeerConnection() {
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
+            console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            if (['failed', 'disconnected', 'closed'].includes(peerConnection.iceConnectionState)) {
+                console.log('Connection state changed to:', peerConnection.iceConnectionState);
                 handleDisconnection();
             }
         };
@@ -195,7 +197,6 @@ function initializeSocket() {
         resetVideoCall();
     }
 }
-
 
 function setupSocketListeners() {
     socket.on('match-found', async (data) => {
@@ -269,7 +270,6 @@ function setupSocketListeners() {
         resetVideoCall();
     });
 }
-
 
 // Call handling
 async function startCall() {
@@ -374,17 +374,39 @@ function leaveCall() {
     showMessage('Call ended', 'info');
 }
 
-function handleDisconnection() {
+async function handleDisconnection() {
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         showMessage("Connection lost, attempting to reconnect...", "info");
         reconnectAttempts++;
-        setTimeout(() => {
-            resetVideoCall();
-            startCall();
-        }, 2000);
+        
+        // Wait before attempting reconnection
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        try {
+            // Clean up existing connections
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            // Clean up streams
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+                remoteStream = null;
+            }
+            
+            // Attempt to recreate connection
+            await startCall();
+            reconnectAttempts = 0;
+        } catch (error) {
+            console.error('Reconnection attempt failed:', error);
+            // Use exponential backoff for retry
+            setTimeout(() => handleDisconnection(), Math.min(1000 * Math.pow(2, reconnectAttempts), 10000));
+        }
     } else {
         showMessage("Unable to reconnect. Please try again later.", "error");
         resetVideoCall();
+        reconnectAttempts = 0;
     }
 }
 
@@ -398,17 +420,32 @@ function showMessage(message, type = 'info') {
 }
 
 function monitorConnectionQuality() {
-    if (peerConnection) {
-        peerConnection.getStats(null).then(stats => {
+    if (!peerConnection) return;
+
+    setInterval(async () => {
+        try {
+            const stats = await peerConnection.getStats();
+            let packetsLost = 0;
+            let jitter = 0;
+            let roundTripTime = 0;
+
             stats.forEach(report => {
                 if (report.type === "inbound-rtp" && report.kind === "video") {
-                    if (report.packetsLost > 100) {
-                        showMessage("Poor connection quality", "warning");
-                    }
+                    packetsLost = report.packetsLost;
+                    jitter = report.jitter;
+                }
+                if (report.type === "candidate-pair" && report.state === "succeeded") {
+                    roundTripTime = report.currentRoundTripTime;
                 }
             });
-        });
-    }
+
+            if (packetsLost > 100 || jitter > 50 || roundTripTime > 1000) {
+                showMessage("Poor connection quality detected", "warning");
+            }
+        } catch (error) {
+            console.error('Error monitoring connection:', error);
+        }
+    }, 5000);
 }
 
 async function setBandwidthConstraints(sdp) {
@@ -443,27 +480,58 @@ function addVideoFallback(videoElement) {
 }
 
 async function handleRemoteStream(stream) {
+    if (playAttemptInProgress) {
+        console.log('Play attempt already in progress, skipping');
+        return;
+    }
+
     try {
+        playAttemptInProgress = true;
         console.log('Handling remote stream:', stream.id);
         const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) {
-            remoteVideo.srcObject = null; // Clear any existing stream
-            remoteVideo.srcObject = stream;
-            remoteVideo.setAttribute('playsinline', '');
-            remoteVideo.setAttribute('autoplay', '');
-            await playVideo(remoteVideo);
-            addVideoFallback(remoteVideo);
-            showMessage('Connected to remote user', 'info');
-        } else {
-            console.error('Remote video element not found');
-            showMessage('Error: Remote video element not found', 'error');
+        
+        if (!remoteVideo) {
+            throw new Error('Remote video element not found');
+        }
+
+        // Clean up existing stream
+        if (remoteVideo.srcObject && remoteVideo.srcObject !== stream) {
+            remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+            remoteVideo.srcObject = null;
+        }
+
+        // Set up new stream
+        remoteVideo.srcObject = stream;
+        remoteVideo.setAttribute('playsinline', '');
+        remoteVideo.setAttribute('autoplay', '');
+        remoteVideo.muted = false;
+
+        // Monitor stream status
+        stream.getTracks().forEach(track => {
+            track.onended = () => {
+                console.log('Track ended:', track.kind);
+                showMessage(`${track.kind} track ended`, 'warning');
+            };
+        });
+
+        try {
+            await remoteVideo.play();
+            console.log('Remote video playback started successfully');
+            showMessage('Connected to remote user', 'success');
+        } catch (playError) {
+            console.error('Error playing remote video:', playError);
+            if (playError.name === 'NotAllowedError') {
+                showMessage('Autoplay blocked. Click to play video.', 'warning');
+            }
+            addPlayButton(remoteVideo);
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
         showMessage('Failed to display remote video', 'error');
+    } finally {
+        playAttemptInProgress = false;
     }
 }
-
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
