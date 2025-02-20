@@ -1,37 +1,31 @@
-// Updated WebRTC configuration for better connection handling
 export const configuration = {
     iceServers: [
         {
             urls: [
                 'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302',
-                // Added more STUN servers for redundancy
-                'stun:stun.l.google.com:19302',
-                'stun:stun4.l.google.com:19302'
+                'stun:stun2.l.google.com:19302'
             ]
         },
         {
-            // Updated TURN configuration with both TCP and UDP
             urls: [
-                'turn:openrelay.metered.ca:443?transport=tcp',
-                'turn:openrelay.metered.ca:443?transport=udp',
                 'turn:openrelay.metered.ca:80?transport=tcp',
-                'turn:openrelay.metered.ca:80?transport=udp'
+                'turn:openrelay.metered.ca:443?transport=tcp',
+                'turn:openrelay.metered.ca:443?transport=udp'
             ],
             username: 'openrelayproject',
             credential: 'openrelayproject'
         }
     ],
-    iceCandidatePoolSize: 10, // Increased from 1 to 10
+    iceCandidatePoolSize: 1, // Back to original value
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
-    iceTransportPolicy: 'all',
-    // Updated connection options
-    iceServersPolicy: 'all',
-    gatherPolicy: 'all',
-    iceCheckMinInterval: 50, // Reduced from 100
-    iceTrickleDelay: 50 // Added delay for trickle ICE
+    iceTransportPolicy: 'all', // Allow all transports initially
+    // Remove custom options that might interfere
+    iceServersPolicy: undefined,
+    gatherPolicy: undefined,
+    iceCheckMinInterval: undefined,
+    iceTrickleDelay: undefined
 };
 
 let peerConnection = null;
@@ -127,30 +121,29 @@ export async function createPeerConnection(config = configuration) {
     try {
         const pc = new RTCPeerConnection(config);
         
-        // Add buffered candidates property
         pc._iceCandidates = [];
+        let connectionAttempts = 0;
+        const MAX_ATTEMPTS = 3;
         
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('ICE candidate:', event.candidate.candidate);
+                console.log('ICE candidate:', event.candidate.candidate);erty
             }
         };
 
-        // Add ice gathering timeout handler
         pc.onicegatheringstatechange = () => {
             if (pc.iceGatheringState === 'complete') {
                 clearTimeout(pc._gatheringTimeout);
             }
         };
 
-        // Set gathering timeout
         pc._gatheringTimeout = setTimeout(() => {
             if (pc.iceGatheringState !== 'complete') {
                 console.warn('ICE gathering incomplete, continuing anyway');
             }
         }, 8000);
 
-        // Add connection monitoring
+        // Enhanced connection monitoring
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
             switch(pc.connectionState) {
@@ -161,10 +154,30 @@ export async function createPeerConnection(config = configuration) {
                     clearConnectionTimeout(pc);
                     break;
                 case 'disconnected':
-                    handleDisconnection(pc);
+                    if (connectionAttempts < MAX_ATTEMPTS) {
+                        connectionAttempts++;
+                        console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
+                        handleDisconnection(pc);
+                    }
                     break;
                 case 'failed':
-                    handleConnectionFailure(pc);
+                    if (connectionAttempts < MAX_ATTEMPTS) {
+                        connectionAttempts++;
+                        // Try TCP-only on failure
+                        pc.setConfiguration({
+                            ...config,
+                            iceTransportPolicy: 'relay',
+                            iceServers: config.iceServers.map(server => ({
+                                ...server,
+                                urls: Array.isArray(server.urls) ? 
+                                    server.urls.filter(url => url.includes('tcp')) : 
+                                    server.urls
+                            }))
+                        });
+                        pc.restartIce();
+                    } else {
+                        handleConnectionFailure(pc);
+                    }
                     break;
             }
         };
