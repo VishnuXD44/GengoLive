@@ -41,24 +41,69 @@ function handleSignaling(socket, io) {
     });
 
     socket.on('offer', ({ offer, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding offer in room: ${room}`);
-            socket.to(room).emit('offer', { offer, room });
+        if (!activeRooms.has(room)) {
+            console.warn(`Offer received for non-existent room: ${room}`);
+            socket.emit('error', { message: 'Room not found' });
+            return;
         }
+
+        const roomInfo = activeRooms.get(room);
+        if (!roomInfo.users.includes(socket.id)) {
+            console.warn(`Unauthorized offer from socket ${socket.id} for room ${room}`);
+            socket.emit('error', { message: 'Not authorized for this room' });
+            return;
+        }
+
+        console.log(`Forwarding offer in room: ${room}`);
+        socket.to(room).emit('offer', { offer, room });
+        
+        // Update room status
+        roomInfo.status = 'negotiating';
+        roomInfo.lastActivity = Date.now();
+        activeRooms.set(room, roomInfo);
     });
 
     socket.on('answer', ({ answer, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding answer in room: ${room}`);
-            socket.to(room).emit('answer', { answer, room });
+        if (!activeRooms.has(room)) {
+            console.warn(`Answer received for non-existent room: ${room}`);
+            socket.emit('error', { message: 'Room not found' });
+            return;
         }
+
+        const roomInfo = activeRooms.get(room);
+        if (!roomInfo.users.includes(socket.id)) {
+            console.warn(`Unauthorized answer from socket ${socket.id} for room ${room}`);
+            socket.emit('error', { message: 'Not authorized for this room' });
+            return;
+        }
+
+        console.log(`Forwarding answer in room: ${room}`);
+        socket.to(room).emit('answer', { answer, room });
+        
+        // Update room status
+        roomInfo.status = 'connected';
+        roomInfo.lastActivity = Date.now();
+        activeRooms.set(room, roomInfo);
     });
 
     socket.on('ice-candidate', ({ candidate, room }) => {
-        if (activeRooms.has(room)) {
-            console.log(`Forwarding ICE candidate in room: ${room}`);
-            socket.to(room).emit('ice-candidate', { candidate, room });
+        if (!activeRooms.has(room)) {
+            console.warn(`ICE candidate received for non-existent room: ${room}`);
+            return;
         }
+
+        const roomInfo = activeRooms.get(room);
+        if (!roomInfo.users.includes(socket.id)) {
+            console.warn(`Unauthorized ICE candidate from socket ${socket.id} for room ${room}`);
+            return;
+        }
+
+        console.log(`Forwarding ICE candidate in room: ${room}`);
+        socket.to(room).emit('ice-candidate', { candidate, room });
+        
+        // Update room activity
+        roomInfo.lastActivity = Date.now();
+        activeRooms.set(room, roomInfo);
     });
 
     socket.on('disconnect', () => {
@@ -105,21 +150,52 @@ function removeFromQueue(socket) {
 function createRoom(socket1, socket2, language) {
     try {
         const roomId = `${language}_${Date.now()}`;
+        
+        // Join both sockets to the room
         socket1.join(roomId);
         socket2.join(roomId);
         
-        activeRooms.set(roomId, {
+        // Create room info with extended state tracking
+        const roomInfo = {
             language,
             users: [socket1.id, socket2.id],
             createdAt: Date.now(),
-            status: 'active'
-        });
+            lastActivity: Date.now(),
+            status: 'created',
+            roles: {
+                [socket1.id]: socket1.userData.role,
+                [socket2.id]: socket2.userData.role
+            },
+            connectionAttempts: 0,
+            negotiationTimeout: null,
+            connectionTimeout: null
+        };
+        
+        activeRooms.set(roomId, roomInfo);
+
+        // Set up negotiation timeout (30 seconds)
+        roomInfo.negotiationTimeout = setTimeout(() => {
+            const room = activeRooms.get(roomId);
+            if (room && room.status === 'created') {
+                console.log(`Room ${roomId} timed out during negotiation`);
+                cleanupRoom(roomId, socket1, socket2);
+            }
+        }, 30000);
+
+        // Set up connection timeout (2 minutes)
+        roomInfo.connectionTimeout = setTimeout(() => {
+            const room = activeRooms.get(roomId);
+            if (room && room.status !== 'connected') {
+                console.log(`Room ${roomId} timed out without establishing connection`);
+                cleanupRoom(roomId, socket1, socket2);
+            }
+        }, 120000);
 
         // Notify both users about the match
         socket1.emit('match-found', { room: roomId });
         socket2.emit('match-found', { room: roomId });
         
-        console.log(`Created room ${roomId} for language ${language}`);
+        console.log(`Created room ${roomId} for language ${language} with roles:`, roomInfo.roles);
         return roomId;
     } catch (error) {
         console.error('Failed to create room:', error);
@@ -127,6 +203,33 @@ function createRoom(socket1, socket2, language) {
         socket2.emit('error', { message: 'Failed to create room' });
         throw error;
     }
+}
+
+function cleanupRoom(roomId, socket1, socket2) {
+    const room = activeRooms.get(roomId);
+    if (!room) return;
+
+    // Clear any pending timeouts
+    if (room.negotiationTimeout) {
+        clearTimeout(room.negotiationTimeout);
+    }
+    if (room.connectionTimeout) {
+        clearTimeout(room.connectionTimeout);
+    }
+
+    // Notify users in the room
+    if (socket1) {
+        socket1.emit('room-closed', { reason: 'Connection timeout' });
+        socket1.leave(roomId);
+    }
+    if (socket2) {
+        socket2.emit('room-closed', { reason: 'Connection timeout' });
+        socket2.leave(roomId);
+    }
+
+    // Remove room from active rooms
+    activeRooms.delete(roomId);
+    console.log(`Cleaned up room: ${roomId}`);
 }
 
 module.exports = { handleSignaling };
