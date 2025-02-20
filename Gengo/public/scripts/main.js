@@ -79,13 +79,57 @@ async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
 
+        // Buffer for ICE candidates
+        const pendingCandidates = [];
+        let candidateTimeout = null;
+
+        // Handle ICE candidates with buffering
         peerConnection.onicecandidate = (event) => {
-            if (event.candidate && currentRoom) {
-                console.log('Sending ICE candidate');
-                socket.emit('ice-candidate', {
-                    candidate: event.candidate,
-                    room: currentRoom
-                });
+            if (!event.candidate) {
+                // End of candidates
+                if (pendingCandidates.length > 0 && currentRoom) {
+                    console.log(`Sending ${pendingCandidates.length} buffered candidates`);
+                    pendingCandidates.forEach(candidate => {
+                        socket.emit('ice-candidate', {
+                            candidate,
+                            room: currentRoom
+                        });
+                    });
+                    pendingCandidates.length = 0;
+                }
+                return;
+            }
+
+            if (currentRoom) {
+                // Buffer the candidate
+                pendingCandidates.push(event.candidate);
+
+                // Clear existing timeout
+                if (candidateTimeout) {
+                    clearTimeout(candidateTimeout);
+                }
+
+                // Set new timeout to send candidates
+                candidateTimeout = setTimeout(() => {
+                    if (pendingCandidates.length > 0) {
+                        console.log(`Sending ${pendingCandidates.length} buffered candidates`);
+                        pendingCandidates.forEach(candidate => {
+                            socket.emit('ice-candidate', {
+                                candidate,
+                                room: currentRoom
+                            });
+                        });
+                        pendingCandidates.length = 0;
+                    }
+                }, 100); // Wait 100ms to batch candidates
+            }
+        };
+
+        // Monitor ICE gathering progress
+        peerConnection.onicegatheringstatechange = () => {
+            console.log('ICE Gathering State:', peerConnection.iceGatheringState);
+            if (peerConnection.iceGatheringState === 'complete') {
+                console.log('ICE gathering completed naturally');
             }
         };
 

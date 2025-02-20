@@ -9,22 +9,33 @@ export const configuration = {
             ]
         },
         {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            urls: [
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=tcp',
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:80?transport=tcp'
+            ],
             username: 'openrelayproject',
             credential: 'openrelayproject'
         }
     ],
-    iceCandidatePoolSize: 10,
+    iceCandidatePoolSize: 1, // Reduce pool size to speed up gathering
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
     iceTransportPolicy: 'all',
-    rtcpMuxPolicy: 'require'
+    // Add advanced options for better connection handling
+    iceServersPolicy: 'all',
+    // Prioritize connection establishment
+    iceTransportOptions: {
+        role: 'controlled',
+        iceRestart: true
+    },
+    // Enable trickle ICE
+    gatherPolicy: 'all',
+    // Reduce connection timeouts
+    iceCheckMinInterval: 50, // ms
+    iceTrickleDelay: 0 // ms
 };
 
 let peerConnection = null;
