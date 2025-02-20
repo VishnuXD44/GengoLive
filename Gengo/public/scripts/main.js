@@ -83,7 +83,9 @@ async function createPeerConnection() {
                 {
                     urls: [
                         'stun:stun1.l.google.com:19302',
-                        'stun:stun2.l.google.com:19302'
+                        'stun:stun2.l.google.com:19302',
+                        'stun:stun3.l.google.com:19302',
+                        'stun:stun4.l.google.com:19302'
                     ]
                 },
                 {
@@ -95,8 +97,7 @@ async function createPeerConnection() {
             iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 0, // Disable candidate pooling
-            sdpSemantics: 'unified-plan'
+            iceCandidatePoolSize: 1
         };
 
         peerConnection = new RTCPeerConnection(config);
@@ -486,15 +487,18 @@ function setupSocketListeners() {
                     await Promise.race([
                         new Promise((resolve, reject) => {
                             const checkState = () => {
-                                const state = peerConnection.connectionState;
-                                const iceState = peerConnection.iceConnectionState;
+                                if (!peerConnection) return false;
+                                
+                                const state = peerConnection?.connectionState;
+                                const iceState = peerConnection?.iceConnectionState;
                                 console.log('Checking states - Connection:', state, 'ICE:', iceState);
 
                                 if (state === 'connected' || iceState === 'connected') {
-                                    resolve();
+                                    return true;
                                 } else if (['failed', 'closed'].includes(state) || ['failed', 'closed'].includes(iceState)) {
-                                    reject(new Error('Connection failed'));
+                                    throw new Error('Connection failed');
                                 }
+                                return false;
                             };
 
                             // Check every second
@@ -623,7 +627,7 @@ async function handleRemoteStream(stream) {
                 tempVideo.onloadedmetadata = resolve;
             }),
             new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Metadata loading timeout')), 10000)
+                setTimeout(() => reject(new Error('Metadata loading timeout')), 15000)
             )
         ]);
 
@@ -634,6 +638,10 @@ async function handleRemoteStream(stream) {
                 console.log('Remote video playback started');
                 break;
             } catch (error) {
+                if (error.name === 'NotAllowedError' || attempt === 3) {
+                    addPlayButton(remoteVideo);
+                    break;
+                }
                 console.warn(`Play attempt ${attempt} failed:`, error);
                 if (attempt === 3) throw error;
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -641,7 +649,8 @@ async function handleRemoteStream(stream) {
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
-        showMessage('Video connection issues - try refreshing', 'warning');
+        showMessage('Video connection issues. Click to play.', 'warning');
+        addPlayButton(remoteVideo);
     }
 }
 
@@ -738,14 +747,36 @@ async function initializeCall() {
 }
 
 function monitorConnectionState() {
+    if (!peerConnection) return;
+
     peerConnection.onconnectionstatechange = () => {
+        if (!peerConnection) return;
+        
         console.log(`Connection state: ${peerConnection.connectionState}`);
         
         if (peerConnection.connectionState === 'failed') {
             console.log('Connection failed - attempting reconnection');
-            restartIce();
+            handleConnectionRetry();
         }
     };
+}
+
+async function handleConnectionRetry() {
+    if (!peerConnection || !currentRoom) return;
+
+    try {
+        await peerConnection.restartIce();
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        await peerConnection.setLocalDescription(offer);
+        
+        socket.emit('offer', {
+            offer: peerConnection.localDescription,
+            room: currentRoom
+        });
+    } catch (error) {
+        console.error('Reconnection attempt failed:', error);
+        handleConnectionFailure();
+    }
 }
 
 function restartIce() {

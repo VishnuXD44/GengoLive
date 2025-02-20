@@ -3,20 +3,21 @@ export const configuration = {
         {
             urls: [
                 'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302'
+                'stun:stun2.l.google.com:19302',
+                'stun:stun3.l.google.com:19302',
+                'stun:stun4.l.google.com:19302'
             ]
         },
         {
-            // Using Google's STUN servers as primary, and keeping openrelay as backup
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
         }
     ],
-    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
-    sdpSemantics: 'unified-plan'
+    iceCandidatePoolSize: 1
 };
 
 export async function startLocalStream(constraints = {
