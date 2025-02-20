@@ -90,23 +90,91 @@ async function createPeerConnection() {
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            const state = peerConnection.iceConnectionState;
+            console.log('ICE Connection State:', state);
             
-            if (['failed', 'disconnected', 'closed'].includes(peerConnection.iceConnectionState)) {
-                console.log('Connection state changed to:', peerConnection.iceConnectionState);
-                resetVideoCall();
-                showMessage('Connection lost', 'error');
+            switch (state) {
+                case 'checking':
+                    console.log('Establishing connection...');
+                    showMessage('Establishing connection...', 'info');
+                    break;
+                case 'connected':
+                    console.log('Connection established successfully');
+                    showMessage('Connection established', 'success');
+                    break;
+                case 'completed':
+                    console.log('ICE connection completed');
+                    break;
+                case 'failed':
+                    console.error('ICE connection failed');
+                    showMessage('Connection failed', 'error');
+                    handleConnectionFailure();
+                    break;
+                case 'disconnected':
+                    console.warn('ICE connection disconnected');
+                    showMessage('Connection interrupted', 'warning');
+                    // Don't reset immediately, allow for potential recovery
+                    setTimeout(() => {
+                        if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
+                            resetVideoCall();
+                        }
+                    }, 5000);
+                    break;
+                case 'closed':
+                    console.log('ICE connection closed');
+                    resetVideoCall();
+                    showMessage('Connection closed', 'info');
+                    break;
             }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection State:', peerConnection.connectionState);
+        };
+
+        peerConnection.onicegatheringstatechange = () => {
+            console.log('ICE Gathering State:', peerConnection.iceGatheringState);
+        };
+
+        peerConnection.onsignalingstatechange = () => {
+            console.log('Signaling State:', peerConnection.signalingState);
         };
 
         peerConnection.ontrack = async (event) => {
             console.log('Received remote track:', event.track.kind);
+            console.log('Track settings:', event.track.getSettings());
+            console.log('Track constraints:', event.track.getConstraints());
 
             if (event.streams && event.streams[0]) {
                 console.log('Setting remote stream from ontrack');
                 remoteStream = event.streams[0];
+                
+                // Log stream information
+                console.log('Remote stream ID:', remoteStream.id);
+                console.log('Remote stream tracks:', remoteStream.getTracks().map(track => ({
+                    kind: track.kind,
+                    enabled: track.enabled,
+                    muted: track.muted,
+                    readyState: track.readyState
+                })));
+
                 await handleRemoteStream(remoteStream);
+            } else {
+                console.warn('No stream received with track');
             }
+
+            // Monitor track ending
+            event.track.onended = () => {
+                console.log('Remote track ended:', event.track.kind);
+            };
+
+            event.track.onmute = () => {
+                console.log('Remote track muted:', event.track.kind);
+            };
+
+            event.track.onunmute = () => {
+                console.log('Remote track unmuted:', event.track.kind);
+            };
         };
 
         if (localStream) {
@@ -170,6 +238,7 @@ function setupSocketListeners() {
 
     socket.on('offer', async (data) => {
         console.log('Received offer in room:', data.room);
+        updateState(STATE.CONNECTING);
         
         try {
             if (document.getElementById('role').value === 'coach') {
@@ -188,15 +257,45 @@ function setupSocketListeners() {
                 
                 console.log('Setting remote description');
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                console.log('Remote description set successfully');
+
+                // Wait a bit for ICE gathering to start
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
                 console.log('Creating answer');
-                const answer = await peerConnection.createAnswer();
+                const answer = await peerConnection.createAnswer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
                 
                 console.log('Setting local description');
                 await peerConnection.setLocalDescription(answer);
+                console.log('Local description set successfully');
+
+                // Wait for ICE gathering to complete or timeout
+                try {
+                    await Promise.race([
+                        new Promise((resolve) => {
+                            if (peerConnection.iceGatheringState === 'complete') {
+                                resolve();
+                            } else {
+                                peerConnection.onicegatheringstatechange = () => {
+                                    if (peerConnection.iceGatheringState === 'complete') {
+                                        resolve();
+                                    }
+                                };
+                            }
+                        }),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('ICE gathering timeout')), 10000))
+                    ]);
+                    console.log('ICE gathering completed');
+                } catch (error) {
+                    console.warn('ICE gathering did not complete:', error);
+                    // Continue anyway as we might still get a connection
+                }
 
                 console.log('Sending answer to peer');
-                socket.emit('answer', { answer, room: currentRoom });
+                socket.emit('answer', { answer: peerConnection.localDescription, room: currentRoom });
             }
         } catch (error) {
             console.error('Error in offer handler:', error);
@@ -216,10 +315,35 @@ function setupSocketListeners() {
                 console.log('Setting remote description');
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
                 console.log('Remote description set successfully');
+
+                // Wait for connection to establish
+                await Promise.race([
+                    new Promise((resolve, reject) => {
+                        const checkState = () => {
+                            console.log('Checking connection state:', peerConnection.connectionState);
+                            if (peerConnection.connectionState === 'connected') {
+                                resolve();
+                            } else if (['failed', 'closed'].includes(peerConnection.connectionState)) {
+                                reject(new Error('Connection failed'));
+                            }
+                        };
+                        
+                        peerConnection.onconnectionstatechange = checkState;
+                        checkState(); // Check immediately in case already connected
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
+                ]);
+
+                console.log('Connection established successfully');
+                updateState(STATE.CONNECTED);
             }
         } catch (error) {
             console.error('Error in answer handler:', error);
-            showMessage('Failed to establish connection', 'error');
+            if (error.message === 'Connection timeout') {
+                showMessage('Connection timed out. Please try again.', 'error');
+            } else {
+                showMessage('Failed to establish connection', 'error');
+            }
             resetVideoCall();
         }
     });
@@ -242,13 +366,39 @@ function setupSocketListeners() {
                 return;
             }
 
-            if (peerConnection.signalingState !== 'closed') {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            // Check if we can add the ICE candidate
+            const readyStates = ['stable', 'have-remote-offer', 'have-local-offer'];
+            if (!readyStates.includes(peerConnection.signalingState)) {
+                console.warn('Cannot add ICE candidate, invalid signaling state:', peerConnection.signalingState);
+                return;
+            }
+
+            // Add the ICE candidate with timeout
+            try {
+                await Promise.race([
+                    peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('ICE candidate timeout')), 5000))
+                ]);
                 console.log('Added ICE candidate successfully');
+
+                // Log current connection states
+                console.log('Current ICE connection state:', peerConnection.iceConnectionState);
+                console.log('Current ICE gathering state:', peerConnection.iceGatheringState);
+                console.log('Current signaling state:', peerConnection.signalingState);
+                console.log('Current connection state:', peerConnection.connectionState);
+            } catch (error) {
+                if (error.message === 'ICE candidate timeout') {
+                    console.warn('Timeout adding ICE candidate');
+                } else {
+                    throw error;
+                }
             }
         } catch (error) {
-            // Only log error if it's not an InvalidStateError
-            if (error.name !== 'InvalidStateError') {
+            if (error.name === 'InvalidStateError') {
+                console.warn('Invalid state while adding ICE candidate:', error);
+            } else if (error.name === 'OperationError') {
+                console.warn('Operation error while adding ICE candidate:', error);
+            } else {
                 console.error('Error processing ICE candidate:', error);
                 showMessage('Connection issue detected', 'warning');
             }
@@ -274,33 +424,60 @@ function setupSocketListeners() {
 }
 
 async function handleRemoteStream(stream) {
+    if (!stream) {
+        console.error('No remote stream provided');
+        return;
+    }
+
     const remoteVideo = document.getElementById('remoteVideo');
+    if (!remoteVideo) {
+        console.error('Remote video element not found');
+        return;
+    }
     
     try {
+        console.log('Setting up remote stream:', stream.id);
+        console.log('Remote stream tracks:', stream.getTracks().map(track => track.kind));
+
         // Wait for any existing stream to be properly cleaned up
         if (remoteVideo.srcObject) {
+            const oldStream = remoteVideo.srcObject;
+            oldStream.getTracks().forEach(track => track.stop());
             remoteVideo.srcObject = null;
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         // Set up new stream
         remoteVideo.muted = false;
+        remoteVideo.autoplay = true;
+        remoteVideo.playsInline = true;
         
         // Create a promise to handle the loadedmetadata event
         const metadataLoaded = new Promise((resolve, reject) => {
-            remoteVideo.onloadedmetadata = () => resolve();
-            remoteVideo.onerror = (e) => reject(e);
+            const timeoutId = setTimeout(() => {
+                reject(new Error('Metadata loading timeout'));
+            }, 5000);
+
+            remoteVideo.onloadedmetadata = () => {
+                clearTimeout(timeoutId);
+                resolve();
+            };
+            remoteVideo.onerror = (e) => {
+                clearTimeout(timeoutId);
+                reject(e);
+            };
         });
 
         // Set the stream
         remoteVideo.srcObject = stream;
+        console.log('Remote stream set to video element');
 
         // Wait for metadata to load
         try {
             await metadataLoaded;
-            console.log('Video metadata loaded successfully');
+            console.log('Remote video metadata loaded successfully');
         } catch (error) {
-            console.error('Error loading video metadata:', error);
+            console.error('Error loading remote video metadata:', error);
             throw error;
         }
 
@@ -311,6 +488,7 @@ async function handleRemoteStream(stream) {
             if (playPromise !== undefined) {
                 await playPromise;
                 console.log('Remote video playback started successfully');
+                updateState(STATE.CONNECTED);
                 showMessage('Connected to remote user', 'success');
             }
         } catch (playError) {
@@ -325,6 +503,15 @@ async function handleRemoteStream(stream) {
     } catch (error) {
         console.error('Error handling remote stream:', error);
         showMessage('Failed to display remote video', 'error');
+        // Try to recover by resetting video element
+        remoteVideo.srcObject = null;
+        setTimeout(() => {
+            try {
+                remoteVideo.srcObject = stream;
+            } catch (retryError) {
+                console.error('Recovery attempt failed:', retryError);
+            }
+        }, 1000);
     }
 }
 
@@ -424,11 +611,15 @@ function handleConnectionFailure() {
 async function initializeCall() {
     try {
         updateState(STATE.CONNECTING);
-        await startLocalStream();
+        localStream = await startLocalStream();
+        if (!localStream) {
+            throw new Error('Failed to get local stream');
+        }
         peerConnection = await createPeerConnection();
-        // Setup media handling...
+        updateState(STATE.WAITING);
     } catch (error) {
         console.error('Call initialization failed:', error);
+        showMessage(error.message, 'error');
         updateState(STATE.IDLE);
     }
 }
