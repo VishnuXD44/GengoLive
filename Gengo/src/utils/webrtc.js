@@ -4,30 +4,34 @@ export const configuration = {
         {
             urls: [
                 'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302'
+                'stun:stun2.l.google.com:19302',
+                // Added more STUN servers for redundancy
+                'stun:stun.l.google.com:19302',
+                'stun:stun4.l.google.com:19302'
             ]
         },
         {
+            // Updated TURN configuration with both TCP and UDP
             urls: [
                 'turn:openrelay.metered.ca:443?transport=tcp',
-                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=udp',
                 'turn:openrelay.metered.ca:80?transport=tcp',
-                'turn:openrelay.metered.ca:80'
+                'turn:openrelay.metered.ca:80?transport=udp'
             ],
             username: 'openrelayproject',
             credential: 'openrelayproject'
         }
     ],
-    iceCandidatePoolSize: 1,
+    iceCandidatePoolSize: 10, // Increased from 1 to 10
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
     iceTransportPolicy: 'all',
-    // Advanced connection options
+    // Updated connection options
     iceServersPolicy: 'all',
     gatherPolicy: 'all',
-    iceCheckMinInterval: 100,
-    iceTrickleDelay: 0
+    iceCheckMinInterval: 50, // Reduced from 100
+    iceTrickleDelay: 50 // Added delay for trickle ICE
 };
 
 let peerConnection = null;
@@ -123,26 +127,44 @@ export async function createPeerConnection(config = configuration) {
     try {
         const pc = new RTCPeerConnection(config);
         
+        // Add buffered candidates property
+        pc._iceCandidates = [];
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('ICE candidate:', event.candidate.candidate);
+            }
+        };
+
+        // Add ice gathering timeout handler
+        pc.onicegatheringstatechange = () => {
+            if (pc.iceGatheringState === 'complete') {
+                clearTimeout(pc._gatheringTimeout);
+            }
+        };
+
+        // Set gathering timeout
+        pc._gatheringTimeout = setTimeout(() => {
+            if (pc.iceGatheringState !== 'complete') {
+                console.warn('ICE gathering incomplete, continuing anyway');
+            }
+        }, 8000);
+
+        // Add connection monitoring
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
             switch(pc.connectionState) {
                 case 'connecting':
-                    console.log('Establishing connection...');
+                    startConnectionTimeout(pc);
                     break;
                 case 'connected':
-                    console.log('Connection established successfully');
+                    clearConnectionTimeout(pc);
                     break;
                 case 'disconnected':
-                    console.warn('Connection lost, attempting recovery');
-                    setTimeout(() => {
-                        if (pc.connectionState === 'disconnected') {
-                            pc.restartIce();
-                        }
-                    }, 2000);
+                    handleDisconnection(pc);
                     break;
                 case 'failed':
-                    console.error('Connection failed permanently');
-                    cleanup();
+                    handleConnectionFailure(pc);
                     break;
             }
         };
@@ -167,6 +189,35 @@ export async function createPeerConnection(config = configuration) {
         console.error('Error creating peer connection:', error);
         throw error;
     }
+}
+
+// Add these helper functions
+function startConnectionTimeout(pc) {
+    pc._connectionTimeout = setTimeout(() => {
+        if (pc.connectionState === 'connecting') {
+            console.warn('Connection timeout, attempting recovery');
+            pc.restartIce();
+        }
+    }, 15000);
+}
+
+function clearConnectionTimeout(pc) {
+    if (pc._connectionTimeout) {
+        clearTimeout(pc._connectionTimeout);
+        pc._connectionTimeout = null;
+    }
+}
+
+function handleDisconnection(pc) {
+    setTimeout(() => {
+        if (pc.connectionState === 'disconnected') {
+            pc.restartIce();
+        }
+    }, 2000);
+}
+
+function handleConnectionFailure(pc) {
+    cleanup();
 }
 
 export async function handleOffer(offer) {
@@ -228,6 +279,21 @@ export async function handleIceCandidate(candidate) {
             console.error('Error adding ICE candidate:', err);
             throw err;
         }
+    }
+}
+
+// Add this new function for handling ICE candidates
+export async function handleIceCandidateError(pc, candidate) {
+    try {
+        if (pc.remoteDescription) {
+            await pc.addIceCandidate(candidate);
+        } else {
+            // Buffer candidate if remote description isn't set
+            pc._iceCandidates = pc._iceCandidates || [];
+            pc._iceCandidates.push(candidate);
+        }
+    } catch (err) {
+        console.warn('Error adding ICE candidate:', err);
     }
 }
 
