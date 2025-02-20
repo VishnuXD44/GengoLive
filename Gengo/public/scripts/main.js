@@ -1,8 +1,9 @@
 import { configuration, startLocalStream } from './webrtc.js';
 
+// Replace import style initialization with direct access
 const socket = io(window.location.origin, {
     path: '/socket.io/',
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000

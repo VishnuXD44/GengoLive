@@ -62,6 +62,11 @@ const io = new Server(server, {
     pingInterval: 25000
 });
 
+// Add explicit route for socket.io.js
+app.get('/socket.io/socket.io.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '../node_modules/socket.io-client/dist/socket.io.js'));
+});
+
 // Socket connection handling
 io.on('connection', (socket) => {
     console.log('New connection:', socket.id);
