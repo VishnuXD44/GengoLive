@@ -77,7 +77,29 @@ function updateUI(state) {
 
 async function createPeerConnection() {
     try {
-        peerConnection = new RTCPeerConnection(configuration);
+        // At the top of createPeerConnection function
+        const config = {
+            iceServers: [
+                {
+                    urls: [
+                        'stun:stun1.l.google.com:19302',
+                        'stun:stun2.l.google.com:19302'
+                    ]
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ],
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 0, // Disable candidate pooling
+            sdpSemantics: 'unified-plan'
+        };
+
+        peerConnection = new RTCPeerConnection(config);
 
         // Buffer for ICE candidates
         const pendingCandidates = [];
@@ -589,37 +611,37 @@ async function handleRemoteStream(stream) {
     if (!remoteVideo) return;
 
     try {
-        // Set stream
         remoteVideo.srcObject = stream;
         
-        // Wait for metadata with longer timeout
+        // Pre-load stream in temporary element
+        const tempVideo = document.createElement('video');
+        tempVideo.srcObject = stream;
+        tempVideo.muted = true;
+        
         await Promise.race([
             new Promise(resolve => {
-                remoteVideo.onloadedmetadata = resolve;
+                tempVideo.onloadedmetadata = resolve;
             }),
             new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Metadata loading timeout')), 30000)
+                setTimeout(() => reject(new Error('Metadata loading timeout')), 10000)
             )
         ]);
 
-        // Attempt to play with retries
-        let attempts = 0;
-        while (attempts < 3) {
+        // Multiple play attempts
+        for (let attempt = 1; attempt <= 3; attempt++) {
             try {
                 await remoteVideo.play();
+                console.log('Remote video playback started');
                 break;
             } catch (error) {
-                attempts++;
-                if (error.name === 'NotAllowedError') {
-                    // Add play button for user interaction
-                    addPlayButton(remoteVideo);
-                    break;
-                }
+                console.warn(`Play attempt ${attempt} failed:`, error);
+                if (attempt === 3) throw error;
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
+        showMessage('Video connection issues - try refreshing', 'warning');
     }
 }
 
@@ -731,6 +753,57 @@ function restartIce() {
         peerConnection.restartIce();
         // Create and send new offer with ice-restart: true
         createAndSendOffer({ iceRestart: true });
+    }
+}
+
+async function createAndSendOffer(options = {}) {
+    if (!peerConnection || !currentRoom) {
+        console.error('Cannot create offer - no peer connection or room');
+        return;
+    }
+
+    try {
+        // Create offer with trickle ICE and other options
+        const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+            iceRestart: options.iceRestart || false
+        });
+
+        // Set local description before gathering ICE candidates
+        await peerConnection.setLocalDescription(offer);
+
+        // Wait for ICE gathering with timeout
+        let iceCandidates = [];
+        try {
+            await Promise.race([
+                new Promise((resolve) => {
+                    const gatherCandidates = (event) => {
+                        if (event.candidate) {
+                            iceCandidates.push(event.candidate);
+                        } else {
+                            resolve();
+                            peerConnection.removeEventListener('icecandidate', gatherCandidates);
+                        }
+                    };
+                    peerConnection.addEventListener('icecandidate', gatherCandidates);
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('ICE gathering timeout')), 5000))
+            ]);
+        } catch (error) {
+            console.warn('ICE gathering incomplete:', error);
+        }
+
+        // Send offer to peer
+        socket.emit('offer', {
+            offer: peerConnection.localDescription,
+            room: currentRoom,
+            candidates: iceCandidates
+        });
+
+    } catch (error) {
+        console.error('Error creating/sending offer:', error);
+        showMessage('Failed to create connection offer', 'error');
     }
 }
 
