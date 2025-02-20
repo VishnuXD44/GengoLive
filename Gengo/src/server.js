@@ -56,6 +56,7 @@ const io = new Server(server, {
         credentials: true
     },
     path: '/socket.io/',
+    serveClient: true, // Ensure client is served
     transports: ['websocket'],
     pingTimeout: 60000,
     pingInterval: 25000

@@ -95,5 +95,8 @@ module.exports = {
             "crypto": false,
             "stream": false
         }
+    },
+    externals: {
+        'socket.io-client': 'io'
     }
 };
