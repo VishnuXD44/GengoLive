@@ -57,7 +57,7 @@ const io = new Server(server, {
     },
     path: '/socket.io/',
     serveClient: true, // Ensure client is served
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'], // Add polling as fallback
     pingTimeout: 60000,
     pingInterval: 25000
 });

@@ -96,6 +96,11 @@ module.exports = {
             "stream": false
         }
     },
+    optimization: {
+        splitChunks: {
+            chunks: 'all'
+        }
+    },
     externals: {
         'socket.io-client': 'io'
     }

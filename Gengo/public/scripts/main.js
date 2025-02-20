@@ -1,6 +1,6 @@
 import { configuration, startLocalStream } from './webrtc.js';
 
-const socket = window.io(window.location.origin, {
+const socket = io(window.location.origin, {
     path: '/socket.io/',
     transports: ['websocket'],
     reconnection: true,
