@@ -6,7 +6,6 @@
     <title>Gengo - Practice</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="styles.css" rel="stylesheet" type="text/css">
-    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="/language-animation.bundle.js" defer></script>
 </head>
@@ -60,6 +59,8 @@
         </div>
     </div>
     <script src="scripts/language-animation.js"></script>
+    <!-- Add socket.io client before main.js -->
+    <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="scripts/main.js"></script>
 </body>
 </html>

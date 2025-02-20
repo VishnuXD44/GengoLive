@@ -89,6 +89,11 @@ module.exports = {
 
     ],
     resolve: {
-        extensions: ['.js', '.css']
+        extensions: ['.js', '.css'],
+        fallback: {
+            "buffer": require.resolve("buffer/"),
+            "crypto": false,
+            "stream": false
+        }
     }
 };

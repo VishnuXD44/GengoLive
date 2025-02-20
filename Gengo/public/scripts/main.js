@@ -11,6 +11,67 @@ let remoteStream = null;
 let peerConnection = null;
 let currentRoom = null;
 
+const CONNECTION_STATES = {
+    IDLE: 'idle',
+    QUEUED: 'queued',
+    CONNECTING: 'connecting',
+    CONNECTED: 'connected',
+    FAILED: 'failed'
+};
+
+let connectionState = CONNECTION_STATES.IDLE;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
+
+const STATE = {
+    IDLE: 'idle',
+    WAITING: 'waiting',
+    CONNECTING: 'connecting',
+    CONNECTED: 'connected'
+};
+
+let currentState = STATE.IDLE;
+
+function updateState(newState) {
+    currentState = newState;
+    updateUI(currentState);
+}
+
+function updateUI(state) {
+    const videoContainer = document.querySelector('.video-container');
+    const selectionContainer = document.querySelector('.selection-container');
+    const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+
+    switch (state) {
+        case STATE.WAITING:
+            showMessage('Waiting for a match...', 'info');
+            if (connectButton) connectButton.style.display = 'none';
+            if (leaveButton) leaveButton.style.display = 'block';
+            break;
+        case STATE.CONNECTING:
+            showMessage('Establishing connection...', 'info');
+            if (videoContainer) videoContainer.style.display = 'grid';
+            if (selectionContainer) selectionContainer.style.display = 'none';
+            break;
+        case STATE.CONNECTED:
+            showMessage('Connected successfully', 'success');
+            if (videoContainer) videoContainer.style.display = 'grid';
+            if (selectionContainer) selectionContainer.style.display = 'none';
+            break;
+        case STATE.IDLE:
+        default:
+            if (videoContainer) videoContainer.style.display = 'none';
+            if (selectionContainer) selectionContainer.style.display = 'flex';
+            if (connectButton) {
+                connectButton.style.display = 'block';
+                connectButton.disabled = false;
+            }
+            if (leaveButton) leaveButton.style.display = 'none';
+            break;
+    }
+}
+
 async function createPeerConnection() {
     try {
         peerConnection = new RTCPeerConnection(configuration);
@@ -328,35 +389,83 @@ function showMessage(message, type = 'info') {
     setTimeout(() => messageDiv.remove(), 5000);
 }
 
+function handleConnectionFailure() {
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        showMessage(`Connection failed. Retrying... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, 'warning');
+        
+        setTimeout(async () => {
+            try {
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+                await initializeCall();
+                
+                const language = document.getElementById('language').value;
+                const role = document.getElementById('role').value;
+                socket.emit('join', { language, role });
+                
+            } catch (error) {
+                console.error('Reconnection failed:', error);
+                handleConnectionFailure();
+            }
+        }, 2000);
+    } else {
+        connectionState = CONNECTION_STATES.FAILED;
+        showMessage('Connection failed after multiple attempts', 'error');
+        resetVideoCall();
+    }
+}
+
+async function initializeCall() {
+    try {
+        updateState(STATE.CONNECTING);
+        await startLocalStream();
+        peerConnection = await createPeerConnection();
+        // Setup media handling...
+    } catch (error) {
+        console.error('Call initialization failed:', error);
+        updateState(STATE.IDLE);
+    }
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
     const connectButton = document.getElementById('connect');
     const leaveButton = document.getElementById('leave');
-    const languageSelect = document.getElementById('language');
-    const roleSelect = document.getElementById('role');
+    const videoContainer = document.querySelector('.video-container');
+    const selectionContainer = document.querySelector('.selection-container');
 
-    if (connectButton && languageSelect && roleSelect) {
+    if (connectButton) {
         connectButton.addEventListener('click', async () => {
             try {
-                const language = languageSelect.value;
-                const role = roleSelect.value;
-
-                if (!language || !role) {
-                    showMessage('Please select both language and role', 'warning');
-                    return;
-                }
-
+                // Show loading state
                 connectButton.disabled = true;
-                showMessage('Requesting media access...', 'info');
+                connectButton.classList.add('loading');
+                
+                // Get selected options
+                const language = document.getElementById('language').value;
+                const role = document.getElementById('role').value;
 
+                // Initialize local stream
                 localStream = await startLocalStream();
                 
+                // Show video container
+                if (videoContainer) videoContainer.style.display = 'grid';
+                if (selectionContainer) selectionContainer.style.display = 'none';
+                if (leaveButton) leaveButton.style.display = 'block';
+                
+                // Join room
                 socket.emit('join', { language, role });
-                showMessage('Waiting for match...', 'info');
+                updateState(STATE.WAITING);
+                
             } catch (error) {
-                console.error('Error starting connection:', error);
-                showMessage('Failed to access camera/microphone', 'error');
-                connectButton.disabled = false;
+                console.error('Error initializing call:', error);
+                showMessage(error.message, 'error');
+                resetVideoCall();
+            } finally {
+                connectButton.classList.remove('loading');
             }
         });
     }

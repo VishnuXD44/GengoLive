@@ -49,46 +49,38 @@ export async function startLocalStream(constraints = {
     }
 }
 
-export async function createPeerConnection() {
+export async function createPeerConnection(config = configuration) {
     try {
-        peerConnection = new RTCPeerConnection(configuration);
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE Connection State:', peerConnection.iceConnectionState);
-            if (peerConnection.iceConnectionState === 'failed') {
-                // If the primary connection fails, try reconnecting
-                peerConnection.restartIce();
+        const pc = new RTCPeerConnection(config);
+        
+        pc.onconnectionstatechange = () => {
+            console.log('Connection state:', pc.connectionState);
+            switch(pc.connectionState) {
+                case 'connected':
+                    console.log('Connection established');
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    console.log('Connection lost, attempting reconnection');
+                    pc.restartIce();
+                    break;
+                case 'closed':
+                    cleanup();
+                    break;
             }
         };
 
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection State:', peerConnection.connectionState);
-        };
-
-        peerConnection.onsignalingstatechange = () => {
-            console.log('Signaling State:', peerConnection.signalingState);
-        };
-
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-        }
-
-        peerConnection.ontrack = (event) => {
-            if (event.streams && event.streams[0]) {
-                remoteStream = event.streams[0];
-                const remoteVideo = document.getElementById('remoteVideo');
-                if (remoteVideo && !remoteVideo.srcObject) {
-                    remoteVideo.srcObject = remoteStream;
-                }
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE Connection State:', pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                pc.restartIce();
             }
         };
 
-        return peerConnection;
-    } catch (err) {
-        console.error('Error creating peer connection:', err);
-        throw err;
+        return pc;
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        throw new Error('Failed to create peer connection');
     }
 }
 
@@ -158,19 +150,15 @@ export async function handleIceCandidate(candidate) {
 
 export function cleanup() {
     if (localStream) {
-        localStream.getTracks().forEach(track => {
-            track.stop();
-        });
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => {
-            track.stop();
-        });
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
     }
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
-    localStream = null;
-    remoteStream = null;
 }

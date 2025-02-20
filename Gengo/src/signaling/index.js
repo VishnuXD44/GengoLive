@@ -1,43 +1,42 @@
 const users = new Map();
 const activeRooms = new Map();
+const waitingQueue = {
+    practice: new Map(), // language -> [users]
+    coach: new Map()     // language -> [users]
+};
+
+const ROOM_TIMEOUT = 1000 * 60 * 60; // 1 hour
+
+function cleanupInactiveRooms() {
+    const now = Date.now();
+    for (const [roomId, room] of activeRooms.entries()) {
+        if (now - room.createdAt > ROOM_TIMEOUT) {
+            console.log(`Cleaning up inactive room: ${roomId}`);
+            activeRooms.delete(roomId);
+        }
+    }
+}
+
+// Add to handleSignaling initialization
+setInterval(cleanupInactiveRooms, 1000 * 60 * 15); // Check every 15 minutes
 
 function handleSignaling(socket, io) {
     socket.on('join', ({ language, role }) => {
-        console.log(`User ${socket.id} joined with language: ${language}, role: ${role}`);
+        // Add state tracking
+        socket.userData = { language, role, state: 'waiting' };
         
-        // Create matching keys
-        const matchKey = `${language}-${role === 'practice' ? 'coach' : 'practice'}`;
-        const userKey = `${language}-${role}`;
-        
-        // Check for existing match
-        if (users.has(matchKey)) {
-            const otherSocket = users.get(matchKey);
-            users.delete(matchKey);
-            
-            const room = `${language}-${Date.now()}`;
-            
-            // Join room
-            socket.join(room);
-            otherSocket.join(room);
-            
-            // Emit match-found event with room info
-            socket.emit('match-found', { room, role });
-            otherSocket.emit('match-found', { room, role: role === 'practice' ? 'coach' : 'practice' });
-            
-            activeRooms.set(room, {
-                users: [socket.id, otherSocket.id],
-                language,
-                roles: {
-                    [socket.id]: role,
-                    [otherSocket.id]: role === 'practice' ? 'coach' : 'practice'
-                },
-                startTime: Date.now()
-            });
-    
-            console.log(`Matched users in room ${room} - ${role} with ${role === 'practice' ? 'coach' : 'practice'}`);
+        const oppositeRole = role === 'practice' ? 'coach' : 'practice';
+        const oppositeQueue = waitingQueue[oppositeRole];
+
+        if (oppositeQueue.has(language) && oppositeQueue.get(language).length > 0) {
+            const matchedSocket = oppositeQueue.get(language).shift();
+            createRoom(socket, matchedSocket, language);
         } else {
-            users.set(userKey, socket);
-            console.log(`User ${socket.id} waiting for ${role === 'practice' ? 'coach' : 'practice'}`);
+            if (!waitingQueue[role].has(language)) {
+                waitingQueue[role].set(language, []);
+            }
+            waitingQueue[role].get(language).push(socket);
+            socket.emit('waiting');
         }
     });
 
@@ -63,6 +62,8 @@ function handleSignaling(socket, io) {
     });
 
     socket.on('disconnect', () => {
+        removeFromQueue(socket);
+        
         // Clean up waiting users
         for (const [key, value] of users.entries()) {
             if (value.id === socket.id) {
@@ -87,6 +88,45 @@ function handleSignaling(socket, io) {
             }
         }
     });
+}
+
+function removeFromQueue(socket) {
+    const { role, language } = socket.userData || {};
+    if (role && language && waitingQueue[role].has(language)) {
+        const queue = waitingQueue[role].get(language);
+        const index = queue.findIndex(s => s.id === socket.id);
+        if (index !== -1) {
+            queue.splice(index, 1);
+            console.log(`Removed ${socket.id} from ${role} queue for ${language}`);
+        }
+    }
+}
+
+function createRoom(socket1, socket2, language) {
+    try {
+        const roomId = `${language}_${Date.now()}`;
+        socket1.join(roomId);
+        socket2.join(roomId);
+        
+        activeRooms.set(roomId, {
+            language,
+            users: [socket1.id, socket2.id],
+            createdAt: Date.now(),
+            status: 'active'
+        });
+
+        // Notify both users about the match
+        socket1.emit('match-found', { room: roomId });
+        socket2.emit('match-found', { room: roomId });
+        
+        console.log(`Created room ${roomId} for language ${language}`);
+        return roomId;
+    } catch (error) {
+        console.error('Failed to create room:', error);
+        socket1.emit('error', { message: 'Failed to create room' });
+        socket2.emit('error', { message: 'Failed to create room' });
+        throw error;
+    }
 }
 
 module.exports = { handleSignaling };
