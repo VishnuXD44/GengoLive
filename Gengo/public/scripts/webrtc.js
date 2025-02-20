@@ -83,4 +83,4 @@ export async function startLocalStream(constraints = {
             throw new Error('Failed to access media devices. Please check your hardware and permissions.');
         }
     }
-}
+}   
