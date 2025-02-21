@@ -75,242 +75,53 @@ function updateUI(state) {
     }
 }
 
-async function createPeerConnection() {
-    try {
-        // At the top of createPeerConnection function
-        const config = {
-            iceServers: [
-                {
-                    urls: [
-                        'stun:stun1.l.google.com:19302',
-                        'stun:stun2.l.google.com:19302',
-                        'stun:stun3.l.google.com:19302',
-                        'stun:stun4.l.google.com:19302'
-                    ]
-                },
-                {
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ],
-            iceTransportPolicy: 'all',
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 1
-        };
-
-        peerConnection = new RTCPeerConnection(config);
-
-        // Buffer for ICE candidates
-        const pendingCandidates = [];
-        let candidateTimeout = null;
-
-        // Handle ICE candidates with buffering
-        peerConnection.onicecandidate = (event) => {
-            if (!event.candidate) {
-                // End of candidates
-                if (pendingCandidates.length > 0 && currentRoom) {
-                    console.log(`Sending ${pendingCandidates.length} buffered candidates`);
-                    pendingCandidates.forEach(candidate => {
-                        socket.emit('ice-candidate', {
-                            candidate,
-                            room: currentRoom
-                        });
-                    });
-                    pendingCandidates.length = 0;
-                }
-                return;
+function createPeerConnection() {
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            {
+                urls: 'turn:your-turn-server.com:3478',
+                username: 'username',
+                credential: 'password'
             }
+        ],
+        iceCandidatePoolSize: 10
+    };
 
-            if (currentRoom) {
-                // Buffer the candidate
-                pendingCandidates.push(event.candidate);
+    const pc = new RTCPeerConnection(configuration);
 
-                // Clear existing timeout
-                if (candidateTimeout) {
-                    clearTimeout(candidateTimeout);
-                }
-
-                // Set new timeout to send candidates
-                candidateTimeout = setTimeout(() => {
-                    if (pendingCandidates.length > 0) {
-                        console.log(`Sending ${pendingCandidates.length} buffered candidates`);
-                        pendingCandidates.forEach(candidate => {
-                            socket.emit('ice-candidate', {
-                                candidate,
-                                room: currentRoom
-                            });
-                        });
-                        pendingCandidates.length = 0;
-                    }
-                }, 100); // Wait 100ms to batch candidates
-            }
-        };
-
-        // Monitor ICE gathering progress
-        peerConnection.onicegatheringstatechange = () => {
-            console.log('ICE Gathering State:', peerConnection.iceGatheringState);
-            if (peerConnection.iceGatheringState === 'complete') {
-                console.log('ICE gathering completed naturally');
-            }
-        };
-
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('ICE Connection State:', peerConnection.iceConnectionState);
-            
-            switch (peerConnection.iceConnectionState) {
-                case 'checking':
-                    console.log('Establishing connection...');
-                    showMessage('Establishing connection...', 'info');
-                    break;
-                case 'connected':
-                    console.log('Connection established successfully');
-                    showMessage('Connection established', 'success');
-                    break;
-                case 'completed':
-                    console.log('ICE connection completed');
-                    break;
-                case 'failed':
-                    console.error('ICE connection failed');
-                    showMessage('Connection failed', 'error');
-                    handleConnectionFailure();
-                    break;
-                case 'disconnected':
-                    console.warn('ICE connection disconnected');
-                    showMessage('Connection interrupted', 'warning');
-                    // Try reconnecting
-                    setTimeout(() => {
-                        if (peerConnection.iceConnectionState === 'disconnected') {
-                            peerConnection.restartIce();
-                        }
-                    }, 2000);
-                    break;
-                case 'closed':
-                    console.log('ICE connection closed');
-                    resetVideoCall();
-                    showMessage('Connection closed', 'info');
-                    break;
-            }
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-            console.log('Connection State:', peerConnection.connectionState);
-        };
-
-        peerConnection.onicegatheringstatechange = () => {
-            console.log('ICE Gathering State:', peerConnection.iceGatheringState);
-        };
-
-        peerConnection.onsignalingstatechange = () => {
-            console.log('Signaling State:', peerConnection.signalingState);
-        };
-
-        peerConnection.ontrack = async (event) => {
-            console.log('Received remote track:', event.track.kind);
-            console.log('Track settings:', event.track.getSettings());
-            console.log('Track constraints:', event.track.getConstraints());
-
-            if (event.streams && event.streams[0]) {
-                console.log('Setting remote stream from ontrack');
-                
-                // If we already have a remote stream, check if this is a new stream
-                if (remoteStream && remoteStream.id !== event.streams[0].id) {
-                    console.log('Cleaning up old remote stream:', remoteStream.id);
-                    remoteStream.getTracks().forEach(track => track.stop());
-                }
-                
-                remoteStream = event.streams[0];
-                
-                // Log stream information
-                console.log('Remote stream ID:', remoteStream.id);
-                console.log('Remote stream tracks:', remoteStream.getTracks().map(track => ({
-                    kind: track.kind,
-                    enabled: track.enabled,
-                    muted: track.muted,
-                    readyState: track.readyState
-                })));
-
-                // Wait for both audio and video tracks before handling stream
-                const tracks = remoteStream.getTracks();
-                const hasVideo = tracks.some(track => track.kind === 'video');
-                const hasAudio = tracks.some(track => track.kind === 'audio');
-
-                if (hasVideo && hasAudio) {
-                    console.log('Both audio and video tracks received, handling stream');
-                    try {
-                        await handleRemoteStream(remoteStream);
-                    } catch (error) {
-                        console.error('Error handling remote stream:', error);
-                        // Try one more time after a delay
-                        setTimeout(async () => {
-                            try {
-                                await handleRemoteStream(remoteStream);
-                            } catch (retryError) {
-                                console.error('Retry handling remote stream failed:', retryError);
-                            }
-                        }, 2000);
-                    }
-                } else {
-                    console.log('Waiting for all tracks...', { hasVideo, hasAudio });
-                }
-            } else {
-                console.warn('No stream received with track');
-            }
-
-            // Monitor track state changes
-            event.track.onended = () => {
-                console.log('Remote track ended:', event.track.kind);
-                showMessage(`Remote ${event.track.kind} ended`, 'warning');
-            };
-
-            event.track.onmute = () => {
-                console.log('Remote track muted:', event.track.kind);
-                if (event.track.kind === 'video') {
-                    showMessage('Remote video paused', 'info');
-                }
-            };
-
-            event.track.onunmute = () => {
-                console.log('Remote track unmuted:', event.track.kind);
-                if (event.track.kind === 'video') {
-                    showMessage('Remote video resumed', 'info');
-                }
-            };
-
-            // Monitor track settings changes
-            const settings = event.track.getSettings();
-            event.track.onended = () => {
-                const newSettings = event.track.getSettings();
-                console.log(`Track settings changed for ${event.track.kind}:`, {
-                    old: settings,
-                    new: newSettings
-                });
-            };
-        };
-
-        if (localStream) {
-            try {
-                localStream.getTracks().forEach(track => {
-                    console.log('Adding local track:', track.kind);
-                    peerConnection.addTrack(track, localStream);
-                });
-            } catch (error) {
-                console.error('Error adding local tracks:', error);
-                throw new Error('Failed to add local tracks to peer connection');
-            }
-        } else {
-            console.warn('No local stream available when creating peer connection');
-        }
-
-        monitorConnectionState();
-
-        return peerConnection;
-    } catch (error) {
-        console.error('Error in createPeerConnection:', error);
-        showMessage('Failed to create connection', 'error');
-        throw error;
+    // Add local tracks to the connection
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+        });
     }
+
+    // Handle incoming tracks
+    pc.ontrack = (event) => {
+        console.log('Received remote track:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+            handleRemoteStream(event.streams[0]);
+        }
+    };
+
+    // ICE connection monitoring
+    pc.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed') {
+            restartIce();
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log('Connection state:', pc.connectionState);
+        if (pc.connectionState === 'failed') {
+            handleConnectionFailure();
+        }
+    };
+
+    return pc;
 }
 
 let iceCandidateQueue = [];
@@ -564,8 +375,6 @@ function setupSocketListeners() {
         }
     });
 
-    const iceCandidatesBuffer = [];
-
     socket.on('ice-candidate', async (data) => {
         if (!peerConnection) {
             // Store candidate if connection isn't ready
@@ -615,42 +424,48 @@ async function handleRemoteStream(stream) {
     if (!remoteVideo) return;
 
     try {
+        // Store the remote stream globally
+        remoteStream = stream;
+        
+        // Ensure all tracks are enabled
+        stream.getTracks().forEach(track => {
+            track.enabled = true;
+        });
+
         remoteVideo.srcObject = stream;
         
-        // Pre-load stream in temporary element
-        const tempVideo = document.createElement('video');
-        tempVideo.srcObject = stream;
-        tempVideo.muted = true;
-        
-        await Promise.race([
-            new Promise(resolve => {
-                tempVideo.onloadedmetadata = resolve;
-            }),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Metadata loading timeout')), 15000)
-            )
-        ]);
+        // Add event listeners for track ended/muted
+        stream.getTracks().forEach(track => {
+            track.onended = () => {
+                console.log('Remote track ended:', track.kind);
+                showMessage('Remote peer disconnected', 'warning');
+            };
+            track.onmute = () => {
+                console.log('Remote track muted:', track.kind);
+                showMessage('Remote peer muted', 'info');
+            };
+        });
 
-        // Multiple play attempts
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                await remoteVideo.play();
-                console.log('Remote video playback started');
-                break;
-            } catch (error) {
-                if (error.name === 'NotAllowedError' || attempt === 3) {
-                    addPlayButton(remoteVideo);
-                    break;
-                }
-                console.warn(`Play attempt ${attempt} failed:`, error);
-                if (attempt === 3) throw error;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for metadata to load
+        await new Promise((resolve, reject) => {
+            remoteVideo.onloadedmetadata = resolve;
+            setTimeout(() => reject(new Error('Metadata loading timeout')), 5000);
+        });
+
+        // Attempt to play
+        try {
+            await remoteVideo.play();
+            console.log('Remote video playing successfully');
+        } catch (error) {
+            if (error.name === 'NotAllowedError') {
+                addPlayButton(remoteVideo);
+            } else {
+                throw error;
             }
         }
     } catch (error) {
         console.error('Error handling remote stream:', error);
-        showMessage('Video connection issues. Click to play.', 'warning');
-        addPlayButton(remoteVideo);
+        showMessage('Video connection issues. Please refresh.', 'error');
     }
 }
 
@@ -835,6 +650,45 @@ async function createAndSendOffer(options = {}) {
     } catch (error) {
         console.error('Error creating/sending offer:', error);
         showMessage('Failed to create connection offer', 'error');
+    }
+}
+
+function monitorMediaStreams() {
+    if (!peerConnection) return;
+
+    peerConnection.getReceivers().forEach(receiver => {
+        if (receiver.track) {
+            receiver.track.onended = () => {
+                console.log('Remote track ended:', receiver.track.kind);
+                handleStreamEnded();
+            };
+            
+            receiver.track.onmute = () => {
+                console.log('Remote track muted:', receiver.track.kind);
+            };
+            
+            receiver.track.onunmute = () => {
+                console.log('Remote track unmuted:', receiver.track.kind);
+            };
+        }
+    });
+}
+
+function handleStreamEnded() {
+    showMessage('Stream ended. Attempting to reconnect...', 'warning');
+    restartConnection();
+}
+
+async function restartConnection() {
+    try {
+        if (peerConnection && peerConnection.connectionState !== 'closed') {
+            await restartIce();
+        } else {
+            await initializeCall();
+        }
+    } catch (error) {
+        console.error('Failed to restart connection:', error);
+        showMessage('Connection failed. Please refresh the page.', 'error');
     }
 }
 
