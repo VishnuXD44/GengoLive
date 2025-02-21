@@ -1,25 +1,3 @@
-export const configuration = {
-    iceServers: [
-        {
-            urls: [
-                'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302',
-                'stun:stun3.l.google.com:19302',
-                'stun:stun4.l.google.com:19302'
-            ]
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        }
-    ],
-    iceTransportPolicy: 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 1
-};
-
 export async function startLocalStream(constraints = {
     video: {
         width: { ideal: 640 },
@@ -83,4 +61,4 @@ export async function startLocalStream(constraints = {
             throw new Error('Failed to access media devices. Please check your hardware and permissions.');
         }
     }
-}   
+}

@@ -100,24 +100,101 @@ async function createPeerConnection() {
 
         // Handle incoming tracks
         pc.ontrack = (event) => {
-            console.log('Received remote track:', event.track.kind);
-            if (event.streams && event.streams[0]) {
-                handleRemoteStream(event.streams[0]);
+            console.log('Received remote track:', event.track.kind, 'enabled:', event.track.enabled);
+            
+            // Ensure we have streams
+            if (!event.streams || event.streams.length === 0) {
+                console.warn('No streams in track event');
+                return;
+            }
+
+            const stream = event.streams[0];
+            console.log('Remote stream tracks:', stream.getTracks().length);
+
+            // Only handle the stream once when we get the first track
+            if (!remoteStream || remoteStream.id !== stream.id) {
+                console.log('New remote stream detected, handling stream');
+                handleRemoteStream(stream);
+            } else {
+                console.log('Stream already handled, skipping');
             }
         };
 
-        // ICE connection monitoring
+        // Log when tracks are removed
+        pc.onremovetrack = (event) => {
+            console.log('Track removed:', event.track.kind);
+        };
+
+        // ICE connection monitoring with enhanced state tracking
         pc.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', pc.iceConnectionState);
-            if (pc.iceConnectionState === 'failed') {
-                restartIce();
+            const state = pc.iceConnectionState;
+            console.log('ICE connection state changed:', state);
+            
+            switch (state) {
+                case 'checking':
+                    console.log('Checking ICE candidates...');
+                    break;
+                case 'connected':
+                    console.log('ICE connection established');
+                    // Reset any reconnection attempts
+                    reconnectAttempts = 0;
+                    break;
+                case 'disconnected':
+                    console.log('ICE connection disconnected, waiting for recovery...');
+                    // Wait briefly for auto-recovery
+                    setTimeout(() => {
+                        if (pc.iceConnectionState === 'disconnected') {
+                            console.log('Attempting to recover disconnected state...');
+                            restartIce();
+                        }
+                    }, 2000);
+                    break;
+                case 'failed':
+                    console.log('ICE connection failed, attempting restart...');
+                    restartIce();
+                    break;
+                case 'closed':
+                    console.log('ICE connection closed');
+                    break;
             }
         };
 
+        // Connection state monitoring with enhanced error handling
         pc.onconnectionstatechange = () => {
-            console.log('Connection state:', pc.connectionState);
-            if (pc.connectionState === 'failed') {
-                handleConnectionFailure();
+            const state = pc.connectionState;
+            console.log('Connection state changed:', state);
+            
+            switch (state) {
+                case 'connecting':
+                    console.log('Establishing connection...');
+                    break;
+                case 'connected':
+                    console.log('Connection established successfully');
+                    updateState(STATE.CONNECTED);
+                    break;
+                case 'disconnected':
+                    console.log('Connection disconnected, attempting recovery...');
+                    setTimeout(() => {
+                        if (pc.connectionState === 'disconnected') {
+                            handleConnectionRetry();
+                        }
+                    }, 2000);
+                    break;
+                case 'failed':
+                    console.log('Connection failed permanently');
+                    handleConnectionFailure();
+                    break;
+                case 'closed':
+                    console.log('Connection closed');
+                    break;
+            }
+        };
+
+        // Monitor ICE gathering state
+        pc.onicegatheringstatechange = () => {
+            console.log('ICE gathering state:', pc.iceGatheringState);
+            if (pc.iceGatheringState === 'complete') {
+                console.log('ICE gathering completed');
             }
         };
 
@@ -128,13 +205,22 @@ async function createPeerConnection() {
     }
 }
 
-let iceCandidateQueue = [];
+// Single buffer for ICE candidates
+let iceCandidatesBuffer = [];
 
-function handleIceCandidate(candidate) {
-    if (peerConnection.remoteDescription) {
-        peerConnection.addIceCandidate(candidate);
-    } else {
-        iceCandidateQueue.push(candidate);
+async function handleIceCandidate(candidate) {
+    if (!peerConnection) return;
+    
+    try {
+        if (peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('Added ICE candidate:', candidate.candidate);
+        } else {
+            iceCandidatesBuffer.push(candidate);
+            console.log('Buffered ICE candidate');
+        }
+    } catch (error) {
+        console.warn('Error handling ICE candidate:', error);
     }
 }
 
@@ -424,17 +510,29 @@ async function addBufferedCandidates() {
 }
 
 async function handleRemoteStream(stream) {
+    console.log('Handling remote stream:', stream);
     const remoteVideo = document.getElementById('remoteVideo');
-    if (!remoteVideo) return;
+    if (!remoteVideo) {
+        console.error('Remote video element not found');
+        return;
+    }
 
     try {
         // Store the remote stream globally
         remoteStream = stream;
         
-        // Ensure all tracks are enabled
+        // Log track information
         stream.getTracks().forEach(track => {
+            console.log('Remote track:', track.kind, 'enabled:', track.enabled, 'state:', track.readyState);
             track.enabled = true;
         });
+
+        // Clean up existing stream if any
+        if (remoteVideo.srcObject) {
+            remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+            remoteVideo.srcObject = null;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
 
         remoteVideo.srcObject = stream;
         
@@ -448,19 +546,31 @@ async function handleRemoteStream(stream) {
                 console.log('Remote track muted:', track.kind);
                 showMessage('Remote peer muted', 'info');
             };
+            track.onunmute = () => {
+                console.log('Remote track unmuted:', track.kind);
+            };
         });
 
-        // Wait for metadata to load
-        await new Promise((resolve, reject) => {
-            remoteVideo.onloadedmetadata = resolve;
-            setTimeout(() => reject(new Error('Metadata loading timeout')), 5000);
-        });
+        // Wait for metadata to load with timeout
+        await Promise.race([
+            new Promise(resolve => {
+                remoteVideo.onloadedmetadata = () => {
+                    console.log('Remote video metadata loaded');
+                    resolve();
+                };
+            }),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Metadata loading timeout')), 10000)
+            )
+        ]);
 
         // Attempt to play
         try {
             await remoteVideo.play();
             console.log('Remote video playing successfully');
+            updateState(STATE.CONNECTED);
         } catch (error) {
+            console.warn('Error auto-playing remote video:', error);
             if (error.name === 'NotAllowedError') {
                 addPlayButton(remoteVideo);
             } else {
@@ -470,6 +580,18 @@ async function handleRemoteStream(stream) {
     } catch (error) {
         console.error('Error handling remote stream:', error);
         showMessage('Video connection issues. Please refresh.', 'error');
+        // Try to recover
+        try {
+            if (remoteVideo.srcObject) {
+                const playPromise = remoteVideo.play();
+                if (playPromise !== undefined) {
+                    await playPromise;
+                    console.log('Recovered remote video playback');
+                }
+            }
+        } catch (recoveryError) {
+            console.error('Failed to recover remote video:', recoveryError);
+        }
     }
 }
 
