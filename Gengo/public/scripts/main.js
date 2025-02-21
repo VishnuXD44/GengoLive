@@ -75,58 +75,57 @@ function updateUI(state) {
     }
 }
 
-function createPeerConnection() {
-    const configuration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            // Add multiple TURN servers for redundancy
-            {
-                urls: ['turn:turn.gengolive.com:3478?transport=tcp',
-                       'turn:turn.gengolive.com:3478?transport=udp'],
-                username: 'your_username',
-                credential: 'your_password'
+async function createPeerConnection() {
+    try {
+        // Fetch ICE servers from your server
+        const response = await fetch('/api/get-ice-servers');
+        const iceServers = await response.json();
+
+        const configuration = {
+            iceServers,
+            iceTransportPolicy: 'all',
+            iceCandidatePoolSize: 10,
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
+        };
+
+        const pc = new RTCPeerConnection(configuration);
+
+        // Add local tracks to the connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                pc.addTrack(track, localStream);
+            });
+        }
+
+        // Handle incoming tracks
+        pc.ontrack = (event) => {
+            console.log('Received remote track:', event.track.kind);
+            if (event.streams && event.streams[0]) {
+                handleRemoteStream(event.streams[0]);
             }
-        ],
-        iceTransportPolicy: 'all', // Try 'relay' if still having issues
-        iceCandidatePoolSize: 10,
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require'
-    };
+        };
 
-    const pc = new RTCPeerConnection(configuration);
+        // ICE connection monitoring
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                restartIce();
+            }
+        };
 
-    // Add local tracks to the connection
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            pc.addTrack(track, localStream);
-        });
+        pc.onconnectionstatechange = () => {
+            console.log('Connection state:', pc.connectionState);
+            if (pc.connectionState === 'failed') {
+                handleConnectionFailure();
+            }
+        };
+
+        return pc;
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        throw error;
     }
-
-    // Handle incoming tracks
-    pc.ontrack = (event) => {
-        console.log('Received remote track:', event.track.kind);
-        if (event.streams && event.streams[0]) {
-            handleRemoteStream(event.streams[0]);
-        }
-    };
-
-    // ICE connection monitoring
-    pc.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed') {
-            restartIce();
-        }
-    };
-
-    pc.onconnectionstatechange = () => {
-        console.log('Connection state:', pc.connectionState);
-        if (pc.connectionState === 'failed') {
-            handleConnectionFailure();
-        }
-    };
-
-    return pc;
 }
 
 let iceCandidateQueue = [];

@@ -1,102 +1,74 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
 const path = require('path');
-const { handleSignaling } = require('./signaling');
+const socketIO = require('socket.io');
+const twilio = require('twilio');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const io = socketIO(server);
 
-const allowedOrigins = [
-    'https://gengolive-f8fb09d3fdf5.herokuapp.com',
-    'http://localhost:3000',
-    'http://localhost:9000'
-];
+// Initialize Twilio client
+const twilioClient = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
 
-// CORS configuration
-app.use(cors({
-    origin: function(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST'],
-    credentials: true
-}));
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../dist')));
-
-// Serve styles and scripts with correct MIME types
-app.use('/styles', express.static(path.join(__dirname, '../public/styles'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css');
-        }
+// Endpoint to get Twilio ICE servers
+app.get('/api/get-ice-servers', async (req, res) => {
+    try {
+        const token = await twilioClient.tokens.create();
+        res.json(token.iceServers);
+    } catch (error) {
+        console.error('Error fetching ICE servers:', error);
+        res.status(500).json({ error: 'Failed to fetch ICE servers' });
     }
-}));
-
-app.use('/scripts', express.static(path.join(__dirname, '../public/scripts'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
-
-// Socket.IO configuration
-const io = new Server(server, {
-    cors: {
-        origin: allowedOrigins,
-        methods: ['GET', 'POST'],
-        credentials: true
-    },
-    path: '/socket.io/',
-    serveClient: true, // Ensure client is served
-    transports: ['websocket', 'polling'], // Add polling as fallback
-    pingTimeout: 60000,
-    pingInterval: 25000
 });
 
-// Add explicit route for socket.io.js
-app.get('/socket.io/socket.io.js', (req, res) => {
-    res.sendFile(path.join(__dirname, '../node_modules/socket.io-client/dist/socket.io.js'));
-});
-
-// Socket connection handling
+// Handle signaling through Socket.IO
 io.on('connection', (socket) => {
-    console.log('New connection:', socket.id);
+    console.log('New client connected:', socket.id);
     
-    handleSignaling(socket, io);
-
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
+    socket.on('join', (data) => {
+        // Your existing join logic
     });
 
-    socket.on('disconnect', (reason) => {
-        console.log(`Client disconnected (${reason}):`, socket.id);
+    socket.on('offer', (data) => {
+        // Your existing offer logic
+    });
+
+    socket.on('answer', (data) => {
+        // Your existing answer logic
+    });
+
+    socket.on('ice-candidate', (data) => {
+        // Your existing ICE candidate logic
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+        // Your existing disconnect logic
     });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
-});
-
-// Error handling
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-});
-
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+// Error handling
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+    process.exit(1);
 });
