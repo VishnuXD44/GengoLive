@@ -80,13 +80,18 @@ function createPeerConnection() {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            // Add multiple TURN servers for redundancy
             {
-                urls: 'turn:your-turn-server.com:3478',
-                username: 'username',
-                credential: 'password'
+                urls: ['turn:turn.gengolive.com:3478?transport=tcp',
+                       'turn:turn.gengolive.com:3478?transport=udp'],
+                username: 'your_username',
+                credential: 'your_password'
             }
         ],
-        iceCandidatePoolSize: 10
+        iceTransportPolicy: 'all', // Try 'relay' if still having issues
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
     };
 
     const pc = new RTCPeerConnection(configuration);
@@ -565,13 +570,21 @@ function monitorConnectionState() {
     if (!peerConnection) return;
 
     peerConnection.onconnectionstatechange = () => {
-        if (!peerConnection) return;
-        
-        console.log(`Connection state: ${peerConnection.connectionState}`);
-        
-        if (peerConnection.connectionState === 'failed') {
-            console.log('Connection failed - attempting reconnection');
-            handleConnectionRetry();
+        console.log('Connection state:', peerConnection.connectionState);
+        switch (peerConnection.connectionState) {
+            case 'failed':
+                handleConnectionRetry();
+                break;
+            case 'disconnected':
+                setTimeout(() => {
+                    if (peerConnection.connectionState === 'disconnected') {
+                        handleConnectionRetry();
+                    }
+                }, 2000);
+                break;
+            case 'connected':
+                reconnectAttempts = 0; // Reset counter on successful connection
+                break;
         }
     };
 }
