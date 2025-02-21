@@ -66,6 +66,12 @@ module.exports = {
             chunks: ['main', 'styles2'],
             inject: true
         }),
+        new HtmlWebpackPlugin({
+            template: './public/Contact.html',
+            filename: 'contact.html',
+            chunks: ['main', 'styles2'],
+            inject: true
+        }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },

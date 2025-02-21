@@ -249,6 +249,137 @@ section {
     box-shadow: 0 15px 30px rgba(255, 56, 92, 0.3);
 }
 
+/* ============ CONTACT PAGE STYLES ============ */
+.contact-section {
+    min-height: 100vh;
+    padding: 120px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.contact-content {
+    width: 100%;
+    max-width: 1200px;
+    padding: 0 20px;
+    text-align: center;
+}
+
+.contact-content h2 {
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    color: var(--dark);
+}
+
+.contact-content > p {
+    font-size: 1.25rem;
+    line-height: 1.8;
+    color: var(--dark);
+    opacity: 0.9;
+    max-width: 800px;
+    margin: 0 auto 4rem;
+}
+
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 3rem;
+    margin-bottom: 4rem;
+}
+
+.team-member {
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.team-member:hover {
+    transform: translateY(-10px);
+    border-color: var(--pink);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.team-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin-bottom: 1.5rem;
+    object-fit: cover;
+}
+
+.team-member h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--dark);
+}
+
+.role {
+    color: var(--pink);
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.contact-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.contact-link {
+    color: var(--dark);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.contact-link:hover {
+    color: var(--pink);
+}
+
+/* Contact Form Styles */
+.contact-form {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 3rem;
+    background: #f8f9fa;
+    border-radius: 15px;
+}
+
+.contact-form h3 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: var(--dark);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-group textarea {
+    height: 150px;
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--pink);
+}
+
 /* ============ RESPONSIVE STYLES ============ */
 @media (min-width: 1024px) and (max-width: 1200px) {
     section {
@@ -320,6 +451,16 @@ section {
     .feature {
         padding: 2rem;
     }
+
+    .team-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+    }
+
+    .contact-form {
+        padding: 2rem;
+        margin: 0 1rem;
+    }
 }
 
 @media (max-width: 768px) {
@@ -350,6 +491,37 @@ section {
     .cta-button {
         padding: 1rem 2.5rem;
         font-size: 1.1rem;
+    }
+
+    .contact-section {
+        padding: 100px 15px 30px;
+    }
+
+    .contact-content {
+        padding: 0 10px;
+    }
+
+    .team-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .team-member {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .contact-form {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        font-size: 16px; /* Prevents zoom on mobile */
     }
 }
 
@@ -384,14 +556,22 @@ section {
 
     .feature {
         padding: 1.5rem;
+        min-height: auto;
     }
 
     .feature h3 {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature p {
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 
     .cta-section {
-        padding: 3rem 1rem;
+        min-height: auto;
+        padding: 3rem 1.5rem;
     }
 
     .cta-section h2 {
@@ -399,9 +579,66 @@ section {
     }
 
     .cta-button {
+        padding: 0.8rem 2rem;
+        font-size: 1rem;
+    }
+
+    .team-member {
+        padding: 1.5rem;
+    }
+
+    .team-image {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 1rem;
+    }
+
+    .contact-form {
+        padding: 1.5rem;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        padding: 0.8rem;
+    }
+
+    .cta-button {
         width: 100%;
         max-width: 280px;
         text-align: center;
+    }
+
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .contact-content > p {
+        font-size: 1.1rem;
+        padding: 0 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .contact-section {
+        padding: 80px 10px 20px;
+    }
+
+    .team-member {
+        padding: 1rem;
+    }
+
+    .contact-form {
+        padding: 1rem;
+    }
+
+    .contact-content h2 {
+        font-size: 2rem;
+    }
+
+    .contact-content > p {
+        font-size: 1rem;
+        padding: 0;
+        margin-bottom: 2rem;
     }
 }
 
@@ -436,10 +673,49 @@ section {
 
     .feature {
         padding: 1.5rem;
+        min-height: auto;
+    }
+
+    .feature h3 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature p {
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 
     .cta-section {
         min-height: auto;
-        padding: 3rem 2rem;
+        padding: 3rem 1.5rem;
+    }
+
+    .cta-section h2 {
+        font-size: 1.8rem;
+    }
+
+    .cta-button {
+        padding: 0.8rem 2rem;
+        font-size: 1rem;
+    }
+
+    .team-member {
+        padding: 1.5rem;
+    }
+
+    .team-image {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 1rem;
+    }
+
+    .contact-form {
+        padding: 1.5rem;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        padding: 0.8rem;
     }
 }
