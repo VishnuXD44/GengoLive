@@ -1,4 +1,4 @@
-import { configuration, startLocalStream } from './webrtc.js';
+import { startLocalStream } from './webrtc.js';
 
 // Replace import style initialization with direct access
 const socket = io(window.location.origin, {
