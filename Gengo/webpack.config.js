@@ -68,7 +68,7 @@ module.exports = {
         }),
         new HtmlWebpackPlugin({
             template: './public/Contact.html',
-            filename: 'contact.html',
+            filename: 'Contact.html',
             chunks: ['main', 'styles2'],
             inject: true
         }),
