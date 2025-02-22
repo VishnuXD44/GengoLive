@@ -1,3 +1,4 @@
+// Previous code remains the same until the connectToRoom method
 class TwilioVideoClient {
     constructor() {
         this.room = null;
@@ -48,7 +49,7 @@ class TwilioVideoClient {
                 }
             });
 
-            // Connect to room with optimized settings
+            // Connect to room with updated settings (removed deprecated maxTracks)
             this.room = await Twilio.Video.connect(token, {
                 name: roomName,
                 tracks: this.localTracks,
@@ -62,43 +63,35 @@ class TwilioVideoClient {
                 bandwidthProfile: {
                     video: {
                         mode: 'collaboration',
-                        maxTracks: 2,
-                        dominantSpeakerPriority: 'high'
+                        clientTrackSwitchOffControl: 'auto',
+                        contentPreferencesMode: 'auto'
                     }
                 }
             });
 
-            // Handle local participant
+            // Rest of the code remains the same
             this.handleLocalParticipant(this.room.localParticipant, localVideoElement);
-
-            // Handle remote participants
             this.room.participants.forEach(participant => {
                 this.handleRemoteParticipant(participant, remoteVideoElement);
             });
-
-            // Set up event listeners
             this.setupRoomEventListeners(remoteVideoElement);
-
-            // Hide loading indicator
             document.getElementById('loadingIndicator').classList.add('hidden');
-
             return this.room;
+
         } catch (error) {
             console.error('Error connecting to Twilio room:', error);
-            // Clean up any tracks if connection fails
             if (this.localTracks) {
                 this.localTracks.forEach(track => track.stop());
                 this.localTracks = null;
             }
-            // Hide video elements and show error
             document.querySelector('.video-container').style.display = 'none';
             document.querySelector('.video-controls').style.display = 'none';
             document.getElementById('loadingIndicator').classList.add('hidden');
-            
             throw error;
         }
     }
 
+    // Rest of the class implementation remains the same
     setupRoomEventListeners(remoteVideoElement) {
         if (!this.room) return;
 
@@ -109,7 +102,6 @@ class TwilioVideoClient {
 
         this.room.on('participantDisconnected', participant => {
             console.log(`Participant ${participant.identity} disconnected`);
-            // Clear remote video when participant disconnects
             if (remoteVideoElement) {
                 remoteVideoElement.innerHTML = '';
             }
@@ -132,7 +124,6 @@ class TwilioVideoClient {
             this.showConnectionStatus('Connected', 'success');
         });
 
-        // Monitor connection quality
         this.room.on('networkQualityLevelChanged', (networkQuality) => {
             this.updateNetworkQualityIndicator(networkQuality.level);
         });
@@ -147,7 +138,6 @@ class TwilioVideoClient {
             }
         });
 
-        // Handle track publication/unpublication
         participant.on('trackPublished', publication => {
             if (publication.track) {
                 this.attachTrack(publication.track, container);
@@ -282,10 +272,8 @@ class TwilioVideoClient {
             this.localTracks.forEach(track => track.stop());
             this.localTracks = null;
         }
-        // Hide video elements
         document.querySelector('.video-container').style.display = 'none';
         document.querySelector('.video-controls').style.display = 'none';
-        // Show selection container
         document.querySelector('.selection-container').style.display = 'flex';
     }
 
