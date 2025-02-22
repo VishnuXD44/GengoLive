@@ -7,6 +7,7 @@ module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js',
+        'twilioClient': './public/scripts/twilioClient.js',
         styles: './public/styles.css',     // Add styles.css as an entry point
         styles2: './public/styles2.css'    // Add styles2.css as an entry point
     },
@@ -57,7 +58,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'styles'],
+            chunks: ['main', 'language-animation', 'styles', 'twilioClient'],
             inject: true
         }),
         new HtmlWebpackPlugin({
@@ -75,6 +76,7 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
+                { from: 'public/icons', to: 'icons' },
                 { from: 'favicon.ico', to: 'favicon.ico' }
             ],
         }),
@@ -107,6 +109,7 @@ module.exports = {
         }
     },
     externals: {
-        'socket.io-client': 'io'
+        'socket.io-client': 'io',
+        'twilio-video': 'Twilio.Video'
     }
 };
