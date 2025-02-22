@@ -146,8 +146,19 @@ io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
 
     socket.on('join', ({ language, role }) => {
-        // Add state tracking
-        socket.userData = { language, role, state: 'waiting' };
+        // Validate input
+        if (!language || !role || !['practice', 'coach'].includes(role)) {
+            socket.emit('error', { message: 'Invalid language or role' });
+            return;
+        }
+
+        // Add state tracking with timestamp for queue priority
+        socket.userData = {
+            language,
+            role,
+            state: 'waiting',
+            joinedAt: Date.now()
+        };
         
         const oppositeRole = role === 'practice' ? 'coach' : 'practice';
         const oppositeQueue = waitingQueue[oppositeRole];
@@ -155,16 +166,35 @@ io.on('connection', (socket) => {
         console.log(`User ${socket.id} joining as ${role} for ${language}`);
         console.log('Opposite queue status:', oppositeQueue.has(language) ? oppositeQueue.get(language).length : 0);
 
+        // Check for matching partner in opposite role queue for the same language
         if (oppositeQueue.has(language) && oppositeQueue.get(language).length > 0) {
-            const matchedSocket = oppositeQueue.get(language).shift();
+            // Sort queue by join time to implement FIFO matching
+            const sortedQueue = oppositeQueue.get(language).sort((a, b) =>
+                a.userData.joinedAt - b.userData.joinedAt
+            );
+            
+            // Find first available match
+            const matchedSocket = sortedQueue[0];
+            
+            // Remove matched user from queue
+            oppositeQueue.set(language, sortedQueue.slice(1));
+            
+            // Create room for matched pair
             createRoom(socket, matchedSocket, language);
+            
+            console.log(`Matched ${socket.id} (${role}) with ${matchedSocket.id} (${oppositeRole}) for ${language}`);
         } else {
+            // Add to appropriate waiting queue
             if (!waitingQueue[role].has(language)) {
                 waitingQueue[role].set(language, []);
             }
             waitingQueue[role].get(language).push(socket);
             socket.emit('waiting');
             console.log(`Added ${socket.id} to ${role} queue for ${language}`);
+            
+            // Log queue status
+            const queueLength = waitingQueue[role].get(language).length;
+            console.log(`${role} queue for ${language} now has ${queueLength} users waiting`);
         }
     });
 

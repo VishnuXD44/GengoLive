@@ -45,26 +45,77 @@ function updateUI(state) {
     const selectionContainer = document.querySelector('.selection-container');
     const connectButton = document.getElementById('connect');
     const leaveButton = document.getElementById('leave');
+    const roleElement = document.getElementById('role');
+    const languageElement = document.getElementById('language');
+
+    const role = roleElement ? roleElement.value : '';
+    const language = languageElement ? languageElement.value : '';
 
     switch (state) {
         case STATE.WAITING:
-            showMessage('Waiting for a match...', 'info');
+            const roleSpecificMessage = role === 'practice'
+                ? `Waiting for a ${language} language coach...`
+                : `Waiting for a ${language} language practice partner...`;
+            showMessage(roleSpecificMessage, 'info');
             if (connectButton) connectButton.style.display = 'none';
             if (leaveButton) leaveButton.style.display = 'block';
+            
+            // Add waiting indicator
+            const waitingIndicator = document.createElement('div');
+            waitingIndicator.className = 'waiting-indicator';
+            waitingIndicator.innerHTML = `
+                <div class="spinner"></div>
+                <p>${roleSpecificMessage}</p>
+                <p class="queue-position">Searching for a match...</p>
+            `;
+            if (videoContainer && !videoContainer.querySelector('.waiting-indicator')) {
+                videoContainer.appendChild(waitingIndicator);
+            }
             break;
+            
         case STATE.CONNECTING:
-            showMessage('Establishing connection...', 'info');
-            if (videoContainer) videoContainer.style.display = 'grid';
+            const connectingMessage = role === 'practice'
+                ? 'Connecting to your language coach...'
+                : 'Connecting to your practice partner...';
+            showMessage(connectingMessage, 'info');
+            if (videoContainer) {
+                videoContainer.style.display = 'grid';
+                const indicator = videoContainer.querySelector('.waiting-indicator');
+                if (indicator) indicator.remove();
+            }
             if (selectionContainer) selectionContainer.style.display = 'none';
             break;
+            
         case STATE.CONNECTED:
-            showMessage('Connected successfully', 'success');
-            if (videoContainer) videoContainer.style.display = 'grid';
+            const connectedMessage = role === 'practice'
+                ? 'Connected with your language coach'
+                : 'Connected with your practice partner';
+            showMessage(connectedMessage, 'success');
+            if (videoContainer) {
+                videoContainer.style.display = 'grid';
+                const indicator = videoContainer.querySelector('.waiting-indicator');
+                if (indicator) indicator.remove();
+            }
             if (selectionContainer) selectionContainer.style.display = 'none';
+            
+            // Add role indicator
+            const roleIndicator = document.createElement('div');
+            roleIndicator.className = 'role-indicator';
+            roleIndicator.textContent = role === 'practice' ? 'Student' : 'Coach';
+            if (videoContainer && !videoContainer.querySelector('.role-indicator')) {
+                videoContainer.appendChild(roleIndicator);
+            }
             break;
+            
         case STATE.IDLE:
         default:
-            if (videoContainer) videoContainer.style.display = 'none';
+            if (videoContainer) {
+                videoContainer.style.display = 'none';
+                const indicator = videoContainer.querySelector('.waiting-indicator');
+                if (indicator) indicator.remove();
+                const roleInd = videoContainer.querySelector('.role-indicator');
+                if (roleInd) roleInd.remove();
+            }
             if (selectionContainer) selectionContainer.style.display = 'flex';
             if (connectButton) {
                 connectButton.style.display = 'block';
@@ -118,15 +169,39 @@ async function createPeerConnection() {
             });
         }
 
-        // Handle remote stream through custom event
-        pc.addEventListener('remoteStream', (event) => {
-            console.log('Received remote stream event');
-            handleRemoteStream(event.detail);
-        });
+        // Handle incoming tracks
+        pc.ontrack = (event) => {
+            console.log('Received remote track:', event.track.kind);
+            if (!event.streams || event.streams.length === 0) {
+                console.warn('No streams in track event');
+                return;
+            }
+
+            const stream = event.streams[0];
+            console.log('Remote stream ID:', stream.id);
+            console.log('Remote stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
+
+            // Enable tracks immediately
+            event.track.enabled = true;
+
+            // Handle the remote stream
+            handleRemoteStream(stream);
+        };
 
         // Log all negotiation needed events
         pc.onnegotiationneeded = () => {
             console.log('Negotiation needed event fired');
+        };
+
+        // Set up ICE candidate handler
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('New ICE candidate:', event.candidate.type);
+                socket.emit('ice-candidate', {
+                    candidate: event.candidate,
+                    room: currentRoom
+                });
+            }
         };
 
         // Log when tracks are removed
@@ -265,48 +340,33 @@ function setupSocketListeners() {
                 console.log('Creating peer connection as practice user');
                 peerConnection = await createPeerConnection();
 
-                console.log('Creating offer');
-                const offer = await peerConnection.createOffer({
+                // Add local stream tracks
+                if (localStream) {
+                    localStream.getTracks().forEach(track => {
+                        console.log(`Adding local ${track.kind} track to peer connection`);
+                        peerConnection.addTrack(track, localStream);
+                    });
+                }
+
+                // Gather ICE candidates
+                const iceCandidates = [];
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log('New ICE candidate:', event.candidate.type);
+                        iceCandidates.push(event.candidate);
+                        socket.emit('ice-candidate', {
+                            candidate: event.candidate,
+                            room: currentRoom
+                        });
+                    }
+                };
+
+                // Create and send offer with ICE candidates
+                await createAndSendOffer({
                     offerToReceiveAudio: true,
                     offerToReceiveVideo: true,
-                    voiceActivityDetection: true
-                });
-
-                // Add mandatory video codecs
-                offer.sdp = offer.sdp.replace(
-                    /(m=video.*\r\n)/g,
-                    '$1a=fmtp:96 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\n'
-                );
-                
-                console.log('Setting local description');
-                await peerConnection.setLocalDescription(offer);
-                
-                // Wait for ICE gathering to complete or timeout
-                try {
-                    await Promise.race([
-                        new Promise((resolve) => {
-                            if (peerConnection.iceGatheringState === 'complete') {
-                                resolve();
-                            } else {
-                                peerConnection.onicegatheringstatechange = () => {
-                                    if (peerConnection.iceGatheringState === 'complete') {
-                                        resolve();
-                                    }
-                                };
-                            }
-                        }),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('ICE gathering timeout')), 5000))
-                    ]);
-                    console.log('ICE gathering completed for offer');
-                } catch (error) {
-                    console.warn('ICE gathering did not complete for offer:', error);
-                    // Continue anyway as we might still get a connection
-                }
-                
-                console.log('Sending offer to peer');
-                socket.emit('offer', {
-                    offer: peerConnection.localDescription,
-                    room: currentRoom
+                    voiceActivityDetection: true,
+                    addMandatoryCodecs: true
                 });
             }
         } catch (error) {
@@ -339,8 +399,47 @@ function setupSocketListeners() {
                 await setRemoteDescription(new RTCSessionDescription(data.offer));
                 console.log('Remote description set successfully');
 
-                // Wait a bit for ICE gathering to start
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Process any bundled ICE candidates
+                if (data.candidates && Array.isArray(data.candidates)) {
+                    console.log(`Processing ${data.candidates.length} bundled ICE candidates`);
+                    for (const candidate of data.candidates) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                            console.log('Added bundled ICE candidate');
+                        } catch (error) {
+                            console.warn('Error adding bundled ICE candidate:', error);
+                        }
+                    }
+                }
+
+                // Set up ICE candidate handler for this connection
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log('New ICE candidate:', event.candidate.type);
+                        socket.emit('ice-candidate', {
+                            candidate: event.candidate,
+                            room: currentRoom
+                        });
+                    }
+                };
+
+                // Gather ICE candidates for the answer
+                const iceCandidates = [];
+                const gatheringComplete = new Promise((resolve) => {
+                    peerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            console.log('New ICE candidate:', event.candidate.type);
+                            iceCandidates.push(event.candidate);
+                            socket.emit('ice-candidate', {
+                                candidate: event.candidate,
+                                room: currentRoom
+                            });
+                        } else {
+                            console.log('ICE gathering completed');
+                            resolve();
+                        }
+                    };
+                });
 
                 console.log('Creating answer');
                 const answer = await peerConnection.createAnswer({
@@ -352,30 +451,22 @@ function setupSocketListeners() {
                 await peerConnection.setLocalDescription(answer);
                 console.log('Local description set successfully');
 
-                // Wait for ICE gathering to complete or timeout
+                // Wait for ICE gathering with timeout
                 try {
                     await Promise.race([
-                        new Promise((resolve) => {
-                            if (peerConnection.iceGatheringState === 'complete') {
-                                resolve();
-                            } else {
-                                peerConnection.onicegatheringstatechange = () => {
-                                    if (peerConnection.iceGatheringState === 'complete') {
-                                        resolve();
-                                    }
-                                };
-                            }
-                        }),
+                        gatheringComplete,
                         new Promise((_, reject) => setTimeout(() => reject(new Error('ICE gathering timeout')), 10000))
                     ]);
-                    console.log('ICE gathering completed');
                 } catch (error) {
                     console.warn('ICE gathering did not complete:', error);
-                    // Continue anyway as we might still get a connection
                 }
 
-                console.log('Sending answer to peer');
-                socket.emit('answer', { answer: peerConnection.localDescription, room: currentRoom });
+                console.log(`Sending answer with ${iceCandidates.length} ICE candidates`);
+                socket.emit('answer', {
+                    answer: peerConnection.localDescription,
+                    room: currentRoom,
+                    candidates: iceCandidates
+                });
             }
         } catch (error) {
             console.error('Error in offer handler:', error);
@@ -395,6 +486,19 @@ function setupSocketListeners() {
                 console.log('Setting remote description');
                 await setRemoteDescription(new RTCSessionDescription(data.answer));
                 console.log('Remote description set successfully');
+
+                // Process any bundled ICE candidates
+                if (data.candidates && Array.isArray(data.candidates)) {
+                    console.log(`Processing ${data.candidates.length} bundled ICE candidates from answer`);
+                    for (const candidate of data.candidates) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                            console.log('Added bundled ICE candidate from answer');
+                        } catch (error) {
+                            console.warn('Error adding bundled ICE candidate from answer:', error);
+                        }
+                    }
+                }
 
                 // Wait for connection to establish with multiple checks
                 let connectionTimeout;
@@ -721,10 +825,43 @@ function handleConnectionFailure() {
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
         showMessage(`Connection failed. Retrying... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-        resetConnection();
-        initializeConnection();
+        
+        // Clean up existing connection
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        
+        // Reinitialize the connection
+        initializeCall().catch(error => {
+            console.error('Failed to reinitialize connection:', error);
+            showMessage('Failed to reconnect. Please try again.');
+            resetVideoCall();
+        });
     } else {
         showMessage('Connection failed permanently. Please try again.');
+        resetVideoCall();
+    }
+}
+
+// Initialize or reinitialize connection
+async function initializeConnection() {
+    try {
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        await initializeCall();
+        
+        // Rejoin room if we were in one
+        if (currentRoom) {
+            const role = document.getElementById('role').value;
+            const language = document.getElementById('language').value;
+            socket.emit('join', { language, role });
+        }
+    } catch (error) {
+        console.error('Failed to initialize connection:', error);
+        showMessage('Failed to establish connection. Please try again.');
         resetVideoCall();
     }
 }
@@ -772,14 +909,10 @@ async function handleConnectionRetry() {
     if (!peerConnection || !currentRoom) return;
 
     try {
+        console.log('Attempting connection retry');
         await peerConnection.restartIce();
-        const offer = await peerConnection.createOffer({ iceRestart: true });
-        await peerConnection.setLocalDescription(offer);
-        
-        socket.emit('offer', {
-            offer: peerConnection.localDescription,
-            room: currentRoom
-        });
+        await createAndSendOffer({ iceRestart: true });
+        console.log('Connection retry initiated');
     } catch (error) {
         console.error('Reconnection attempt failed:', error);
         handleConnectionFailure();

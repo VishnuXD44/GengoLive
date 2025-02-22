@@ -1,4 +1,4 @@
-// Configuration will be fetched from server
+ // Configuration will be fetched from server
 export const configuration = {
     iceCandidatePoolSize: 10,
     bundlePolicy: 'max-bundle',
@@ -100,99 +100,32 @@ export async function createPeerConnection(config = configuration) {
     try {
         const pc = new RTCPeerConnection(config);
         
+        // Initialize connection state tracking
         pc._iceCandidates = [];
         let connectionAttempts = 0;
         const MAX_ATTEMPTS = 3;
-        
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                console.log('ICE candidate:', event.candidate.candidate);
-            }
-        };
 
-        // Handle incoming tracks
-        pc.ontrack = (event) => {
-            console.log('Received remote track:', event.track.kind);
-            if (!event.streams || event.streams.length === 0) {
-                console.warn('No streams in track event');
-                return;
-            }
-
-            const stream = event.streams[0];
-            console.log('Remote stream ID:', stream.id);
-            console.log('Remote stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
-
-            // Enable tracks immediately
-            event.track.enabled = true;
-
-            // Store the remote stream
-            remoteStream = stream;
-
-            // Handle track ended
-            event.track.onended = () => {
-                console.log(`Remote ${event.track.kind} track ended`);
-            };
-
-            // Handle track muted/unmuted
-            event.track.onmute = () => {
-                console.log(`Remote ${event.track.kind} track muted`);
-            };
-            event.track.onunmute = () => {
-                console.log(`Remote ${event.track.kind} track unmuted`);
-            };
-
-            // Dispatch custom event for stream handling
-            pc.dispatchEvent(new CustomEvent('remoteStream', { detail: stream }));
-        };
-
-        pc.onicegatheringstatechange = () => {
-            if (pc.iceGatheringState === 'complete') {
-                clearTimeout(pc._gatheringTimeout);
-            }
-        };
-
+        // Set up ICE gathering timeout
         pc._gatheringTimeout = setTimeout(() => {
             if (pc.iceGatheringState !== 'complete') {
                 console.warn('ICE gathering incomplete, continuing anyway');
             }
         }, 8000);
 
-        // Enhanced connection monitoring
+        // Basic state monitoring - main event handlers will be added by main.js
+        pc.onicegatheringstatechange = () => {
+            console.log('ICE Gathering State:', pc.iceGatheringState);
+            if (pc.iceGatheringState === 'complete') {
+                clearTimeout(pc._gatheringTimeout);
+            }
+        };
+
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
-            switch(pc.connectionState) {
-                case 'connecting':
-                    startConnectionTimeout(pc);
-                    break;
-                case 'connected':
-                    clearConnectionTimeout(pc);
-                    break;
-                case 'disconnected':
-                    if (connectionAttempts < MAX_ATTEMPTS) {
-                        connectionAttempts++;
-                        console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
-                        handleDisconnection(pc);
-                    }
-                    break;
-                case 'failed':
-                    if (connectionAttempts < MAX_ATTEMPTS) {
-                        connectionAttempts++;
-                        // Try TCP-only on failure
-                        pc.setConfiguration({
-                            ...config,
-                            iceTransportPolicy: 'relay',
-                            iceServers: config.iceServers.map(server => ({
-                                ...server,
-                                urls: Array.isArray(server.urls) ? 
-                                    server.urls.filter(url => url.includes('tcp')) : 
-                                    server.urls
-                            }))
-                        });
-                        pc.restartIce();
-                    } else {
-                        handleConnectionFailure(pc);
-                    }
-                    break;
+            if (pc.connectionState === 'failed' && connectionAttempts < MAX_ATTEMPTS) {
+                connectionAttempts++;
+                console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
+                pc.restartIce();
             }
         };
 
