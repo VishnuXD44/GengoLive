@@ -304,10 +304,15 @@ async function handleIceCandidate(candidate) {
     try {
         if (peerConnection.remoteDescription) {
             await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log('Added ICE candidate:', candidate.candidate);
+            console.log('Added ICE candidate:', {
+                type: candidate.type,
+                protocol: candidate.protocol,
+                address: candidate.address,
+                port: candidate.port
+            });
         } else {
             iceCandidatesBuffer.push(candidate);
-            console.log('Buffered ICE candidate');
+            console.log('Buffered ICE candidate:', candidate);
         }
     } catch (error) {
         console.warn('Error handling ICE candidate:', error);
@@ -315,16 +320,24 @@ async function handleIceCandidate(candidate) {
 }
 
 async function setRemoteDescription(description) {
-    await peerConnection.setRemoteDescription(description);
-    // Process buffered candidates after remote description is set
-    while (iceCandidatesBuffer.length) {
-        const candidate = iceCandidatesBuffer.shift();
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log('Added buffered ICE candidate');
-        } catch (error) {
-            console.warn('Error adding buffered ICE candidate:', error);
+    console.log('Setting remote description:', description);
+    try {
+        await peerConnection.setRemoteDescription(description);
+        console.log('Remote description set successfully');
+        
+        // Process buffered candidates
+        while (iceCandidatesBuffer.length) {
+            const candidate = iceCandidatesBuffer.shift();
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('Added buffered ICE candidate');
+            } catch (error) {
+                console.warn('Error adding buffered ICE candidate:', error);
+            }
         }
+    } catch (error) {
+        console.error('Error setting remote description:', error);
+        handleConnectionFailure();
     }
 }
 
@@ -701,13 +714,27 @@ async function initializeCall() {
     }
 }
 
+function addConnectionTimeout() {
+    setTimeout(() => {
+        if (peerConnection && peerConnection.connectionState !== 'connected') {
+            console.warn('Connection timeout - attempting recovery');
+            handleConnectionFailure();
+        }
+    }, 20000); // 20 seconds timeout
+}
+
 function monitorConnectionState() {
     if (!peerConnection) return;
 
     let failureTimeout;
 
     peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
+        console.log('Connection state changed:', {
+            connectionState: peerConnection.connectionState,
+            iceConnectionState: peerConnection.iceConnectionState,
+            iceGatheringState: peerConnection.iceGatheringState,
+            signalingState: peerConnection.signalingState
+        });
         
         // Clear any existing timeout
         if (failureTimeout) {
