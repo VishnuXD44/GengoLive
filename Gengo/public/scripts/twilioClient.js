@@ -2,91 +2,168 @@ class TwilioVideoClient {
     constructor() {
         this.room = null;
         this.localTracks = null;
+        this.hasPermissions = false;
+    }
+
+    async checkPermissions() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            stream.getTracks().forEach(track => track.stop());
+            this.hasPermissions = true;
+            return true;
+        } catch (error) {
+            console.error('Permission check failed:', error);
+            this.hasPermissions = false;
+            throw new Error(error.name === 'NotAllowedError' 
+                ? 'Please allow camera and microphone access to use video chat'
+                : 'Could not access media devices');
+        }
     }
 
     async connectToRoom(token, roomName, localVideoElement, remoteVideoElement) {
         try {
-            // Request permissions first
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            stream.getTracks().forEach(track => track.stop()); // Stop tracks after permission check
+            // Show loading state
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            
+            // Check permissions first if not already granted
+            if (!this.hasPermissions) {
+                await this.checkPermissions();
+            }
 
-            // Create local tracks
+            // Show video container and controls
+            document.querySelector('.video-container').style.display = 'grid';
+            document.querySelector('.video-controls').style.display = 'flex';
+            
+            // Create local tracks with specific quality settings
             this.localTracks = await Twilio.Video.createLocalTracks({
-                audio: true,
+                audio: {
+                    noiseSuppression: true,
+                    echoCancellation: true
+                },
                 video: {
-                    width: 640,
-                    height: 480,
-                    frameRate: 24
+                    width: 1280,
+                    height: 720,
+                    frameRate: 24,
+                    facingMode: 'user'
                 }
-            }).catch(error => {
-                if (error.name === 'NotAllowedError') {
-                    throw new Error('Camera and microphone permissions are required');
-                }
-                throw error;
             });
 
-            // Connect to room
+            // Connect to room with optimized settings
             this.room = await Twilio.Video.connect(token, {
                 name: roomName,
                 tracks: this.localTracks,
                 dominantSpeaker: true,
                 maxAudioBitrate: 16000,
-                preferredVideoCodecs: ['VP8', 'H264'],
+                preferredVideoCodecs: [{ codec: 'VP8', simulcast: true }],
                 networkQuality: {
-                    local: 1,
-                    remote: 1
+                    local: 2,
+                    remote: 2
+                },
+                bandwidthProfile: {
+                    video: {
+                        mode: 'collaboration',
+                        maxTracks: 2,
+                        dominantSpeakerPriority: 'high'
+                    }
                 }
             });
 
             // Handle local participant
             this.handleLocalParticipant(this.room.localParticipant, localVideoElement);
 
-            // Handle connected participants
+            // Handle remote participants
             this.room.participants.forEach(participant => {
                 this.handleRemoteParticipant(participant, remoteVideoElement);
             });
 
-            // Handle participant connected event
-            this.room.on('participantConnected', participant => {
-                this.handleRemoteParticipant(participant, remoteVideoElement);
-            });
+            // Set up event listeners
+            this.setupRoomEventListeners(remoteVideoElement);
 
-            // Handle disconnection
-            this.room.on('disconnected', room => {
-                room.localParticipant.tracks.forEach(publication => {
-                    publication.track.stop();
-                });
-            });
-
-            // Handle errors
-            this.room.on('reconnecting', error => {
-                console.warn('Reconnecting to room:', error);
-            });
-
-            this.room.on('reconnected', () => {
-                console.log('Reconnected to room');
-            });
+            // Hide loading indicator
+            document.getElementById('loadingIndicator').classList.add('hidden');
 
             return this.room;
         } catch (error) {
             console.error('Error connecting to Twilio room:', error);
+            // Clean up any tracks if connection fails
             if (this.localTracks) {
                 this.localTracks.forEach(track => track.stop());
                 this.localTracks = null;
             }
+            // Hide video elements and show error
+            document.querySelector('.video-container').style.display = 'none';
+            document.querySelector('.video-controls').style.display = 'none';
+            document.getElementById('loadingIndicator').classList.add('hidden');
+            
             throw error;
         }
     }
 
+    setupRoomEventListeners(remoteVideoElement) {
+        if (!this.room) return;
+
+        this.room.on('participantConnected', participant => {
+            console.log(`Participant ${participant.identity} connected`);
+            this.handleRemoteParticipant(participant, remoteVideoElement);
+        });
+
+        this.room.on('participantDisconnected', participant => {
+            console.log(`Participant ${participant.identity} disconnected`);
+            // Clear remote video when participant disconnects
+            if (remoteVideoElement) {
+                remoteVideoElement.innerHTML = '';
+            }
+        });
+
+        this.room.on('disconnected', (room, error) => {
+            if (error) {
+                console.error('Room disconnected with error:', error);
+            }
+            this.cleanup();
+        });
+
+        this.room.on('reconnecting', error => {
+            console.warn('Reconnecting to room:', error);
+            this.showConnectionStatus('Reconnecting...');
+        });
+
+        this.room.on('reconnected', () => {
+            console.log('Reconnected to room');
+            this.showConnectionStatus('Connected', 'success');
+        });
+
+        // Monitor connection quality
+        this.room.on('networkQualityLevelChanged', (networkQuality) => {
+            this.updateNetworkQualityIndicator(networkQuality.level);
+        });
+    }
+
     handleLocalParticipant(participant, container) {
+        if (!container) return;
+        
         participant.tracks.forEach(publication => {
             if (publication.track) {
                 this.attachTrack(publication.track, container);
             }
         });
+
+        // Handle track publication/unpublication
+        participant.on('trackPublished', publication => {
+            if (publication.track) {
+                this.attachTrack(publication.track, container);
+            }
+        });
+
+        participant.on('trackUnpublished', publication => {
+            if (publication.track) {
+                this.detachTrack(publication.track);
+            }
+        });
     }
 
     handleRemoteParticipant(participant, container) {
+        if (!container) return;
+
         participant.tracks.forEach(publication => {
             if (publication.isSubscribed) {
                 this.attachTrack(publication.track, container);
@@ -112,34 +189,18 @@ class TwilioVideoClient {
     }
 
     toggleAudio() {
-        if (!this.localTracks) {
-            console.warn('No local tracks available');
-            return false;
-        }
+        if (!this.localTracks) return false;
 
         const audioTrack = this.localTracks.find(track => track.kind === 'audio');
-        if (!audioTrack) {
-            console.warn('No audio track found');
-            return false;
-        }
+        if (!audioTrack) return false;
 
         try {
             if (audioTrack.isEnabled) {
                 audioTrack.disable();
-                // Update UI
-                const muteButton = document.getElementById('muteAudio');
-                if (muteButton) {
-                    muteButton.classList.add('muted');
-                    muteButton.querySelector('span').textContent = 'Unmute Audio';
-                }
+                this.updateButton('muteAudio', true);
             } else {
                 audioTrack.enable();
-                // Update UI
-                const muteButton = document.getElementById('muteAudio');
-                if (muteButton) {
-                    muteButton.classList.remove('muted');
-                    muteButton.querySelector('span').textContent = 'Mute Audio';
-                }
+                this.updateButton('muteAudio', false);
             }
             return true;
         } catch (error) {
@@ -149,34 +210,18 @@ class TwilioVideoClient {
     }
 
     toggleVideo() {
-        if (!this.localTracks) {
-            console.warn('No local tracks available');
-            return false;
-        }
+        if (!this.localTracks) return false;
 
         const videoTrack = this.localTracks.find(track => track.kind === 'video');
-        if (!videoTrack) {
-            console.warn('No video track found');
-            return false;
-        }
+        if (!videoTrack) return false;
 
         try {
             if (videoTrack.isEnabled) {
                 videoTrack.disable();
-                // Update UI
-                const hideVideoButton = document.getElementById('hideVideo');
-                if (hideVideoButton) {
-                    hideVideoButton.classList.add('video-off');
-                    hideVideoButton.querySelector('span').textContent = 'Show Video';
-                }
+                this.updateButton('hideVideo', true);
             } else {
                 videoTrack.enable();
-                // Update UI
-                const hideVideoButton = document.getElementById('hideVideo');
-                if (hideVideoButton) {
-                    hideVideoButton.classList.remove('video-off');
-                    hideVideoButton.querySelector('span').textContent = 'Hide Video';
-                }
+                this.updateButton('hideVideo', false);
             }
             return true;
         } catch (error) {
@@ -185,7 +230,50 @@ class TwilioVideoClient {
         }
     }
 
-    disconnect() {
+    updateButton(buttonId, isOff) {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+
+        if (isOff) {
+            button.classList.add(buttonId === 'muteAudio' ? 'muted' : 'video-off');
+            button.querySelector('span').textContent = buttonId === 'muteAudio' ? 'Unmute Audio' : 'Show Video';
+        } else {
+            button.classList.remove(buttonId === 'muteAudio' ? 'muted' : 'video-off');
+            button.querySelector('span').textContent = buttonId === 'muteAudio' ? 'Mute Audio' : 'Hide Video';
+        }
+    }
+
+    showConnectionStatus(message, type = 'info') {
+        const statusElement = document.createElement('div');
+        statusElement.className = `message ${type}-message`;
+        statusElement.textContent = message;
+        document.body.appendChild(statusElement);
+
+        setTimeout(() => {
+            statusElement.remove();
+        }, 3000);
+    }
+
+    updateNetworkQualityIndicator(level) {
+        const quality = {
+            0: { class: 'poor', text: 'Poor Connection' },
+            1: { class: 'poor', text: 'Poor Connection' },
+            2: { class: 'fair', text: 'Fair Connection' },
+            3: { class: 'fair', text: 'Fair Connection' },
+            4: { class: 'good', text: 'Good Connection' },
+            5: { class: 'good', text: 'Excellent Connection' }
+        }[level] || { class: 'unknown', text: 'Unknown Quality' };
+
+        const indicator = document.querySelector('.quality-indicator') || document.createElement('div');
+        indicator.className = `quality-indicator ${quality.class}`;
+        indicator.textContent = quality.text;
+
+        if (!indicator.parentElement) {
+            document.querySelector('.video-container').appendChild(indicator);
+        }
+    }
+
+    cleanup() {
         if (this.room) {
             this.room.disconnect();
             this.room = null;
@@ -194,6 +282,16 @@ class TwilioVideoClient {
             this.localTracks.forEach(track => track.stop());
             this.localTracks = null;
         }
+        // Hide video elements
+        document.querySelector('.video-container').style.display = 'none';
+        document.querySelector('.video-controls').style.display = 'none';
+        // Show selection container
+        document.querySelector('.selection-container').style.display = 'flex';
+    }
+
+    disconnect() {
+        this.cleanup();
+        this.showConnectionStatus('Disconnected', 'info');
     }
 }
 

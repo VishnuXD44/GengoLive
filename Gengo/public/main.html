@@ -18,6 +18,10 @@
 
     <div class="selection-container">
         <h1>Choose Your Session</h1>
+        <div class="permission-notice">
+            This app requires access to your camera and microphone.
+            You'll be prompted to allow access when you click Connect.
+        </div>
         <div class="language-selection">
             <label for="language">Choose Language:</label>
             <select id="language">
@@ -41,7 +45,8 @@
         <button id="connect" class="connect-button">Connect</button>
     </div>
 
-    <div class="video-container">
+    <!-- Video containers (initially hidden) -->
+    <div class="video-container" style="display: none;">
         <div class="video-wrapper local-video">
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="video-label">You</div>
@@ -54,7 +59,8 @@
         </div>
     </div>
 
-    <div class="video-controls">
+    <!-- Video controls (initially hidden) -->
+    <div class="video-controls" style="display: none;">
         <button id="muteAudio" class="control-button">
             <img src="/icons/mic.svg" alt="Mute Audio">
             <span>Mute Audio</span>

@@ -10,6 +10,14 @@ const initializeTwilioVideo = () => {
 
 async function startVideoCall(language, role) {
     try {
+        // Check permissions first
+        try {
+            await twilioVideo.checkPermissions();
+        } catch (error) {
+            showMessage(error.message, 'error');
+            return;
+        }
+
         updateState('connecting');
         showMessage('Connecting to server...', 'info');
 
@@ -19,6 +27,10 @@ async function startVideoCall(language, role) {
             setupSocketListeners();
         }
 
+        // Add loading state to connect button
+        const connectButton = document.getElementById('connect');
+        connectButton.classList.add('loading');
+
         // Join the matching queue
         socket.emit('join', { language, role });
 
@@ -26,6 +38,10 @@ async function startVideoCall(language, role) {
         console.error('Error starting video call:', error);
         showMessage('Failed to start video call. Please try again.', 'error');
         updateState('idle');
+        
+        // Remove loading state from connect button
+        const connectButton = document.getElementById('connect');
+        connectButton.classList.remove('loading');
     }
 }
 
@@ -62,8 +78,8 @@ function setupSocketListeners() {
                 await twilioVideo.connectToRoom(
                     data.token,
                     currentRoom,
-                    document.getElementById('localVideo'),
-                    document.getElementById('remoteVideo')
+                    document.getElementById('localVideo').parentElement,
+                    document.getElementById('remoteVideo').parentElement
                 );
                 
                 updateState('connected');
@@ -99,6 +115,23 @@ function setupSocketListeners() {
         showMessage(message, 'error');
         resetVideoCall();
     });
+
+    // Handle socket disconnection
+    socket.on('disconnect', () => {
+        showMessage('Disconnected from server', 'warning');
+        resetVideoCall();
+    });
+
+    // Handle socket reconnection
+    socket.on('reconnect', () => {
+        showMessage('Reconnected to server', 'success');
+        // If we were in a room, we need to rejoin
+        if (currentRoom) {
+            const language = document.getElementById('language').value;
+            const role = document.getElementById('role').value;
+            socket.emit('join', { language, role, room: currentRoom });
+        }
+    });
 }
 
 function setupUIControls() {
@@ -106,17 +139,30 @@ function setupUIControls() {
     const hideVideoButton = document.getElementById('hideVideo');
     const leaveButton = document.getElementById('leave');
 
-    muteButton?.addEventListener('click', () => {
-        twilioVideo.toggleAudio();
-    });
+    // Remove any existing listeners
+    muteButton?.removeEventListener('click', handleMuteClick);
+    hideVideoButton?.removeEventListener('click', handleVideoClick);
+    leaveButton?.removeEventListener('click', handleLeaveClick);
 
-    hideVideoButton?.addEventListener('click', () => {
-        twilioVideo.toggleVideo();
-    });
+    // Add new listeners
+    muteButton?.addEventListener('click', handleMuteClick);
+    hideVideoButton?.addEventListener('click', handleVideoClick);
+    leaveButton?.addEventListener('click', handleLeaveClick);
+}
 
-    leaveButton?.addEventListener('click', () => {
+function handleMuteClick() {
+    twilioVideo.toggleAudio();
+}
+
+function handleVideoClick() {
+    twilioVideo.toggleVideo();
+}
+
+function handleLeaveClick() {
+    // Show confirmation dialog
+    if (confirm('Are you sure you want to leave the call?')) {
         resetVideoCall();
-    });
+    }
 }
 
 function resetVideoCall() {
@@ -138,8 +184,18 @@ function resetVideoCall() {
     if (localVideo) localVideo.srcObject = null;
     if (remoteVideo) remoteVideo.srcObject = null;
 
+    // Remove loading state from connect button
+    const connectButton = document.getElementById('connect');
+    connectButton.classList.remove('loading');
+
+    // Reset video containers and controls
     document.querySelector('.video-container').style.display = 'none';
-    document.querySelector('.selection-container').style.display = 'block';
+    document.querySelector('.video-controls').style.display = 'none';
+    document.querySelector('.selection-container').style.display = 'flex';
+
+    // Remove any quality indicators or status messages
+    const qualityIndicator = document.querySelector('.quality-indicator');
+    if (qualityIndicator) qualityIndicator.remove();
 }
 
 function updateState(newState) {
@@ -159,42 +215,73 @@ function updateUI(state) {
     const connectButton = document.getElementById('connect');
     const selectionContainer = document.querySelector('.selection-container');
     const videoContainer = document.querySelector('.video-container');
+    const loadingIndicator = document.getElementById('loadingIndicator');
 
     switch (state) {
         case 'idle':
             connectButton.textContent = 'Connect';
             connectButton.disabled = false;
-            selectionContainer.style.display = 'block';
+            connectButton.classList.remove('loading');
+            selectionContainer.style.display = 'flex';
             videoContainer.style.display = 'none';
             videoControls.style.display = 'none';
+            loadingIndicator.classList.add('hidden');
             break;
+            
         case 'waiting':
             connectButton.textContent = 'Waiting...';
             connectButton.disabled = true;
+            connectButton.classList.add('loading');
+            loadingIndicator.classList.remove('hidden');
             break;
+            
         case 'connecting':
             connectButton.textContent = 'Connecting...';
             connectButton.disabled = true;
+            connectButton.classList.add('loading');
             selectionContainer.style.display = 'none';
-            videoContainer.style.display = 'grid';
-            videoControls.style.display = 'flex';
+            videoContainer.style.display = 'none';
+            videoControls.style.display = 'none';
+            loadingIndicator.classList.remove('hidden');
             break;
+            
         case 'connected':
             connectButton.textContent = 'Connected';
             connectButton.disabled = true;
+            connectButton.classList.remove('loading');
             selectionContainer.style.display = 'none';
             videoContainer.style.display = 'grid';
             videoControls.style.display = 'flex';
+            loadingIndicator.classList.add('hidden');
             break;
     }
 }
 
 function showMessage(message, type = 'info') {
+    // Remove any existing messages of the same type
+    const existingMessages = document.querySelectorAll(`.message.${type}-message`);
+    existingMessages.forEach(msg => msg.remove());
+
     const messageDiv = document.createElement('div');
     messageDiv.textContent = message;
     messageDiv.className = `message ${type}-message`;
     document.body.appendChild(messageDiv);
-    setTimeout(() => messageDiv.remove(), 5000);
+
+    // Auto-remove after delay, except for error messages
+    if (type !== 'error') {
+        setTimeout(() => {
+            if (messageDiv.parentElement) {
+                messageDiv.remove();
+            }
+        }, 5000);
+    } else {
+        // For error messages, add a close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.className = 'message-close';
+        closeButton.onclick = () => messageDiv.remove();
+        messageDiv.appendChild(closeButton);
+    }
 }
 
 // Initialize when page loads
@@ -202,9 +289,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTwilioVideo();
     
     const connectButton = document.getElementById('connect');
-    connectButton?.addEventListener('click', () => {
+    connectButton?.addEventListener('click', async () => {
         const language = document.getElementById('language').value;
         const role = document.getElementById('role').value;
-        startVideoCall(language, role);
+        await startVideoCall(language, role);
+    });
+
+    // Add input validation
+    const inputs = document.querySelectorAll('select');
+    inputs.forEach(input => {
+        input.addEventListener('change', () => {
+            const connectButton = document.getElementById('connect');
+            const isValid = Array.from(inputs).every(input => input.value);
+            connectButton.disabled = !isValid;
+        });
     });
 });
