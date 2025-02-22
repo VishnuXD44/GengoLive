@@ -161,11 +161,17 @@ async function createPeerConnection() {
         console.log('Creating RTCPeerConnection with config:', JSON.stringify(configuration, null, 2));
         const pc = new RTCPeerConnection(configuration);
 
-        // Add local tracks to the connection
+        // Add local tracks to the connection if not already added
         if (localStream) {
+            const existingSenders = pc.getSenders();
             localStream.getTracks().forEach(track => {
-                console.log(`Adding local ${track.kind} track to peer connection`);
-                pc.addTrack(track, localStream);
+                const hasTrack = existingSenders.some(sender => sender.track && sender.track.id === track.id);
+                if (!hasTrack) {
+                    console.log(`Adding local ${track.kind} track to peer connection`);
+                    pc.addTrack(track, localStream);
+                } else {
+                    console.log(`Track ${track.kind} already exists in peer connection`);
+                }
             });
         }
 
@@ -340,15 +346,7 @@ function setupSocketListeners() {
                 console.log('Creating peer connection as practice user');
                 peerConnection = await createPeerConnection();
 
-                // Add local stream tracks
-                if (localStream) {
-                    localStream.getTracks().forEach(track => {
-                        console.log(`Adding local ${track.kind} track to peer connection`);
-                        peerConnection.addTrack(track, localStream);
-                    });
-                }
-
-                // Gather ICE candidates
+                // ICE candidates will be gathered automatically
                 const iceCandidates = [];
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
