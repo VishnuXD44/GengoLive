@@ -461,12 +461,15 @@ html, body {
     align-items: center;
     gap: 1.5rem;
     padding: 2rem;
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     max-width: 400px;
     margin: 2rem auto;
     width: 100%;
+    position: relative;
+    z-index: 1;  /* Ensure it's above the floating text */
 }
 
 .selection-container h1 {
@@ -670,29 +673,33 @@ html, body {
     color: var(--dark);
     opacity: 0;
     pointer-events: none;
-    z-index: 1;
+    z-index: 0;  /* Lower z-index so it appears behind the selection container */
     font-weight: 700;
     font-size: 1.8rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
     letter-spacing: 0.05em;
-    animation: float 8s linear; /* Added fixed duration */
+    animation: float 8s linear;
+    will-change: transform, opacity;  /* Optimize animation performance */
 }
 
 /* Update Floating Text animation */
 @keyframes float {
-    0% { 
-        transform: translateY(100vh); 
-        opacity: 0; 
+    0% {
+        transform: translateY(100vh) translateX(-50%);
+        opacity: 0;
     }
-    10% { 
-        opacity: 0.25;
+    10% {
+        opacity: 0.4;
     }
-    90% { 
-        opacity: 0.25;
+    45% {
+        opacity: 0.4;
     }
-    100% { 
-        transform: translateY(-100vh); /* Changed from -20vh to -100vh */
-        opacity: 0; 
+    90% {
+        opacity: 0.4;
+    }
+    100% {
+        transform: translateY(-100vh) translateX(50%);
+        opacity: 0;
     }
 }
 
