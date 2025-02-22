@@ -77,8 +77,11 @@ function setupSocketListeners() {
         } catch (error) {
             console.error('Connection failed:', error);
             showMessage(error.message || 'Failed to establish video connection', 'error');
+            // Emit error before resetting
+            if (socket) {
+                socket.emit('error', { error: error.message });
+            }
             resetVideoCall();
-            socket.emit('error', { error: error.message });
         }
     });
 
