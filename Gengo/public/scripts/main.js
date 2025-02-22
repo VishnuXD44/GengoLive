@@ -28,14 +28,35 @@ const remoteVideo = document.getElementById('remoteVideo');
 // Socket.io initialization with better error handling
 let socket;
 try {
-    socket = io(window.location.origin, {
+    // Use different connection URL based on environment
+    const socketUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000'  // Development server
+        : window.location.origin;   // Production server
+
+    console.log('Connecting to socket.io server at:', socketUrl);
+    socket = io(socketUrl, {
         path: '/socket.io/',
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        autoConnect: false // Don't connect automatically
+        autoConnect: false, // Don't connect automatically
+        forceNew: true     // Force a new connection
+    });
+
+    // Debug socket connection
+    socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        showMessage(`Connection error: ${error.message}`, 'error');
+    });
+
+    socket.on('connect', () => {
+        console.log('Socket connected successfully');
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
     });
 
     // Handle connection events
@@ -523,16 +544,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Connect button handler
     connectButton.addEventListener('click', async () => {
-        if (!socket?.connected) {
-            showMessage('Not connected to server. Please refresh the page.', 'error');
-            return;
-        }
-
         try {
+            // Check socket connection
+            if (!socket) {
+                showMessage('Socket not initialized. Please refresh the page.', 'error');
+                return;
+            }
+
+            if (!socket.connected) {
+                showMessage('Connecting to server...', 'info');
+                socket.connect();
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Connection timeout')), 5000);
+                    socket.once('connect', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                    socket.once('connect_error', (error) => {
+                        clearTimeout(timeout);
+                        reject(error);
+                    });
+                });
+            }
+
+            // Disable button and show loading state
             connectButton.disabled = true;
             connectButton.classList.add('loading');
             showMessage('Initializing connection...', 'info');
             
+            // Get and validate inputs
             const language = document.getElementById('language')?.value;
             const role = document.getElementById('role')?.value;
 
@@ -540,16 +580,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Please select both language and role');
             }
 
+            // Initialize media devices first
+            try {
+                localStream = await startLocalStream();
+                if (!localStream) {
+                    throw new Error('Failed to get local stream');
+                }
+                console.log('Got local stream:', localStream.getTracks().map(t => t.kind).join(', '));
+            } catch (mediaError) {
+                console.error('Media access error:', mediaError);
+                throw new Error('Please allow access to camera and microphone to continue');
+            }
+
+            // Initialize WebRTC connection
             await initializeCall();
             console.log('Initialized call, joining room...');
+
+            // Join the room
             socket.emit('join', { language, role });
             
         } catch (error) {
             console.error('Error initializing call:', error);
             showMessage(error.message || 'Failed to initialize call', 'error');
             resetVideoCall();
-            connectButton.disabled = false;
         } finally {
+            connectButton.disabled = false;
             connectButton.classList.remove('loading');
         }
     });
