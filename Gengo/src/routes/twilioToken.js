@@ -15,24 +15,27 @@ router.post('/token', (req, res) => {
             });
         }
 
-        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_API_KEY || !process.env.TWILIO_API_SECRET) {
+        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
             console.error('Missing Twilio credentials in environment variables');
             return res.status(500).json({
                 error: 'Server configuration error'
             });
         }
 
-        // Create Video Grant
-        const videoGrant = new VideoGrant({
-            room: room
-        });
+        // Create Twilio client
+        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
         // Create Access Token
         const token = new AccessToken(
             process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_API_KEY,
-            process.env.TWILIO_API_SECRET
+            process.env.TWILIO_ACCOUNT_SID, // Using Account SID as API Key
+            process.env.TWILIO_AUTH_TOKEN   // Using Auth Token as API Secret
         );
+
+        // Create Video Grant
+        const videoGrant = new VideoGrant({
+            room: room
+        });
 
         // Add grant to token
         token.addGrant(videoGrant);

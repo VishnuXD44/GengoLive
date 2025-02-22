@@ -45,25 +45,40 @@ function setupSocketListeners() {
                 })
             });
             
-            if (!response.ok) throw new Error('Failed to get token');
+            const data = await response.json();
             
-            const { token } = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get token');
+            }
             
-            // Connect to Twilio room
-            await twilioVideo.connectToRoom(
-                token,
-                currentRoom,
-                document.getElementById('localVideo'),
-                document.getElementById('remoteVideo')
-            );
+            if (!data.token) {
+                throw new Error('Token not received from server');
+            }
             
-            updateState('connected');
-            setupUIControls();
+            showMessage('Token received, connecting to room...', 'info');
+            
+            try {
+                // Connect to Twilio room
+                await twilioVideo.connectToRoom(
+                    data.token,
+                    currentRoom,
+                    document.getElementById('localVideo'),
+                    document.getElementById('remoteVideo')
+                );
+                
+                updateState('connected');
+                setupUIControls();
+                showMessage('Successfully connected to video room', 'success');
+            } catch (videoError) {
+                console.error('Video connection failed:', videoError);
+                throw new Error('Failed to establish video connection: ' + videoError.message);
+            }
             
         } catch (error) {
             console.error('Connection failed:', error);
-            showMessage('Failed to establish video connection', 'error');
+            showMessage(error.message || 'Failed to establish video connection', 'error');
             resetVideoCall();
+            socket.emit('error', { error: error.message });
         }
     });
 
