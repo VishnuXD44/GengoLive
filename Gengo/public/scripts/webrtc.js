@@ -5,23 +5,26 @@ export const configuration = {
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
     iceTransportPolicy: 'all',
-    iceCandidatePoolSize: 10,
     iceServers: [
         {
             urls: [
                 'stun:stun.l.google.com:19302',
-                'stun:stun1.l.google.com:19302'
+                'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302',
+                'stun:stun3.l.google.com:19302',
+                'stun:stun4.l.google.com:19302'
             ]
-        },
-        {
-            urls: [
-                'turn:turn.example.com:3478',
-                'turn:turn.example.com:3478?transport=tcp'
-            ],
-            username: 'webrtc',
-            credential: 'turnserver'
         }
     ]
+};
+
+// Connection monitoring configuration
+const MONITORING_CONFIG = {
+    qualityCheckInterval: 2000,    // Check quality every 2 seconds
+    reconnectDelay: 2000,         // Wait 2 seconds before reconnecting
+    maxReconnectAttempts: 3,      // Maximum number of reconnection attempts
+    iceGatheringTimeout: 8000,    // ICE gathering timeout in milliseconds
+    connectionTimeout: 30000      // Connection establishment timeout
 };
 
 // Connection state constants
@@ -273,11 +276,18 @@ export function monitorConnectionQuality(pc, onQualityChange) {
     logConnectionState(pc);
 
     const interval = setInterval(() => {
-        if (!pc || pc.connectionState !== 'connected') {
+        // Only stop monitoring if connection is permanently closed
+        if (!pc || pc.connectionState === 'closed') {
             console.log('\n=== Stopping Connection Quality Monitoring ===');
-            console.log('Reason:', pc ? `Connection state: ${pc.connectionState}` : 'No peer connection');
+            console.log('Reason:', pc ? 'Connection closed' : 'No peer connection');
             clearInterval(interval);
             return;
+        }
+
+        // Log state changes but continue monitoring during temporary disconnections
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+            console.log(`\n=== Connection State: ${pc.connectionState} - Continuing Monitoring ===`);
+            logConnectionState(pc);
         }
 
         pc.getStats().then(stats => {
@@ -292,7 +302,13 @@ export function monitorConnectionQuality(pc, onQualityChange) {
                 framesDropped: 0,
                 framesReceived: 0,
                 frameRate: 0,
-                audioLevel: 0
+                audioLevel: 0,
+                connectionState: pc.connectionState,
+                iceState: pc.iceConnectionState,
+                signalingState: pc.signalingState,
+                gatheringState: pc.iceGatheringState,
+                totalCandidates: pc._stats?.totalCandidates || 0,
+                connectionAttempts: pc._connectionAttempts || 0
             };
 
             stats.forEach(stat => {
@@ -331,34 +347,73 @@ export function monitorConnectionQuality(pc, onQualityChange) {
             let quality;
             const issues = [];
 
-            if (packetLossRate > 5 || metrics.jitterMs > 100 || metrics.roundTripTimeMs > 300) {
+            // Check connection state first
+            if (metrics.connectionState === 'failed') {
+                quality = 'poor';
+                issues.push('Connection failed');
+            } else if (metrics.connectionState === 'disconnected') {
+                quality = 'poor';
+                issues.push('Connection disconnected');
+            } else if (metrics.iceState === 'failed') {
+                quality = 'poor';
+                issues.push('ICE connection failed');
+            } else if (packetLossRate > 5 || metrics.jitterMs > 100 || metrics.roundTripTimeMs > 300) {
                 quality = 'poor';
                 if (packetLossRate > 5) issues.push(`High packet loss: ${packetLossRate.toFixed(1)}%`);
                 if (metrics.jitterMs > 100) issues.push(`High jitter: ${metrics.jitterMs.toFixed(1)}ms`);
                 if (metrics.roundTripTimeMs > 300) issues.push(`High latency: ${metrics.roundTripTimeMs}ms`);
+            } else if (metrics.connectionState === 'connecting' || metrics.iceState === 'checking') {
+                quality = 'fair';
+                issues.push('Connection in progress');
             } else if (packetLossRate > 2 || metrics.jitterMs > 50 || metrics.roundTripTimeMs > 200) {
                 quality = 'fair';
                 if (packetLossRate > 2) issues.push(`Moderate packet loss: ${packetLossRate.toFixed(1)}%`);
                 if (metrics.jitterMs > 50) issues.push(`Moderate jitter: ${metrics.jitterMs.toFixed(1)}ms`);
                 if (metrics.roundTripTimeMs > 200) issues.push(`Moderate latency: ${metrics.roundTripTimeMs}ms`);
-            } else {
+            } else if (metrics.connectionState === 'connected' && metrics.iceState === 'connected') {
                 quality = 'good';
+            } else {
+                quality = 'fair';
+                issues.push(`Uncertain state: ${metrics.connectionState}/${metrics.iceState}`);
             }
 
             // Log detailed stats periodically
             if (statsHistory.length % 15 === 0) { // Every 30 seconds
                 console.log('\n=== Connection Quality Report ===');
                 console.log('Quality:', quality);
+                console.log('Connection State:', metrics.connectionState);
+                console.log('ICE State:', metrics.iceState);
+                console.log('Signaling State:', metrics.signalingState);
+                console.log('ICE Gathering State:', metrics.gatheringState);
+                console.log('Connection Attempts:', metrics.connectionAttempts);
+                console.log('Total ICE Candidates:', metrics.totalCandidates);
+
                 if (issues.length > 0) {
                     console.log('Issues detected:', issues.join(', '));
                 }
-                console.log('Metrics:', {
+
+                console.log('Performance Metrics:', {
                     bitrate: `${metrics.bitrateKbps.toFixed(1)} Kbps`,
                     packetLoss: `${packetLossRate.toFixed(1)}%`,
                     jitter: `${metrics.jitterMs.toFixed(1)}ms`,
                     rtt: `${metrics.roundTripTimeMs}ms`,
-                    frameRate: metrics.frameRate.toFixed(1)
+                    frameRate: metrics.frameRate.toFixed(1),
+                    framesDropped: metrics.framesDropped,
+                    framesReceived: metrics.framesReceived,
+                    audioLevel: metrics.audioLevel.toFixed(2)
                 });
+
+                // Log historical trends
+                if (statsHistory.length > 1) {
+                    const prevMetrics = statsHistory[statsHistory.length - 2];
+                    console.log('Trends:', {
+                        bitrateChange: `${((metrics.bitrateKbps - prevMetrics.bitrateKbps) / prevMetrics.bitrateKbps * 100).toFixed(1)}%`,
+                        packetLossChange: `${(packetLossRate - (prevMetrics.packetsLost / prevMetrics.packetsReceived * 100)).toFixed(1)}%`,
+                        jitterChange: `${(metrics.jitterMs - prevMetrics.jitterMs).toFixed(1)}ms`,
+                        rttChange: `${(metrics.roundTripTimeMs - prevMetrics.roundTripTimeMs).toFixed(1)}ms`
+                    });
+                }
+
                 logConnectionState(pc);
             }
 

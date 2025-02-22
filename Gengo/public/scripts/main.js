@@ -103,6 +103,23 @@ function initializeSocket() {
 
             await peerConnection.setRemoteDescription(answer);
             console.log('Successfully set remote description from answer');
+
+            // Process any queued ICE candidates
+            if (iceCandidatesQueue.length > 0) {
+                console.log(`Processing ${iceCandidatesQueue.length} queued ICE candidates`);
+                for (const candidate of iceCandidatesQueue) {
+                    await peerConnection.addIceCandidate(candidate);
+                }
+                iceCandidatesQueue = [];
+                console.log('Finished processing queued ICE candidates');
+            }
+
+            // Start monitoring connection quality after successful answer
+            if (!qualityMonitorCleanup) {
+                qualityMonitorCleanup = monitorConnectionQuality(peerConnection, (quality) => {
+                    console.log(`Connection quality: ${quality}`);
+                });
+            }
         } catch (error) {
             console.error('Error handling answer:', error);
             handleDisconnect('Failed to process answer');
@@ -116,10 +133,21 @@ function initializeSocket() {
                 return;
             }
 
+            // Queue candidates if remote description isn't set yet
+            if (peerConnection.remoteDescription === null) {
+                console.log('Queuing ICE candidate until remote description is set');
+                iceCandidatesQueue.push(candidate);
+                return;
+            }
+
             await peerConnection.addIceCandidate(candidate);
             console.log('Successfully added ICE candidate');
         } catch (error) {
             console.error('Error adding ICE candidate:', error);
+            if (error.name === 'InvalidStateError') {
+                console.log('Queuing ICE candidate due to invalid state');
+                iceCandidatesQueue.push(candidate);
+            }
         }
     });
 
@@ -333,6 +361,16 @@ async function handleOffer(offer) {
         console.log('Setting remote description...');
         await peerConnection.setRemoteDescription(offer);
         console.log('Remote description set');
+
+        // Process any queued ICE candidates
+        if (iceCandidatesQueue.length > 0) {
+            console.log(`Processing ${iceCandidatesQueue.length} queued ICE candidates`);
+            for (const candidate of iceCandidatesQueue) {
+                await peerConnection.addIceCandidate(candidate);
+            }
+            iceCandidatesQueue = [];
+            console.log('Finished processing queued ICE candidates');
+        }
 
         // Create answer with specific constraints
         const answerOptions = {
