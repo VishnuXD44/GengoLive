@@ -77,13 +77,27 @@ function updateUI(state) {
 
 async function createPeerConnection() {
     try {
-        // Fetch ICE servers from your server
-        const response = await fetch('/api/get-ice-servers');
-        if (!response.ok) {
-            throw new Error('Failed to fetch ICE servers');
+        // Fetch ICE servers with retry logic
+        let iceServers;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const response = await fetch('/api/get-ice-servers');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                iceServers = await response.json();
+                console.log(`Fetched ICE servers (attempt ${attempt}):`, iceServers);
+                break;
+            } catch (error) {
+                console.warn(`ICE servers fetch attempt ${attempt} failed:`, error);
+                if (attempt === 3) throw error;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
-        const iceServers = await response.json();
-        console.log('Fetched ICE servers:', iceServers);
+
+        if (!Array.isArray(iceServers) || iceServers.length === 0) {
+            throw new Error('Invalid ICE servers configuration received');
+        }
 
         const configuration = {
             iceServers,
@@ -93,6 +107,7 @@ async function createPeerConnection() {
             sdpSemantics: 'unified-plan'
         };
 
+        console.log('Creating RTCPeerConnection with config:', JSON.stringify(configuration, null, 2));
         const pc = new RTCPeerConnection(configuration);
 
         // Add local tracks to the connection

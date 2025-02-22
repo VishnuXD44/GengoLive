@@ -25,10 +25,39 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.get('/api/get-ice-servers', async (req, res) => {
     try {
         const token = await twilioClient.tokens.create();
-        res.json(token.iceServers);
+        if (!token || !token.iceServers) {
+            throw new Error('Invalid response from Twilio');
+        }
+        
+        // Ensure we have both STUN and TURN servers
+        const iceServers = token.iceServers.map(server => ({
+            ...server,
+            urls: Array.isArray(server.urls) ? server.urls : [server.urls]
+        }));
+
+        // Add fallback STUN servers
+        iceServers.push({
+            urls: [
+                'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302'
+            ]
+        });
+
+        console.log('Sending ICE servers:', JSON.stringify(iceServers, null, 2));
+        res.json(iceServers);
     } catch (error) {
         console.error('Error fetching ICE servers:', error);
-        res.status(500).json({ error: 'Failed to fetch ICE servers' });
+        // Send fallback configuration instead of error
+        const fallbackServers = [
+            {
+                urls: [
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302'
+                ]
+            }
+        ];
+        console.log('Using fallback ICE servers');
+        res.json(fallbackServers);
     }
 });
 // Track users and rooms
