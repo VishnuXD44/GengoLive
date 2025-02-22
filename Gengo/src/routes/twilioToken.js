@@ -5,7 +5,7 @@ const router = express.Router();
 const AccessToken = twilio.jwt.AccessToken;
 const VideoGrant = AccessToken.VideoGrant;
 
-router.post('/token', (req, res) => {
+router.post('/token', async (req, res) => {
     try {
         const { identity, room } = req.body;
 
@@ -15,34 +15,46 @@ router.post('/token', (req, res) => {
             });
         }
 
-        if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-            console.error('Missing Twilio credentials in environment variables');
+        const requiredEnvVars = [
+            'TWILIO_ACCOUNT_SID',
+            'TWILIO_API_KEY',
+            'TWILIO_API_SECRET'
+        ];
+
+        const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+        
+        if (missingEnvVars.length > 0) {
+            console.error('Missing required environment variables:', missingEnvVars.join(', '));
             return res.status(500).json({
                 error: 'Server configuration error'
             });
         }
 
-        // Create Twilio client
-        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        try {
+            // Create Access Token using API Key
+            const token = new AccessToken(
+                process.env.TWILIO_ACCOUNT_SID,
+                process.env.TWILIO_API_KEY,
+                process.env.TWILIO_API_SECRET
+            );
 
-        // Create Access Token
-        const token = new AccessToken(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_ACCOUNT_SID, // Using Account SID as API Key
-            process.env.TWILIO_AUTH_TOKEN   // Using Auth Token as API Secret
-        );
+            // Create Video Grant
+            const videoGrant = new VideoGrant({
+                room: room
+            });
 
-        // Create Video Grant
-        const videoGrant = new VideoGrant({
-            room: room
-        });
+            // Add grant to token
+            token.addGrant(videoGrant);
+            token.identity = identity;
 
-        // Add grant to token
-        token.addGrant(videoGrant);
-        token.identity = identity;
-
-        // Return token
-        res.json({ token: token.toJwt() });
+            // Return token
+            res.json({ token: token.toJwt() });
+        } catch (error) {
+            console.error('Error generating token:', error);
+            return res.status(500).json({
+                error: 'Failed to generate access token'
+            });
+        }
     } catch (error) {
         console.error('Error generating token:', error);
         res.status(500).json({
