@@ -1,15 +1,65 @@
-let socket = null;
+import { configuration, startLocalStream, createPeerConnection, monitorConnectionQuality } from './webrtc.js';
 
-// Initialize socket only when needed
+let socket = null;
+let currentRoom = null;
+let peerConnection = null;
+let localStream = null;
+const videoContainer = document.querySelector('.video-container');
+
+// DOM Elements
+document.addEventListener('DOMContentLoaded', () => {
+    const connectButton = document.getElementById('connect');
+    const leaveButton = document.getElementById('leave');
+    const languageSelect = document.getElementById('language');
+    const roleSelect = document.getElementById('role');
+
+    if (connectButton) {
+        connectButton.addEventListener('click', async () => {
+            const language = languageSelect.value;
+            const role = roleSelect.value;
+            
+            if (!language || !role) {
+                showMessage('Please select both language and role', 'error');
+                return;
+            }
+
+            try {
+                // First get local media stream
+                localStream = await startLocalStream();
+                
+                // Then start the call
+                await startVideoCall(language, role);
+                
+                // Show video container and hide selection
+                document.querySelector('.selection-container').style.display = 'none';
+                videoContainer.style.display = 'flex';
+            } catch (error) {
+                console.error('Failed to start call:', error);
+                showMessage(error.message || 'Failed to start call. Please try again.', 'error');
+                cleanup();
+            }
+        });
+    }
+
+    if (leaveButton) {
+        leaveButton.addEventListener('click', () => {
+            cleanup();
+            // Show selection and hide video container
+            document.querySelector('.selection-container').style.display = 'block';
+            videoContainer.style.display = 'none';
+        });
+    }
+});
+
 function initializeSocket() {
     if (socket) {
-        return socket; // Return existing socket if already initialized
+        return socket;
     }
 
     try {
         const socketUrl = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000'  // Development server
-            : window.location.origin;   // Production server
+            ? 'http://localhost:3000'
+            : window.location.origin;
 
         console.log('Connecting to socket.io server at:', socketUrl);
         
@@ -17,10 +67,9 @@ function initializeSocket() {
             path: '/socket.io/',
             transports: ['websocket', 'polling'],
             reconnection: true,
-            autoConnect: false // Prevent automatic connection
+            autoConnect: false
         });
 
-        // Debug socket connection
         socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             showMessage('Connection error. Please check your internet connection.', 'error');
@@ -28,7 +77,6 @@ function initializeSocket() {
 
         socket.on('connect', () => {
             console.log('Socket connected successfully');
-            // Only set up listeners after successful connection
             setupSocketListeners(socket);
         });
 
@@ -45,7 +93,49 @@ function initializeSocket() {
     }
 }
 
-// Move setupSocketListeners to take socket as parameter
+async function setupPeerConnection() {
+    try {
+        peerConnection = await createPeerConnection(configuration);
+        
+        // Add local stream tracks to peer connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        // Handle remote stream
+        peerConnection.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            }
+        };
+
+        // Handle ICE candidates
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate && socket && currentRoom) {
+                socket.emit('ice-candidate', {
+                    candidate: event.candidate,
+                    room: currentRoom
+                });
+            }
+        };
+
+        // Monitor connection quality
+        monitorConnectionQuality(peerConnection, (quality) => {
+            if (socket && currentRoom) {
+                socket.emit('connection-quality', { room: currentRoom, quality });
+            }
+        });
+
+        return peerConnection;
+    } catch (error) {
+        console.error('Error setting up peer connection:', error);
+        throw error;
+    }
+}
+
 function setupSocketListeners(socket) {
     if (!socket) {
         console.error('Cannot setup listeners: socket is undefined');
@@ -53,13 +143,38 @@ function setupSocketListeners(socket) {
     }
 
     socket.on('match-found', async (data) => {
-        currentRoom = data.room;
-        // ... rest of match-found handler
+        try {
+            currentRoom = data.room;
+            showMessage('Match found! Connecting...', 'success');
+            
+            // Set up peer connection when match is found
+            await setupPeerConnection();
+            
+            // Create and send offer if we're the initiator
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            socket.emit('offer', {
+                offer: peerConnection.localDescription,
+                room: currentRoom
+            });
+        } catch (error) {
+            console.error('Error in match-found handler:', error);
+            showMessage('Failed to setup video call', 'error');
+            cleanup();
+        }
     });
 
     socket.on('offer', async (data) => {
         try {
-            // ... offer handling code
+            if (!peerConnection) {
+                await setupPeerConnection();
+            }
+            
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
             socket.emit('answer', {
                 answer: peerConnection.localDescription,
                 room: data.room
@@ -67,23 +182,27 @@ function setupSocketListeners(socket) {
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Failed to process connection offer', 'error');
-            resetVideoCall();
+            cleanup();
         }
     });
 
     socket.on('answer', async (data) => {
         try {
-            // ... answer handling code
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
         } catch (error) {
             console.error('Error handling answer:', error);
             showMessage('Failed to process connection answer', 'error');
-            resetVideoCall();
+            cleanup();
         }
     });
 
     socket.on('ice-candidate', async (data) => {
         try {
-            // ... ice-candidate handling code
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
         }
@@ -91,28 +210,25 @@ function setupSocketListeners(socket) {
 
     socket.on('peer-disconnected', () => {
         showMessage('Your partner has disconnected', 'warning');
-        resetVideoCall();
+        cleanup();
     });
 
     socket.on('waiting', (data) => {
-        const queuePosition = videoContainer.querySelector('.queue-position');
+        showMessage('Waiting for a match...', 'info');
+        const queuePosition = data.position;
         if (queuePosition) {
-            queuePosition.textContent = `Queue position: ${data.position}`;
+            showMessage(`Queue position: ${queuePosition}`, 'info');
         }
     });
 }
 
-// Modify startVideoCall to initialize socket only when needed
 async function startVideoCall(language, role) {
     try {
-        // Initialize socket only when starting a call
         socket = initializeSocket();
         if (!socket) {
-            showMessage('Failed to initialize connection. Please try again.', 'error');
-            return;
+            throw new Error('Failed to initialize connection');
         }
 
-        // Connect only if not already connected
         if (!socket.connected) {
             showMessage('Connecting to server...', 'info');
             socket.connect();
@@ -129,20 +245,39 @@ async function startVideoCall(language, role) {
             });
         }
 
-        // Join the room
         socket.emit('join', { language, role });
-
     } catch (error) {
         console.error('Error starting video call:', error);
-        showMessage('Failed to start video call. Please try again.', 'error');
+        throw error;
     }
 }
 
-// Add cleanup function
 function cleanup() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
     if (socket) {
         socket.disconnect();
         socket = null;
     }
-    // Add any other cleanup needed
+    
+    currentRoom = null;
+
+    // Reset video elements
+    const videos = document.querySelectorAll('video');
+    videos.forEach(video => {
+        video.srcObject = null;
+    });
+}
+
+function showMessage(message, type = 'info') {
+    console.log(`${type}: ${message}`);
+    // You can implement a UI notification system here
 }
