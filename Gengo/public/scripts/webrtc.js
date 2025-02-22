@@ -5,12 +5,22 @@ export const configuration = {
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
     iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 10,
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
+        {
+            urls: [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302'
+            ]
+        },
+        {
+            urls: [
+                'turn:turn.example.com:3478',
+                'turn:turn.example.com:3478?transport=tcp'
+            ],
+            username: 'webrtc',
+            credential: 'turnserver'
+        }
     ]
 };
 

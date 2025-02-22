@@ -176,12 +176,65 @@ async function setupConnection() {
         };
 
         // Handle ICE candidates
+        let iceCandidatesQueue = [];
+        let isRemoteDescriptionSet = false;
+
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log('\n=== New Local ICE Candidate ===');
+                console.log('Candidate type:', event.candidate.type);
+                console.log('Protocol:', event.candidate.protocol);
+                console.log('Address:', event.candidate.address);
+                
                 socket.emit('ice-candidate', {
                     candidate: event.candidate,
                     room: currentRoom
                 });
+            } else {
+                console.log('\n=== Local ICE Candidate Gathering Complete ===');
+            }
+        };
+
+        // Handle ICE connection state changes
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('\n=== ICE Connection State Change ===');
+            console.log('State:', peerConnection.iceConnectionState);
+            
+            switch (peerConnection.iceConnectionState) {
+                case 'checking':
+                    console.log('Checking ICE connection...');
+                    break;
+                case 'connected':
+                    console.log('ICE connection established');
+                    break;
+                case 'disconnected':
+                    console.warn('ICE connection disconnected - attempting recovery');
+                    // Try to recover the connection
+                    setTimeout(() => {
+                        if (peerConnection.iceConnectionState === 'disconnected') {
+                            peerConnection.restartIce();
+                        }
+                    }, 2000);
+                    break;
+                case 'failed':
+                    console.error('ICE connection failed');
+                    handleDisconnect('ICE connection failed');
+                    break;
+            }
+        };
+
+        // Handle ICE gathering state changes
+        peerConnection.onicegatheringstatechange = () => {
+            console.log('\n=== ICE Gathering State Change ===');
+            console.log('State:', peerConnection.iceGatheringState);
+            
+            switch (peerConnection.iceGatheringState) {
+                case 'gathering':
+                    console.log('Started gathering ICE candidates');
+                    break;
+                case 'complete':
+                    console.log('Finished gathering ICE candidates');
+                    break;
             }
         };
 
@@ -197,18 +250,61 @@ async function setupConnection() {
 async function createAndSendOffer() {
     try {
         console.log('\n=== Creating Offer ===');
-        const offer = await peerConnection.createOffer();
+        
+        // Create offer with specific constraints
+        const offerOptions = {
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+            iceRestart: peerConnection._connectionAttempts > 0,
+            voiceActivityDetection: true
+        };
+        
+        const offer = await peerConnection.createOffer(offerOptions);
+        
+        // Modify SDP to improve connection reliability
+        let sdp = offer.sdp;
+        
+        // Set bandwidth limits
+        sdp = sdp.replace(/(m=video.*\r\n)/g, '$1b=AS:2000\r\n'); // 2 Mbps for video
+        sdp = sdp.replace(/(m=audio.*\r\n)/g, '$1b=AS:64\r\n');   // 64 kbps for audio
+        
+        // Prioritize VP8 codec
+        sdp = sdp.replace(/VP8/g, 'VP8/90000');
+        
+        // Enable NACK and PLI for better packet loss handling
+        sdp = sdp.replace(/(a=rtcp-fb.*)/g, '$1\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli');
+        
+        offer.sdp = sdp;
+        
+        console.log('Setting local description...');
         await peerConnection.setLocalDescription(offer);
         console.log('Local description set');
+
+        // Wait briefly for initial candidates
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         socket.emit('offer', {
             offer: offer,
             room: currentRoom
         });
         console.log('Offer sent');
+        
+        // Set a timeout for answer
+        setTimeout(() => {
+            if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+                console.warn('\n=== No Answer Received - Retrying ===');
+                createAndSendOffer();
+            }
+        }, 10000);
+        
     } catch (error) {
         console.error('Error creating offer:', error);
-        handleDisconnect('Failed to create offer');
+        if (error.name === 'OperationError' && peerConnection._connectionAttempts < peerConnection._maxAttempts) {
+            console.log('Retrying offer creation...');
+            setTimeout(createAndSendOffer, 2000);
+        } else {
+            handleDisconnect('Failed to create offer: ' + error.message);
+        }
     }
 }
 
@@ -216,22 +312,65 @@ async function createAndSendOffer() {
 async function handleOffer(offer) {
     try {
         console.log('\n=== Processing Offer ===');
+        
+        // Validate the offer
+        if (!offer.sdp) {
+            throw new Error('Invalid offer: missing SDP');
+        }
+
+        // Modify received SDP if needed
+        let sdp = offer.sdp;
+        
+        // Ensure bandwidth limits are set
+        if (!sdp.includes('b=AS:')) {
+            sdp = sdp.replace(/(m=video.*\r\n)/g, '$1b=AS:2000\r\n');
+            sdp = sdp.replace(/(m=audio.*\r\n)/g, '$1b=AS:64\r\n');
+        }
+        
+        offer.sdp = sdp;
+
+        // Set remote description
+        console.log('Setting remote description...');
         await peerConnection.setRemoteDescription(offer);
         console.log('Remote description set');
 
+        // Create answer with specific constraints
+        const answerOptions = {
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+            voiceActivityDetection: true
+        };
+
         console.log('Creating answer...');
-        const answer = await peerConnection.createAnswer();
+        const answer = await peerConnection.createAnswer(answerOptions);
+        
+        // Modify answer SDP
+        sdp = answer.sdp;
+        sdp = sdp.replace(/(m=video.*\r\n)/g, '$1b=AS:2000\r\n');
+        sdp = sdp.replace(/(m=audio.*\r\n)/g, '$1b=AS:64\r\n');
+        answer.sdp = sdp;
+
+        console.log('Setting local description...');
         await peerConnection.setLocalDescription(answer);
         console.log('Local description set');
+
+        // Wait briefly for initial candidates
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         socket.emit('answer', {
             answer: answer,
             room: currentRoom
         });
         console.log('Answer sent');
+        
     } catch (error) {
         console.error('Error handling offer:', error);
-        handleDisconnect('Failed to process offer');
+        if (error.name === 'OperationError' && peerConnection._connectionAttempts < peerConnection._maxAttempts) {
+            console.log('Retrying offer handling...');
+            setTimeout(() => handleOffer(offer), 2000);
+        } else {
+            handleDisconnect('Failed to process offer: ' + error.message);
+        }
     }
 }
 
@@ -269,41 +408,44 @@ function updateUIState(state) {
     console.log('\n=== Updating UI State ===');
     console.log('New state:', state);
 
+    const videoControls = document.querySelector('.video-controls');
+
     switch (state) {
         case 'ready':
             connectButton.textContent = 'Connect';
             connectButton.disabled = false;
-            leaveButton.style.display = 'none';
             selectionContainer.style.display = 'block';
             videoContainer.style.display = 'none';
+            videoControls.style.display = 'none';
             break;
 
         case 'waiting':
             connectButton.textContent = 'Waiting...';
             connectButton.disabled = true;
-            leaveButton.style.display = 'block';
             break;
 
         case 'connecting':
             connectButton.textContent = 'Connecting...';
             connectButton.disabled = true;
-            leaveButton.style.display = 'block';
             selectionContainer.style.display = 'none';
-            videoContainer.style.display = 'flex';
+            videoContainer.style.display = 'grid';
+            videoControls.style.display = 'flex';
             break;
 
         case 'connected':
             connectButton.textContent = 'Connected';
             connectButton.disabled = true;
-            leaveButton.style.display = 'block';
+            selectionContainer.style.display = 'none';
+            videoContainer.style.display = 'grid';
+            videoControls.style.display = 'flex';
             break;
 
         case 'disconnected':
             connectButton.textContent = 'Connect';
             connectButton.disabled = false;
-            leaveButton.style.display = 'none';
             selectionContainer.style.display = 'block';
             videoContainer.style.display = 'none';
+            videoControls.style.display = 'none';
             break;
     }
 }

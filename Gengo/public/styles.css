@@ -459,7 +459,7 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 2rem;  /* Increased gap between elements */
     padding: 2rem;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
@@ -469,7 +469,7 @@ html, body {
     margin: 2rem auto;
     width: 100%;
     position: relative;
-    z-index: 1;  /* Ensure it's above the floating text */
+    z-index: 1;
 }
 
 .selection-container h1 {
@@ -517,6 +517,36 @@ html, body {
     background: rgba(0, 0, 0, 0.05);
     padding: 20px;
     border-radius: 10px;
+    position: relative;
+}
+
+/* Add controls container for video view */
+.video-controls {
+    position: absolute;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+    max-width: 400px;
+    justify-content: center;
+    padding: 1rem;
+}
+
+/* Update leave button visibility */
+.leave-btn {
+    display: none;
+}
+
+/* Show leave button in video view */
+.video-container:not([style*="display: none"]) ~ .video-controls .leave-btn {
+    display: block;
+}
+
+/* Hide connect button in video view */
+.video-container:not([style*="display: none"]) ~ .selection-container .connect-btn {
+    display: none;
 }
 
 .video-wrapper {
