@@ -16,7 +16,20 @@ const io = socketIO(server, {
         methods: ["GET", "POST"]
     },
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    maxHttpBufferSize: 1e8, // 100 MB for video streams
+    path: '/socket.io/'
+});
+
+// Log socket.io events
+io.engine.on("connection_error", (err) => {
+    console.log("Connection error:", err);
+});
+
+io.engine.on("headers", (headers, req) => {
+    console.log("Socket headers:", headers);
 });
 
 // Initialize Twilio client

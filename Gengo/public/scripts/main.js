@@ -1,14 +1,4 @@
-import { startLocalStream } from '../../src/utils/webrtc.js';
-
-// Socket.io initialization with better error handling
-const socket = io(window.location.origin, {
-    path: '/socket.io/',
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    timeout: 10000
-});
+import { startLocalStream } from './webrtc.js';
 
 // State management
 const STATE = {
@@ -34,6 +24,44 @@ const connectButton = document.getElementById('connect');
 const leaveButton = document.getElementById('leave');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+
+// Socket.io initialization with better error handling
+let socket;
+try {
+    socket = io(window.location.origin, {
+        path: '/socket.io/',
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000,
+        autoConnect: false // Don't connect automatically
+    });
+
+    // Handle connection events
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        if (connectButton) {
+            connectButton.disabled = false;
+        }
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        showMessage('Failed to connect to server. Please try again.', 'error');
+        if (connectButton) {
+            connectButton.disabled = false;
+            connectButton.classList.remove('loading');
+        }
+    });
+
+    // Connect to socket server
+    socket.connect();
+} catch (error) {
+    console.error('Failed to initialize socket:', error);
+    showMessage('Failed to initialize connection. Please refresh the page.', 'error');
+}
+
 function updateState(newState) {
     currentState = newState;
     document.body.setAttribute('data-state', newState);
@@ -46,6 +74,7 @@ function updateState(newState) {
     
     updateUI(newState);
 }
+
 function updateUI(state) {
     const roleElement = document.getElementById('role');
     const languageElement = document.getElementById('language');
@@ -57,25 +86,6 @@ function updateUI(state) {
         document.body.setAttribute('data-role', role);
     }
 
-    // Add indicators to video container when it's visible
-    if (videoContainer && videoContainer.style.display !== 'none') {
-        // Add connection quality indicator if not present
-        if (!videoContainer.querySelector('.connection-quality')) {
-            const qualityIndicator = document.createElement('div');
-            qualityIndicator.className = 'connection-quality';
-            qualityIndicator.innerHTML = '<span class="quality-dot"></span> Connection: Unknown';
-            videoContainer.appendChild(qualityIndicator);
-        }
-
-        // Add role indicator if not present
-        if (!videoContainer.querySelector('.role-indicator')) {
-            const roleIndicator = document.createElement('div');
-            roleIndicator.className = 'role-indicator';
-            roleIndicator.textContent = role === 'practice' ? 'Student' : 'Coach';
-            videoContainer.appendChild(roleIndicator);
-        }
-    }
-
     switch (state) {
         case STATE.WAITING:
             const roleSpecificMessage = role === 'practice'
@@ -83,20 +93,22 @@ function updateUI(state) {
                 : `Waiting for a ${language} language practice partner...`;
             showMessage(roleSpecificMessage, 'info');
             
-            
             if (connectButton) connectButton.style.display = 'none';
             if (leaveButton) leaveButton.style.display = 'block';
             
-            // Add waiting indicator
-            const waitingIndicator = document.createElement('div');
-            waitingIndicator.className = 'waiting-indicator';
-            waitingIndicator.innerHTML = `
-                <div class="spinner"></div>
-                <p>${roleSpecificMessage}</p>
-                <p class="queue-position">Searching for a match...</p>
-            `;
-            if (videoContainer && !videoContainer.querySelector('.waiting-indicator')) {
-                videoContainer.appendChild(waitingIndicator);
+            if (videoContainer) {
+                videoContainer.style.display = 'grid';
+                // Add waiting indicator if not present
+                if (!videoContainer.querySelector('.waiting-indicator')) {
+                    const waitingIndicator = document.createElement('div');
+                    waitingIndicator.className = 'waiting-indicator';
+                    waitingIndicator.innerHTML = `
+                        <div class="spinner"></div>
+                        <p>${roleSpecificMessage}</p>
+                        <p class="queue-position">Searching for a match...</p>
+                    `;
+                    videoContainer.appendChild(waitingIndicator);
+                }
             }
             break;
             
@@ -122,22 +134,6 @@ function updateUI(state) {
                 if (indicator) indicator.remove();
             }
             if (selectionContainer) selectionContainer.style.display = 'none';
-            
-            // Add role indicator
-            const roleIndicator = document.createElement('div');
-            roleIndicator.className = 'role-indicator';
-            roleIndicator.textContent = role === 'practice' ? 'Student' : 'Coach';
-            if (videoContainer && !videoContainer.querySelector('.role-indicator')) {
-                videoContainer.appendChild(roleIndicator);
-            }
-
-            // Add connection quality indicator
-            const qualityIndicator = document.createElement('div');
-            qualityIndicator.className = 'connection-quality';
-            qualityIndicator.innerHTML = '<span class="quality-dot"></span> Connection: Good';
-            if (videoContainer && !videoContainer.querySelector('.connection-quality')) {
-                videoContainer.appendChild(qualityIndicator);
-            }
             break;
             
         case STATE.FAILED:
@@ -165,10 +161,17 @@ function updateUI(state) {
 async function initializeCall() {
     try {
         updateState(STATE.CONNECTING);
-        localStream = await startLocalStream();
         
-        if (!localStream) {
-            throw new Error('Failed to get local stream');
+        // Request media permissions first
+        try {
+            localStream = await startLocalStream();
+            if (!localStream) {
+                throw new Error('Failed to get local stream');
+            }
+            console.log('Got local stream:', localStream.getTracks().map(t => t.kind).join(', '));
+        } catch (mediaError) {
+            console.error('Media access error:', mediaError);
+            throw new Error('Please allow access to camera and microphone to continue');
         }
 
         // Fetch ICE servers with retry
@@ -196,59 +199,15 @@ async function initializeCall() {
 
         // Create peer connection
         peerConnection = new RTCPeerConnection(configuration);
+        console.log('Created peer connection');
 
         // Add local stream tracks to peer connection
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
+                console.log(`Added local ${track.kind} track to peer connection`);
             });
         }
-
-        // Monitor connection quality
-        window._qualityMonitorInterval = setInterval(() => {
-            if (peerConnection && peerConnection.connectionState === 'connected') {
-                peerConnection.getStats().then(stats => {
-                    console.log('Monitoring connection quality...');
-                    let totalPacketsLost = 0;
-                    let totalPackets = 0;
-                    let avgJitter = 0;
-                    let jitterCount = 0;
-
-                    stats.forEach(stat => {
-                        if (stat.type === 'inbound-rtp') {
-                            totalPacketsLost += stat.packetsLost || 0;
-                            totalPackets += stat.packetsReceived || 0;
-                            if (stat.jitter) {
-                                avgJitter += stat.jitter;
-                                jitterCount++;
-                            }
-                        }
-                    });
-
-                    const packetLossRate = totalPackets ? (totalPacketsLost / totalPackets) * 100 : 0;
-                    const avgJitterMs = jitterCount ? (avgJitter / jitterCount) * 1000 : 0;
-
-                    let quality;
-                    if (packetLossRate > 5 || avgJitterMs > 100) {
-                        quality = 'poor';
-                    } else if (packetLossRate > 2 || avgJitterMs > 50) {
-                        quality = 'fair';
-                    } else {
-                        quality = 'good';
-                    }
-
-                    const qualityIndicator = videoContainer.querySelector('.connection-quality');
-                    if (qualityIndicator) {
-                        qualityIndicator.innerHTML = `<span class="quality-dot ${quality}"></span> Connection: ${quality.charAt(0).toUpperCase() + quality.slice(1)}`;
-                    }
-
-                    // Notify peer about connection quality
-                    if (currentRoom) {
-                        socket.emit('connection-quality', { room: currentRoom, quality });
-                    }
-                });
-            }
-        }, 2000);
 
         // Handle remote tracks
         peerConnection.ontrack = (event) => {
@@ -264,6 +223,7 @@ async function initializeCall() {
             if (remoteVideo) {
                 remoteVideo.srcObject = stream;
                 remoteStream = stream;
+                console.log('Set remote video stream');
             }
         };
 
@@ -345,20 +305,6 @@ function setupSocketListeners() {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             console.log('Set remote description from offer');
 
-            // Process any buffered candidates
-            if (peerConnection._pendingCandidates?.length > 0) {
-                console.log(`Processing ${peerConnection._pendingCandidates.length} buffered ICE candidates`);
-                for (const candidate of peerConnection._pendingCandidates) {
-                    try {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                        console.log('Added buffered ICE candidate');
-                    } catch (error) {
-                        console.warn('Error adding buffered ICE candidate:', error);
-                    }
-                }
-                peerConnection._pendingCandidates = [];
-            }
-
             const answer = await peerConnection.createAnswer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
@@ -367,9 +313,6 @@ function setupSocketListeners() {
 
             await peerConnection.setLocalDescription(answer);
             console.log('Set local description (answer)');
-
-            // Wait briefly for initial ICE candidates
-            await new Promise(resolve => setTimeout(resolve, 1000));
 
             socket.emit('answer', {
                 answer: peerConnection.localDescription,
@@ -425,25 +368,8 @@ function setupSocketListeners() {
         }
     });
 
-    socket.on('peer-disconnected', ({ reason, roomId }) => {
+    socket.on('peer-disconnected', () => {
         showMessage('Your partner has disconnected', 'warning');
-        resetVideoCall();
-    });
-
-    socket.on('peer-connection-quality', ({ quality }) => {
-        const qualityIndicator = videoContainer.querySelector('.connection-quality');
-        if (qualityIndicator) {
-            qualityIndicator.innerHTML = `<span class="quality-dot ${quality}"></span> Partner's Connection: ${quality.charAt(0).toUpperCase() + quality.slice(1)}`;
-        }
-    });
-
-    socket.on('queue-timeout', () => {
-        showMessage('Queue timeout. Please try again.', 'warning');
-        resetVideoCall();
-    });
-
-    socket.on('room-timeout', () => {
-        showMessage('Session timeout. Please reconnect.', 'warning');
         resetVideoCall();
     });
 
@@ -455,18 +381,6 @@ function setupSocketListeners() {
                 queuePosition.textContent += ` (Est. wait: ${Math.ceil(data.estimatedWait / 60)} min)`;
             }
         }
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        showMessage('Connection to server failed', 'error');
-        updateState(STATE.FAILED);
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
-        showMessage('Disconnected from server', 'warning');
-        resetVideoCall();
     });
 }
 
@@ -585,12 +499,6 @@ function resetVideoCall() {
     currentRoom = null;
     reconnectAttempts = 0;
 
-    // Clear any quality monitoring intervals
-    if (window._qualityMonitorInterval) {
-        clearInterval(window._qualityMonitorInterval);
-        window._qualityMonitorInterval = null;
-    }
-
     // Update UI state
     updateState(STATE.IDLE);
     console.log('Reset complete');
@@ -606,35 +514,56 @@ function showMessage(message, type = 'info') {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    if (connectButton) {
-        connectButton.addEventListener('click', async () => {
-            try {
-                connectButton.disabled = true;
-                connectButton.classList.add('loading');
-                
-                const language = document.getElementById('language').value;
-                const role = document.getElementById('role').value;
+    // Initialize UI elements
+    if (!videoContainer || !selectionContainer || !connectButton || !leaveButton) {
+        console.error('Required UI elements not found');
+        showMessage('Failed to initialize UI. Please refresh the page.', 'error');
+        return;
+    }
 
-                await initializeCall();
-                socket.emit('join', { language, role });
-                
-            } catch (error) {
-                console.error('Error initializing call:', error);
-                showMessage(error.message, 'error');
-                resetVideoCall();
-            } finally {
-                connectButton.classList.remove('loading');
+    // Connect button handler
+    connectButton.addEventListener('click', async () => {
+        if (!socket?.connected) {
+            showMessage('Not connected to server. Please refresh the page.', 'error');
+            return;
+        }
+
+        try {
+            connectButton.disabled = true;
+            connectButton.classList.add('loading');
+            showMessage('Initializing connection...', 'info');
+            
+            const language = document.getElementById('language')?.value;
+            const role = document.getElementById('role')?.value;
+
+            if (!language || !role) {
+                throw new Error('Please select both language and role');
             }
-        });
-    }
 
-    if (leaveButton) {
-        leaveButton.addEventListener('click', () => {
+            await initializeCall();
+            console.log('Initialized call, joining room...');
+            socket.emit('join', { language, role });
+            
+        } catch (error) {
+            console.error('Error initializing call:', error);
+            showMessage(error.message || 'Failed to initialize call', 'error');
             resetVideoCall();
-            showMessage('Disconnected', 'info');
-        });
-    }
-});
+            connectButton.disabled = false;
+        } finally {
+            connectButton.classList.remove('loading');
+        }
+    });
 
-// Initialize socket listeners
-setupSocketListeners();
+    // Leave button handler
+    leaveButton.addEventListener('click', () => {
+        console.log('Leave button clicked');
+        resetVideoCall();
+        showMessage('Disconnected', 'info');
+    });
+
+    // Initial UI state
+    updateState(STATE.IDLE);
+
+    // Set up socket listeners
+    setupSocketListeners();
+});

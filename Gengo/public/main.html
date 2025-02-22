@@ -57,10 +57,13 @@
             </div>
         </div>
     </div>
+    <!-- Load socket.io first -->
     <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Load WebRTC utilities -->
+    <script type="module" src="scripts/webrtc.js"></script>
+    
+    <!-- Load main application code -->
     <script type="module" src="scripts/main.js"></script>
-    <script src="scripts/language-animation.js"></script>
-    
-    
 </body>
 </html>
