@@ -32,51 +32,85 @@ io.engine.on("headers", (headers, req) => {
     console.log("Socket headers:", headers);
 });
 
-// Initialize Twilio client
-const twilioClient = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
+// Initialize Twilio client with error handling
+let twilioClient;
+try {
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+        console.warn('Twilio credentials not found in environment variables');
+    } else {
+        twilioClient = twilio(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        console.log('Twilio client initialized successfully');
+    }
+} catch (error) {
+    console.error('Failed to initialize Twilio client:', error);
+}
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Endpoint to get Twilio ICE servers
 app.get('/api/get-ice-servers', async (req, res) => {
-    try {
-        const token = await twilioClient.tokens.create();
-        if (!token || !token.iceServers) {
-            throw new Error('Invalid response from Twilio');
-        }
-        
-        // Ensure we have both STUN and TURN servers
-        const iceServers = token.iceServers.map(server => ({
-            ...server,
-            urls: Array.isArray(server.urls) ? server.urls : [server.urls]
-        }));
+    // Default STUN servers that will always be included
+    const defaultStunServers = [
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302'
+    ];
 
-        // Add fallback STUN servers
+    try {
+        let iceServers = [];
+
+        // Try to get Twilio TURN servers if client is initialized
+        if (twilioClient) {
+            try {
+                const token = await twilioClient.tokens.create();
+                if (token?.iceServers) {
+                    iceServers = token.iceServers.map(server => ({
+                        ...server,
+                        urls: Array.isArray(server.urls) ? server.urls : [server.urls]
+                    }));
+                    console.log('Successfully got Twilio ICE servers');
+                }
+            } catch (twilioError) {
+                console.warn('Failed to get Twilio ICE servers:', twilioError);
+            }
+        }
+
+        // Always include default STUN servers
         iceServers.push({
-            urls: [
-                'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302'
-            ]
+            urls: defaultStunServers
         });
 
-        console.log('Sending ICE servers:', JSON.stringify(iceServers, null, 2));
-        res.json(iceServers);
+        // Log the configuration we're sending
+        console.log('ICE Servers Configuration:', {
+            totalServers: iceServers.length,
+            types: iceServers.map(server => ({
+                type: server.urls[0].startsWith('stun') ? 'STUN' : 'TURN',
+                count: server.urls.length
+            }))
+        });
+
+        // Send successful response
+        res.json({
+            iceServers,
+            usingTwilio: iceServers.length > 1, // More than just the default STUN servers
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
-        console.error('Error fetching ICE servers:', error);
-        res.status(500).json({
-            error: 'Failed to fetch ICE servers',
-            fallback: [
-                {
-                    urls: [
-                        'stun:stun1.l.google.com:19302',
-                        'stun:stun2.l.google.com:19302'
-                    ]
-                }
-            ]
+        console.error('Error in /api/get-ice-servers:', error);
+        
+        // Always return at least the default STUN servers
+        res.json({
+            iceServers: [{
+                urls: defaultStunServers
+            }],
+            usingTwilio: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });

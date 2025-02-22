@@ -931,6 +931,106 @@ html, body {
     .main-logo {
         font-size: 1.6rem;
     }
+
+    /* Small screen adjustments for quality indicator */
+    .quality-indicator {
+        font-size: 11px;
+        padding: 4px 8px;
+        top: 5px;
+        left: 5px;
+    }
+
+    /* Small screen adjustments for messages */
+    .message {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        padding: 8px 16px;
+        font-size: 12px;
+        max-width: calc(100% - 20px);
+    }
+
+    /* Small screen adjustments for connection status */
+    .connection-status {
+        width: calc(100% - 20px);
+        font-size: 12px;
+        padding: 8px 16px;
+    }
+}
+
+/* Mobile adjustments for video chat components */
+@media (max-width: 767px) {
+    .waiting-indicator {
+        width: 90%;
+        padding: 15px;
+    }
+
+    .waiting-indicator .spinner {
+        width: 30px;
+        height: 30px;
+    }
+
+    .waiting-indicator p {
+        font-size: 14px;
+    }
+
+    .queue-position {
+        font-size: 12px;
+    }
+
+    .role-indicator {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
+    /* Mobile adjustments for quality indicator */
+    .quality-indicator {
+        font-size: 12px;
+        padding: 6px 12px;
+        top: 8px;
+        left: 8px;
+    }
+
+    /* Mobile adjustments for messages */
+    .message {
+        top: 15px;
+        right: 15px;
+        left: 15px;
+        padding: 10px 20px;
+        font-size: 13px;
+        text-align: center;
+        transform: none;
+        width: auto;
+        max-width: calc(100% - 30px);
+    }
+
+    /* Mobile adjustments for connection status */
+    .connection-status {
+        width: calc(100% - 30px);
+        font-size: 13px;
+        padding: 10px 20px;
+        text-align: center;
+    }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+    .quality-indicator,
+    .role-indicator {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+    .message {
+        top: 10px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+
+    .connection-status {
+        padding: 8px 16px;
+        font-size: 12px;
+    }
 }
 
 
@@ -1302,24 +1402,94 @@ html, body {
     }
 }
 
+/* Connection Quality Indicator */
+.quality-indicator {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.quality-indicator.good {
+    background: #2ecc71;
+}
+
+.quality-indicator.fair {
+    background: #f1c40f;
+}
+
+.quality-indicator.poor {
+    background: #e74c3c;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
 /* Connection Status */
 .connection-status {
     position: fixed;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 10px 20px;
-    border-radius: 5px;
-    background: rgba(0, 0, 0, 0.8);
+    padding: 12px 24px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.9);
     color: white;
     font-size: 14px;
+    font-weight: 500;
     display: none;
     z-index: 1000;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .connection-status.error {
     display: block;
-    background: rgba(231, 76, 60, 0.9);
+    background: rgba(231, 76, 60, 0.95);
+}
+
+/* Message Styles */
+.message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 2000;
+    animation: fadeInOut 5s ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(4px);
+    max-width: 90%;
+    word-wrap: break-word;
+}
+
+.success-message {
+    background-color: rgba(46, 204, 113, 0.95);
+}
+
+.error-message {
+    background-color: rgba(231, 76, 60, 0.95);
+}
+
+.info-message {
+    background-color: rgba(52, 152, 219, 0.95);
+}
+
+.warning-message {
+    background-color: rgba(241, 196, 15, 0.95);
 }
 
 /* Video Chat Components */

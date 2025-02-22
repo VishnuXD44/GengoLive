@@ -182,32 +182,61 @@ function updateUI(state) {
 async function initializeCall() {
     try {
         updateState(STATE.CONNECTING);
+        showMessage('Initializing video call...', 'info');
         
-        // Request media permissions first
+        // Step 1: Request media permissions
         try {
             localStream = await startLocalStream();
             if (!localStream) {
                 throw new Error('Failed to get local stream');
             }
             console.log('Got local stream:', localStream.getTracks().map(t => t.kind).join(', '));
+            showMessage('Camera and microphone connected', 'success');
         } catch (mediaError) {
             console.error('Media access error:', mediaError);
-            throw new Error('Please allow access to camera and microphone to continue');
+            showMessage('Please allow access to camera and microphone', 'error');
+            updateState(STATE.IDLE);
+            throw new Error('Camera/microphone access required');
         }
 
-        // Fetch ICE servers with retry
+        // Step 2: Get ICE servers configuration
+        showMessage('Setting up connection...', 'info');
+
+        // Fetch ICE servers
         let iceServers;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const response = await fetch('/api/get-ice-servers');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                iceServers = await response.json();
-                break;
-            } catch (error) {
-                console.warn(`ICE servers fetch attempt ${attempt} failed:`, error);
-                if (attempt === 3) throw error;
-                await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            console.log('Fetching ICE servers...');
+            const response = await fetch('/api/get-ice-servers');
+            const data = await response.json();
+            
+            if (data.error) {
+                console.warn('Server reported error getting ICE servers:', data.error);
             }
+            
+            if (!data.iceServers || !data.iceServers.length) {
+                throw new Error('No ICE servers received');
+            }
+
+            iceServers = data.iceServers;
+            console.log('Using ICE servers:', {
+                count: iceServers.length,
+                usingTwilio: data.usingTwilio,
+                types: iceServers.map(server => ({
+                    type: server.urls[0].startsWith('stun') ? 'STUN' : 'TURN',
+                    count: server.urls.length
+                }))
+            });
+        } catch (error) {
+            console.warn('Failed to get ICE servers, using defaults:', error);
+            // Use default STUN servers
+            iceServers = [{
+                urls: [
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302',
+                    'stun:stun3.l.google.com:19302',
+                    'stun:stun4.l.google.com:19302'
+                ]
+            }];
         }
 
         const configuration = {
@@ -215,19 +244,61 @@ async function initializeCall() {
             iceCandidatePoolSize: 10,
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            sdpSemantics: 'unified-plan'
+            sdpSemantics: 'unified-plan',
+            iceTransportPolicy: 'all'
         };
 
-        // Create peer connection
-        peerConnection = new RTCPeerConnection(configuration);
-        console.log('Created peer connection');
+        console.log('Creating peer connection with configuration:', configuration);
 
-        // Add local stream tracks to peer connection
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-                console.log(`Added local ${track.kind} track to peer connection`);
+        // Step 3: Create and configure peer connection
+        try {
+            peerConnection = new RTCPeerConnection(configuration);
+            console.log('Created peer connection');
+
+            // Add local stream tracks
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                    console.log(`Added local ${track.kind} track to peer connection`);
+                });
+            }
+
+            // Monitor connection quality
+            const qualityMonitor = monitorConnectionQuality(peerConnection, (quality) => {
+                console.log('Connection quality:', quality);
+                const qualityIndicator = document.createElement('div');
+                qualityIndicator.className = `quality-indicator ${quality}`;
+                qualityIndicator.textContent = `Connection: ${quality}`;
+                
+                // Update or add quality indicator
+                const existingIndicator = document.querySelector('.quality-indicator');
+                if (existingIndicator) {
+                    existingIndicator.replaceWith(qualityIndicator);
+                } else {
+                    document.querySelector('.video-container')?.appendChild(qualityIndicator);
+                }
+
+                // Show message if quality is poor
+                if (quality === 'poor') {
+                    showMessage('Poor connection quality. Try moving closer to your router.', 'warning');
+                }
             });
+
+            // Clean up quality monitor when connection ends
+            peerConnection.addEventListener('connectionstatechange', () => {
+                if (peerConnection.connectionState === 'closed' ||
+                    peerConnection.connectionState === 'failed' ||
+                    peerConnection.connectionState === 'disconnected') {
+                    qualityMonitor();
+                }
+            });
+
+            showMessage('Connection established', 'success');
+        } catch (peerError) {
+            console.error('Failed to create peer connection:', peerError);
+            showMessage('Failed to establish connection. Please try again.', 'error');
+            updateState(STATE.IDLE);
+            throw peerError;
         }
 
         // Handle remote tracks
