@@ -9,7 +9,8 @@ module.exports = (env, argv) => {
 
     return {
         entry: {
-            main: ['./public/scripts/webrtc.js', './public/scripts/main.js', './public/styles.css'],
+            main: ['./public/scripts/webrtc.js', './public/scripts/main.js'],
+            styles: './public/styles.css',
             'language-animation': './public/scripts/language-animation.js',
             about: './public/styles2.css',
             contact: './public/styles2.css'
@@ -61,25 +62,25 @@ module.exports = (env, argv) => {
             new HtmlWebpackPlugin({
                 template: './public/index.html',
                 filename: 'index.html',
-                chunks: ['main', 'language-animation'],
+                chunks: ['main', 'styles', 'language-animation'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/main.html',
                 filename: 'main.html',
-                chunks: ['main'],
+                chunks: ['main', 'styles'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/about.html',
                 filename: 'about.html',
-                chunks: ['about'],
+                chunks: ['main', 'about'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/Contact.html',
                 filename: 'Contact.html',
-                chunks: ['contact'],
+                chunks: ['main', 'contact'],
                 inject: true
             }),
             new CopyWebpackPlugin({
