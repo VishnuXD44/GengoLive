@@ -1,4 +1,4 @@
- // Configuration will be fetched from server
+// Configuration will be fetched from server
 export const configuration = {
     iceCandidatePoolSize: 10,
     bundlePolicy: 'max-bundle',
@@ -11,12 +11,13 @@ let peerConnection = null;
 let localStream = null;
 let remoteStream = null;
 
-export async function startLocalStream(constraints = {
+const MEDIA_CONSTRAINTS = {
     video: {
         width: { min: 320, ideal: 640, max: 1280 },
         height: { min: 240, ideal: 480, max: 720 },
         frameRate: { min: 15, ideal: 24, max: 30 },
-        aspectRatio: { ideal: 1.7777777778 }
+        aspectRatio: { ideal: 1.7777777778 },
+        facingMode: 'user'
     },
     audio: {
         echoCancellation: true,
@@ -24,7 +25,9 @@ export async function startLocalStream(constraints = {
         autoGainControl: true,
         sampleSize: 16
     }
-}) {
+};
+
+export async function startLocalStream(constraints = MEDIA_CONSTRAINTS) {
     try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         const localVideo = document.getElementById('localVideo');
@@ -75,6 +78,8 @@ export async function startLocalStream(constraints = {
                 track.onmute = () => console.log(`Local ${track.kind} track muted`);
                 track.onunmute = () => console.log(`Local ${track.kind} track unmuted`);
             });
+
+            localStream = stream;
         }
 
         return stream;
@@ -112,23 +117,59 @@ export async function createPeerConnection(config = configuration) {
             }
         }, 8000);
 
-        // Basic state monitoring - main event handlers will be added by main.js
-        pc.onicegatheringstatechange = () => {
-            console.log('ICE Gathering State:', pc.iceGatheringState);
-            if (pc.iceGatheringState === 'complete') {
-                clearTimeout(pc._gatheringTimeout);
+        // Add local stream tracks to peer connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                pc.addTrack(track, localStream);
+            });
+        }
+
+        // Handle remote tracks
+        pc.ontrack = (event) => {
+            if (!event.streams || event.streams.length === 0) {
+                console.warn('No streams in track event');
+                return;
+            }
+
+            const stream = event.streams[0];
+            console.log('Received remote track:', event.track.kind);
+            
+            // Set up remote video
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                remoteVideo.srcObject = stream;
+                remoteStream = stream;
+
+                // Monitor remote track states
+                event.track.onended = () => console.log('Remote track ended:', event.track.kind);
+                event.track.onmute = () => console.log('Remote track muted:', event.track.kind);
+                event.track.onunmute = () => console.log('Remote track unmuted:', event.track.kind);
             }
         };
 
+        // Connection state monitoring
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
-            if (pc.connectionState === 'failed' && connectionAttempts < MAX_ATTEMPTS) {
-                connectionAttempts++;
-                console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
-                pc.restartIce();
+            switch (pc.connectionState) {
+                case 'connected':
+                    clearTimeout(pc._connectionTimeout);
+                    break;
+                case 'disconnected':
+                    handleDisconnection(pc);
+                    break;
+                case 'failed':
+                    if (connectionAttempts < MAX_ATTEMPTS) {
+                        connectionAttempts++;
+                        console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
+                        pc.restartIce();
+                    } else {
+                        handleConnectionFailure(pc);
+                    }
+                    break;
             }
         };
 
+        // ICE connection monitoring
         pc.oniceconnectionstatechange = () => {
             console.log('ICE Connection State:', pc.iceConnectionState);
             if (pc.iceConnectionState === 'failed') {
@@ -136,12 +177,12 @@ export async function createPeerConnection(config = configuration) {
             }
         };
 
+        // Gathering state monitoring
         pc.onicegatheringstatechange = () => {
             console.log('ICE Gathering State:', pc.iceGatheringState);
-        };
-
-        pc.onsignalingstatechange = () => {
-            console.log('Signaling State:', pc.signalingState);
+            if (pc.iceGatheringState === 'complete') {
+                clearTimeout(pc._gatheringTimeout);
+            }
         };
 
         return pc;
@@ -149,35 +190,6 @@ export async function createPeerConnection(config = configuration) {
         console.error('Error creating peer connection:', error);
         throw error;
     }
-}
-
-// Add these helper functions
-function startConnectionTimeout(pc) {
-    pc._connectionTimeout = setTimeout(() => {
-        if (pc.connectionState === 'connecting') {
-            console.warn('Connection timeout, attempting recovery');
-            pc.restartIce();
-        }
-    }, 15000);
-}
-
-function clearConnectionTimeout(pc) {
-    if (pc._connectionTimeout) {
-        clearTimeout(pc._connectionTimeout);
-        pc._connectionTimeout = null;
-    }
-}
-
-function handleDisconnection(pc) {
-    setTimeout(() => {
-        if (pc.connectionState === 'disconnected') {
-            pc.restartIce();
-        }
-    }, 2000);
-}
-
-function handleConnectionFailure(pc) {
-    cleanup();
 }
 
 export async function handleOffer(offer) {
@@ -233,7 +245,11 @@ export async function handleIceCandidate(candidate) {
     }
 
     try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        if (peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+            peerConnection._iceCandidates.push(candidate);
+        }
     } catch (err) {
         if (err.name !== 'InvalidStateError') {
             console.error('Error adding ICE candidate:', err);
@@ -242,19 +258,32 @@ export async function handleIceCandidate(candidate) {
     }
 }
 
-// Add this new function for handling ICE candidates
-export async function handleIceCandidateError(pc, candidate) {
-    try {
-        if (pc.remoteDescription) {
-            await pc.addIceCandidate(candidate);
-        } else {
-            // Buffer candidate if remote description isn't set
-            pc._iceCandidates = pc._iceCandidates || [];
-            pc._iceCandidates.push(candidate);
+function startConnectionTimeout(pc) {
+    pc._connectionTimeout = setTimeout(() => {
+        if (pc.connectionState === 'connecting') {
+            console.warn('Connection timeout, attempting recovery');
+            pc.restartIce();
         }
-    } catch (err) {
-        console.warn('Error adding ICE candidate:', err);
+    }, 15000);
+}
+
+function clearConnectionTimeout(pc) {
+    if (pc._connectionTimeout) {
+        clearTimeout(pc._connectionTimeout);
+        pc._connectionTimeout = null;
     }
+}
+
+function handleDisconnection(pc) {
+    setTimeout(() => {
+        if (pc.connectionState === 'disconnected') {
+            pc.restartIce();
+        }
+    }, 2000);
+}
+
+function handleConnectionFailure(pc) {
+    cleanup();
 }
 
 export function cleanup() {
@@ -291,4 +320,47 @@ export async function waitForIceGathering(pc) {
     } catch (error) {
         console.warn('ICE gathering incomplete:', error);
     }
+}
+
+export function monitorConnectionQuality(pc, onQualityChange) {
+    let lastQuality = 'unknown';
+    
+    setInterval(() => {
+        if (!pc || pc.connectionState !== 'connected') return;
+
+        pc.getStats().then(stats => {
+            let totalPacketsLost = 0;
+            let totalPackets = 0;
+            let avgJitter = 0;
+            let jitterCount = 0;
+
+            stats.forEach(stat => {
+                if (stat.type === 'inbound-rtp') {
+                    totalPacketsLost += stat.packetsLost || 0;
+                    totalPackets += stat.packetsReceived || 0;
+                    if (stat.jitter) {
+                        avgJitter += stat.jitter;
+                        jitterCount++;
+                    }
+                }
+            });
+
+            const packetLossRate = totalPackets ? (totalPacketsLost / totalPackets) * 100 : 0;
+            const avgJitterMs = jitterCount ? (avgJitter / jitterCount) * 1000 : 0;
+
+            let quality;
+            if (packetLossRate > 5 || avgJitterMs > 100) {
+                quality = 'poor';
+            } else if (packetLossRate > 2 || avgJitterMs > 50) {
+                quality = 'fair';
+            } else {
+                quality = 'good';
+            }
+
+            if (quality !== lastQuality) {
+                lastQuality = quality;
+                onQualityChange(quality);
+            }
+        });
+    }, 2000);
 }
