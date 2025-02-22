@@ -1,4 +1,4 @@
-import { startLocalStream, createPeerConnection, monitorConnectionQuality } from './webrtc.js';
+import { startLocalStream } from '../../src/utils/webrtc.js';
 
 // Socket.io initialization with better error handling
 const socket = io(window.location.origin, {
@@ -34,18 +34,47 @@ const connectButton = document.getElementById('connect');
 const leaveButton = document.getElementById('leave');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-
 function updateState(newState) {
     currentState = newState;
     document.body.setAttribute('data-state', newState);
+    
+    // Update role attribute when state changes
+    const roleElement = document.getElementById('role');
+    if (roleElement) {
+        document.body.setAttribute('data-role', roleElement.value);
+    }
+    
     updateUI(newState);
 }
-
 function updateUI(state) {
     const roleElement = document.getElementById('role');
     const languageElement = document.getElementById('language');
     const role = roleElement ? roleElement.value : '';
     const language = languageElement ? languageElement.value : '';
+
+    // Update role attribute
+    if (role) {
+        document.body.setAttribute('data-role', role);
+    }
+
+    // Add indicators to video container when it's visible
+    if (videoContainer && videoContainer.style.display !== 'none') {
+        // Add connection quality indicator if not present
+        if (!videoContainer.querySelector('.connection-quality')) {
+            const qualityIndicator = document.createElement('div');
+            qualityIndicator.className = 'connection-quality';
+            qualityIndicator.innerHTML = '<span class="quality-dot"></span> Connection: Unknown';
+            videoContainer.appendChild(qualityIndicator);
+        }
+
+        // Add role indicator if not present
+        if (!videoContainer.querySelector('.role-indicator')) {
+            const roleIndicator = document.createElement('div');
+            roleIndicator.className = 'role-indicator';
+            roleIndicator.textContent = role === 'practice' ? 'Student' : 'Coach';
+            videoContainer.appendChild(roleIndicator);
+        }
+    }
 
     switch (state) {
         case STATE.WAITING:
@@ -53,6 +82,7 @@ function updateUI(state) {
                 ? `Waiting for a ${language} language coach...`
                 : `Waiting for a ${language} language practice partner...`;
             showMessage(roleSpecificMessage, 'info');
+            
             
             if (connectButton) connectButton.style.display = 'none';
             if (leaveButton) leaveButton.style.display = 'block';
@@ -164,21 +194,118 @@ async function initializeCall() {
             sdpSemantics: 'unified-plan'
         };
 
-        peerConnection = await createPeerConnection(configuration);
-        
+        // Create peer connection
+        peerConnection = new RTCPeerConnection(configuration);
+
+        // Add local stream tracks to peer connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
         // Monitor connection quality
-        monitorConnectionQuality(peerConnection, (quality) => {
-            const qualityIndicator = videoContainer.querySelector('.connection-quality');
-            if (qualityIndicator) {
-                const dot = qualityIndicator.querySelector('.quality-dot');
-                dot.className = `quality-dot ${quality}`;
-                qualityIndicator.innerHTML = `<span class="quality-dot ${quality}"></span> Connection: ${quality.charAt(0).toUpperCase() + quality.slice(1)}`;
+        window._qualityMonitorInterval = setInterval(() => {
+            if (peerConnection && peerConnection.connectionState === 'connected') {
+                peerConnection.getStats().then(stats => {
+                    console.log('Monitoring connection quality...');
+                    let totalPacketsLost = 0;
+                    let totalPackets = 0;
+                    let avgJitter = 0;
+                    let jitterCount = 0;
+
+                    stats.forEach(stat => {
+                        if (stat.type === 'inbound-rtp') {
+                            totalPacketsLost += stat.packetsLost || 0;
+                            totalPackets += stat.packetsReceived || 0;
+                            if (stat.jitter) {
+                                avgJitter += stat.jitter;
+                                jitterCount++;
+                            }
+                        }
+                    });
+
+                    const packetLossRate = totalPackets ? (totalPacketsLost / totalPackets) * 100 : 0;
+                    const avgJitterMs = jitterCount ? (avgJitter / jitterCount) * 1000 : 0;
+
+                    let quality;
+                    if (packetLossRate > 5 || avgJitterMs > 100) {
+                        quality = 'poor';
+                    } else if (packetLossRate > 2 || avgJitterMs > 50) {
+                        quality = 'fair';
+                    } else {
+                        quality = 'good';
+                    }
+
+                    const qualityIndicator = videoContainer.querySelector('.connection-quality');
+                    if (qualityIndicator) {
+                        qualityIndicator.innerHTML = `<span class="quality-dot ${quality}"></span> Connection: ${quality.charAt(0).toUpperCase() + quality.slice(1)}`;
+                    }
+
+                    // Notify peer about connection quality
+                    if (currentRoom) {
+                        socket.emit('connection-quality', { room: currentRoom, quality });
+                    }
+                });
             }
-            // Notify server about quality changes
-            if (currentRoom) {
-                socket.emit('connection-quality', { room: currentRoom, quality });
+        }, 2000);
+
+        // Handle remote tracks
+        peerConnection.ontrack = (event) => {
+            if (!event.streams || event.streams.length === 0) {
+                console.warn('No streams in track event');
+                return;
             }
-        });
+
+            const stream = event.streams[0];
+            console.log('Received remote track:', event.track.kind);
+            
+            // Set up remote video
+            if (remoteVideo) {
+                remoteVideo.srcObject = stream;
+                remoteStream = stream;
+            }
+        };
+
+        // Connection state monitoring
+        peerConnection.onconnectionstatechange = () => {
+            console.log('Connection state:', peerConnection.connectionState);
+            switch (peerConnection.connectionState) {
+                case 'connected':
+                    updateState(STATE.CONNECTED);
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                        reconnectAttempts++;
+                        console.log(`Connection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                        peerConnection.restartIce();
+                    } else {
+                        showMessage('Connection failed. Please try again.', 'error');
+                        resetVideoCall();
+                    }
+                    break;
+            }
+        };
+
+        // ICE connection monitoring
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('ICE Connection State:', peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === 'failed') {
+                peerConnection.restartIce();
+            }
+        };
+
+        // ICE candidate handling
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('New ICE candidate:', event.candidate.type);
+                socket.emit('ice-candidate', {
+                    candidate: event.candidate,
+                    room: currentRoom
+                });
+            }
+        };
 
         updateState(STATE.WAITING);
     } catch (error) {
@@ -213,13 +340,48 @@ function setupSocketListeners() {
                 showMessage('Connection not initialized', 'error');
                 return;
             }
+
+            console.log('Received offer:', data.offer.type);
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
+            console.log('Set remote description from offer');
+
+            // Process any buffered candidates
+            if (peerConnection._pendingCandidates?.length > 0) {
+                console.log(`Processing ${peerConnection._pendingCandidates.length} buffered ICE candidates`);
+                for (const candidate of peerConnection._pendingCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        console.log('Added buffered ICE candidate');
+                    } catch (error) {
+                        console.warn('Error adding buffered ICE candidate:', error);
+                    }
+                }
+                peerConnection._pendingCandidates = [];
+            }
+
+            const answer = await peerConnection.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            console.log('Created answer');
+
             await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', { answer, room: currentRoom });
+            console.log('Set local description (answer)');
+
+            // Wait briefly for initial ICE candidates
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            socket.emit('answer', {
+                answer: peerConnection.localDescription,
+                room: currentRoom
+            });
+            console.log('Sent answer to signaling server');
+
+            updateState(STATE.CONNECTING);
         } catch (error) {
             console.error('Error handling offer:', error);
             showMessage('Failed to process connection offer', 'error');
+            resetVideoCall();
         }
     });
 
@@ -229,17 +391,35 @@ function setupSocketListeners() {
                 showMessage('Connection not initialized', 'error');
                 return;
             }
+
+            console.log('Received answer:', data.answer.type);
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            console.log('Set remote description from answer');
+
+            updateState(STATE.CONNECTING);
         } catch (error) {
             console.error('Error handling answer:', error);
             showMessage('Failed to process connection answer', 'error');
+            resetVideoCall();
         }
     });
 
     socket.on('ice-candidate', async (data) => {
         try {
             if (!peerConnection) return;
+
+            // Buffer candidates if remote description isn't set
+            if (!peerConnection.remoteDescription) {
+                console.log('Buffering ICE candidate');
+                if (!peerConnection._pendingCandidates) {
+                    peerConnection._pendingCandidates = [];
+                }
+                peerConnection._pendingCandidates.push(data.candidate);
+                return;
+            }
+
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            console.log('Added ICE candidate:', data.candidate.type);
         } catch (error) {
             console.warn('Error handling ICE candidate:', error);
         }
@@ -291,39 +471,129 @@ function setupSocketListeners() {
 }
 
 async function createAndSendOffer() {
+    if (!peerConnection) {
+        showMessage('Connection not initialized', 'error');
+        return;
+    }
+
     try {
+        // Create offer with specific constraints
         const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
-            offerToReceiveVideo: true
+            offerToReceiveVideo: true,
+            iceRestart: reconnectAttempts > 0
         });
+
+        console.log('Created offer:', offer.type);
         await peerConnection.setLocalDescription(offer);
-        socket.emit('offer', { offer, room: currentRoom });
+        console.log('Set local description');
+
+        // Wait for ICE gathering with timeout
+        try {
+            await Promise.race([
+                new Promise((resolve) => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        peerConnection.addEventListener('icegatheringstatechange', () => {
+                            if (peerConnection.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        });
+                    }
+                }),
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        console.log('ICE gathering timed out, proceeding with available candidates');
+                        if (peerConnection.iceGatheringState !== 'complete') {
+                            console.warn(`ICE gathering state at timeout: ${peerConnection.iceGatheringState}`);
+                            console.warn(`Candidates gathered: ${peerConnection._iceCandidates?.length || 0}`);
+                        }
+                        resolve();
+                    }, 5000);
+                })
+            ]);
+        } catch (error) {
+            console.warn('ICE gathering incomplete:', error);
+        }
+
+        // Send offer with current description
+        socket.emit('offer', {
+            offer: peerConnection.localDescription,
+            room: currentRoom
+        });
+        console.log('Sent offer to signaling server');
+
+        updateState(STATE.CONNECTING);
     } catch (error) {
         console.error('Error creating/sending offer:', error);
         showMessage('Failed to create connection offer', 'error');
-        throw error;
+        resetVideoCall();
     }
 }
 
 function resetVideoCall() {
+    console.log('Resetting video call...');
+
+    // Stop all media tracks
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        console.log('Stopping local stream tracks');
+        localStream.getTracks().forEach(track => {
+            track.stop();
+            console.log(`Stopped local ${track.kind} track`);
+        });
         localStream = null;
     }
+
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        console.log('Stopping remote stream tracks');
+        remoteStream.getTracks().forEach(track => {
+            track.stop();
+            console.log(`Stopped remote ${track.kind} track`);
+        });
         remoteStream = null;
     }
+
+    // Clean up peer connection
     if (peerConnection) {
+        console.log('Cleaning up peer connection');
+        
+        // Remove all event listeners
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.oniceconnectionstatechange = null;
+        peerConnection.onsignalingstatechange = null;
+        peerConnection.onicegatheringstatechange = null;
+        peerConnection.onconnectionstatechange = null;
+
+        // Close the connection
         peerConnection.close();
         peerConnection = null;
     }
 
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
+    // Clear video elements
+    if (localVideo) {
+        localVideo.srcObject = null;
+        console.log('Cleared local video source');
+    }
+    if (remoteVideo) {
+        remoteVideo.srcObject = null;
+        console.log('Cleared remote video source');
+    }
 
+    // Reset state variables
     currentRoom = null;
+    reconnectAttempts = 0;
+
+    // Clear any quality monitoring intervals
+    if (window._qualityMonitorInterval) {
+        clearInterval(window._qualityMonitorInterval);
+        window._qualityMonitorInterval = null;
+    }
+
+    // Update UI state
     updateState(STATE.IDLE);
+    console.log('Reset complete');
 }
 
 function showMessage(message, type = 'info') {

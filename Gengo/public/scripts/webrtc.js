@@ -1,3 +1,11 @@
+// WebRTC configuration
+const configuration = {
+    iceCandidatePoolSize: 10,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
+    sdpSemantics: 'unified-plan'
+};
+
 export async function startLocalStream(constraints = {
     video: {
         width: { ideal: 640 },
@@ -44,8 +52,6 @@ export async function startLocalStream(constraints = {
                 }
             } catch (error) {
                 console.error('Error setting up local video:', error);
-                // Continue even if local video fails - this is not critical
-                // as long as the stream is available for the peer connection
             }
         }
         return stream;
@@ -61,4 +67,96 @@ export async function startLocalStream(constraints = {
             throw new Error('Failed to access media devices. Please check your hardware and permissions.');
         }
     }
+}
+
+export async function createPeerConnection(config = configuration) {
+    try {
+        const pc = new RTCPeerConnection(config);
+        
+        // Initialize connection state tracking
+        pc._iceCandidates = [];
+        let connectionAttempts = 0;
+        const MAX_ATTEMPTS = 3;
+
+        // Set up ICE gathering timeout
+        pc._gatheringTimeout = setTimeout(() => {
+            if (pc.iceGatheringState !== 'complete') {
+                console.warn('ICE gathering incomplete, continuing anyway');
+            }
+        }, 8000);
+
+        // Connection state monitoring
+        pc.onconnectionstatechange = () => {
+            console.log('Connection state:', pc.connectionState);
+            if (pc.connectionState === 'failed' && connectionAttempts < MAX_ATTEMPTS) {
+                connectionAttempts++;
+                console.log(`Connection attempt ${connectionAttempts}/${MAX_ATTEMPTS}`);
+                pc.restartIce();
+            }
+        };
+
+        // ICE connection monitoring
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE Connection State:', pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                pc.restartIce();
+            }
+        };
+
+        // Gathering state monitoring
+        pc.onicegatheringstatechange = () => {
+            console.log('ICE Gathering State:', pc.iceGatheringState);
+            if (pc.iceGatheringState === 'complete') {
+                clearTimeout(pc._gatheringTimeout);
+            }
+        };
+
+        return pc;
+    } catch (error) {
+        console.error('Error creating peer connection:', error);
+        throw error;
+    }
+}
+
+export function monitorConnectionQuality(pc, onQualityChange) {
+    let lastQuality = 'unknown';
+    
+    setInterval(() => {
+        if (!pc || pc.connectionState !== 'connected') return;
+
+        pc.getStats().then(stats => {
+            let totalPacketsLost = 0;
+            let totalPackets = 0;
+            let avgJitter = 0;
+            let jitterCount = 0;
+
+            stats.forEach(stat => {
+                if (stat.type === 'inbound-rtp') {
+                    totalPacketsLost += stat.packetsLost || 0;
+                    totalPackets += stat.packetsReceived || 0;
+                    if (stat.jitter) {
+                        avgJitter += stat.jitter;
+                        jitterCount++;
+                    }
+                }
+            });
+
+            const packetLossRate = totalPackets ? (totalPacketsLost / totalPackets) * 100 : 0;
+            const avgJitterMs = jitterCount ? (avgJitter / jitterCount) * 1000 : 0;
+
+            let quality;
+            if (packetLossRate > 5 || avgJitterMs > 100) {
+                quality = 'poor';
+            } else if (packetLossRate > 2 || avgJitterMs > 50) {
+                quality = 'fair';
+            } else {
+                quality = 'good';
+            }
+
+            if (quality !== lastQuality) {
+                lastQuality = quality;
+                onQualityChange(quality);
+            }
+        });
+    }, 2000);
 }
