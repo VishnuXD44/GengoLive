@@ -9,10 +9,10 @@ module.exports = (env, argv) => {
 
     return {
         entry: {
-            main: ['./public/scripts/webrtc.js', './public/scripts/main.js'],
+            main: ['./public/scripts/webrtc.js', './public/scripts/main.js', './public/styles.css'],
             'language-animation': './public/scripts/language-animation.js',
-            styles: './public/styles.css',
-            styles2: './public/styles2.css'
+            about: './public/styles2.css',
+            contact: './public/styles2.css'
         },
         output: {
             filename: '[name].bundle.js',
@@ -52,31 +52,34 @@ module.exports = (env, argv) => {
             new webpack.DefinePlugin({
                 'process.env.NODE_ENV': JSON.stringify(isDevelopment ? 'development' : 'production')
             }),
+            // Extract CSS
             new MiniCssExtractPlugin({
-                filename: 'css/[name].css'
+                filename: 'css/[name].css',
+                chunkFilename: 'css/[id].css'
             }),
+            // Generate HTML files
             new HtmlWebpackPlugin({
                 template: './public/index.html',
                 filename: 'index.html',
-                chunks: ['main', 'language-animation', 'styles'],
+                chunks: ['main', 'language-animation'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/main.html',
                 filename: 'main.html',
-                chunks: ['main', 'styles'],
+                chunks: ['main'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/about.html',
                 filename: 'about.html',
-                chunks: ['main', 'styles2'],
+                chunks: ['about'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/Contact.html',
                 filename: 'Contact.html',
-                chunks: ['main', 'styles2'],
+                chunks: ['contact'],
                 inject: true
             }),
             new CopyWebpackPlugin({
@@ -85,18 +88,11 @@ module.exports = (env, argv) => {
                     { from: 'favicon.ico', to: 'favicon.ico' }
                 ],
             }),
+            // Copy static assets
             new CopyWebpackPlugin({
                 patterns: [
-                    { 
-                        from: 'styles.css',
-                        to: 'styles/styles.css',
-                        context: 'public'
-                    },
-                    { 
-                        from: 'styles2.css',
-                        to: 'styles/styles2.css',
-                        context: 'public'
-                    }
+                    { from: 'public/assets', to: 'assets' },
+                    { from: 'favicon.ico', to: 'favicon.ico' }
                 ]
             })
         ],
