@@ -139,7 +139,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('offer', ({ offer, room }) => {
+    socket.on('offer', ({ offer, room, candidates }) => {
         if (!activeRooms.has(room)) {
             console.warn(`Offer received for non-existent room: ${room}`);
             socket.emit('error', { message: 'Room not found' });
@@ -156,8 +156,15 @@ io.on('connection', (socket) => {
         console.log(`Forwarding offer in room: ${room}`);
         socket.to(room).emit('offer', { offer, room });
         
-        // Update room status
-        roomInfo.status = 'negotiating';
+        // Forward any bundled candidates
+        if (candidates && Array.isArray(candidates)) {
+            candidates.forEach(candidate => {
+                socket.to(room).emit('ice-candidate', { candidate, room });
+            });
+        }
+        
+        // Update room status - handle ICE restart case
+        roomInfo.status = offer.type === 'offer' && !offer.iceRestart ? 'negotiating' : roomInfo.status;
         roomInfo.lastActivity = Date.now();
         activeRooms.set(room, roomInfo);
     });

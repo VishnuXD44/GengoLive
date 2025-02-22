@@ -1,31 +1,10 @@
+// Configuration will be fetched from server
 export const configuration = {
-    iceServers: [
-        {
-            urls: [
-                'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302'
-            ]
-        },
-        {
-            urls: [
-                'turn:openrelay.metered.ca:80?transport=tcp',
-                'turn:openrelay.metered.ca:443?transport=tcp',
-                'turn:openrelay.metered.ca:443?transport=udp'
-            ],
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        }
-    ],
-    iceCandidatePoolSize: 1, // Back to original value
+    iceCandidatePoolSize: 10,
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
     sdpSemantics: 'unified-plan',
-    iceTransportPolicy: 'all', // Allow all transports initially
-    // Remove custom options that might interfere
-    iceServersPolicy: undefined,
-    gatherPolicy: undefined,
-    iceCheckMinInterval: undefined,
-    iceTrickleDelay: undefined
+    iceTransportPolicy: 'all'
 };
 
 let peerConnection = null;
@@ -127,8 +106,43 @@ export async function createPeerConnection(config = configuration) {
         
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('ICE candidate:', event.candidate.candidate);erty
+                console.log('ICE candidate:', event.candidate.candidate);
             }
+        };
+
+        // Handle incoming tracks
+        pc.ontrack = (event) => {
+            console.log('Received remote track:', event.track.kind);
+            if (!event.streams || event.streams.length === 0) {
+                console.warn('No streams in track event');
+                return;
+            }
+
+            const stream = event.streams[0];
+            console.log('Remote stream ID:', stream.id);
+            console.log('Remote stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
+
+            // Enable tracks immediately
+            event.track.enabled = true;
+
+            // Store the remote stream
+            remoteStream = stream;
+
+            // Handle track ended
+            event.track.onended = () => {
+                console.log(`Remote ${event.track.kind} track ended`);
+            };
+
+            // Handle track muted/unmuted
+            event.track.onmute = () => {
+                console.log(`Remote ${event.track.kind} track muted`);
+            };
+            event.track.onunmute = () => {
+                console.log(`Remote ${event.track.kind} track unmuted`);
+            };
+
+            // Dispatch custom event for stream handling
+            pc.dispatchEvent(new CustomEvent('remoteStream', { detail: stream }));
         };
 
         pc.onicegatheringstatechange = () => {
