@@ -8,15 +8,9 @@ module.exports = (env, argv) => {
     const isDevelopment = argv.mode === 'development';
 
     return {
-        entry: {
-            main: ['./public/scripts/webrtc.js', './public/scripts/main.js'],
-            styles: './public/styles.css',
-            'language-animation': './public/scripts/language-animation.js',
-            about: './public/styles2.css',
-            contact: './public/styles2.css'
-        },
+        entry: './public/scripts/main.js',
         output: {
-            filename: '[name].bundle.js',
+            filename: 'bundle.js',
             path: path.resolve(__dirname, 'dist'),
             clean: true,
             publicPath: '/'
@@ -62,25 +56,21 @@ module.exports = (env, argv) => {
             new HtmlWebpackPlugin({
                 template: './public/index.html',
                 filename: 'index.html',
-                chunks: ['main', 'styles', 'language-animation'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/main.html',
                 filename: 'main.html',
-                chunks: ['main', 'styles'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/about.html',
                 filename: 'about.html',
-                chunks: ['main', 'about'],
                 inject: true
             }),
             new HtmlWebpackPlugin({
                 template: './public/Contact.html',
                 filename: 'Contact.html',
-                chunks: ['main', 'contact'],
                 inject: true
             }),
             new CopyWebpackPlugin({
@@ -89,10 +79,12 @@ module.exports = (env, argv) => {
                     { from: 'favicon.ico', to: 'favicon.ico' }
                 ],
             }),
-            // Copy static assets
+            // Copy static assets and styles
             new CopyWebpackPlugin({
                 patterns: [
                     { from: 'public/assets', to: 'assets' },
+                    { from: 'public/styles.css', to: 'styles.css' },
+                    { from: 'public/styles2.css', to: 'styles2.css' },
                     { from: 'favicon.ico', to: 'favicon.ico' }
                 ]
             })
