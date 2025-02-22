@@ -78,8 +78,8 @@ function setupSocketListeners() {
                 await twilioVideo.connectToRoom(
                     data.token,
                     currentRoom,
-                    document.getElementById('localVideo').parentElement,
-                    document.getElementById('remoteVideo').parentElement
+                    document.getElementById('localVideo'),
+                    document.getElementById('remoteVideo')
                 );
                 
                 updateState('connected');

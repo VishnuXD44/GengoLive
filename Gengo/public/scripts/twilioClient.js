@@ -169,9 +169,32 @@ class TwilioVideoClient {
         });
     }
 
-    attachTrack(track, container) {
-        const element = track.attach();
-        container.appendChild(element);
+    attachTrack(track, videoElement) {
+        if (!videoElement) return;
+        
+        if (track.kind === 'video') {
+            if (!(videoElement instanceof HTMLVideoElement)) {
+                console.error('Expected video element for video track');
+                return;
+            }
+            
+            // Attach track directly to the video element
+            track.attach(videoElement);
+            
+            // Ensure proper styling
+            videoElement.style.width = '100%';
+            videoElement.style.height = '100%';
+            videoElement.style.objectFit = 'cover';
+            
+            // Ensure video starts playing
+            videoElement.play().catch(error =>
+                console.error('Error auto-playing video:', error)
+            );
+        } else if (track.kind === 'audio') {
+            // For audio tracks, create and append a new audio element
+            const audioElement = track.attach();
+            videoElement.parentElement.appendChild(audioElement);
+        }
     }
 
     detachTrack(track) {
