@@ -44,11 +44,13 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
-    justify-content: flex-end; 
+    justify-content: flex-end;
     padding: 1rem 2rem;
-    background-color: transparent;
+    background-color: rgba(255, 255, 255, 0.8);
     z-index: 1000;
     transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .nav-links {
@@ -86,8 +88,8 @@ html, body {
 }
 
 section {
-    min-height: 100vh;
-    padding: 4rem 2rem;
+    min-height: 80vh;
+    padding: 6rem 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -95,20 +97,34 @@ section {
     max-width: 1400px;
     margin: 0 auto;
     position: relative;
+    overflow: hidden;
 }
 
 .subtitle {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--pink);
     display: block;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
 /* Beginning Section */
 .beginning-section {
     background-color: white;
+    position: relative;
+}
+
+.beginning-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--pink), transparent);
+    opacity: 0.2;
 }
 
 .beginning-content,
@@ -116,6 +132,8 @@ section {
 .today-content {
     flex: 1;
     max-width: 600px;
+    position: relative;
+    z-index: 1;
 }
 
 .beginning-content h2,
@@ -125,6 +143,8 @@ section {
     line-height: 1.2;
     margin-bottom: 2rem;
     color: var(--dark);
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .beginning-content p,
@@ -134,6 +154,7 @@ section {
     line-height: 1.8;
     color: var(--dark);
     opacity: 0.9;
+    margin-bottom: 1.5rem;
 }
 
 .beginning-image,
@@ -143,6 +164,7 @@ section {
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
 }
 
 .beginning-image img,
@@ -150,17 +172,18 @@ section {
 .today-image img {
     width: 100%;
     height: auto;
-    max-height: 70vh;
+    max-height: 60vh;
     object-fit: cover;
-    border-radius: 15px;
+    border-radius: 20px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
+    transition: all 0.4s ease;
 }
 
 .beginning-image img:hover,
 .mission-image img:hover,
 .today-image img:hover {
-    transform: scale(1.02);
+    transform: scale(1.02) translateY(-5px);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
 }
 
 /* Mission Section */
@@ -170,36 +193,80 @@ section {
 
 /* Features Section */
 .features-section {
-    padding: 8rem 2rem;
+    padding: 6rem 2rem;
     min-height: auto;
+    background: linear-gradient(to bottom, white, #f8f9fa);
+    position: relative;
+    overflow: visible;
+}
+
+.features-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: var(--pink);
+    border-radius: 2px;
 }
 
 .features-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 3rem;
+    gap: 2.5rem;
     width: 100%;
     max-width: 1200px;
+    position: relative;
+    margin: 0 auto;
 }
 
 .feature {
     padding: 2.5rem;
     background: white;
-    border-radius: 15px;
+    border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
+    transition: all 0.4s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+    overflow: hidden;
+}
+
+.feature::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 0;
+    background: var(--pink);
+    transition: height 0.4s ease;
 }
 
 .feature:hover {
     transform: translateY(-10px);
-    border-color: var(--pink);
+    border-color: rgba(255, 56, 92, 0.1);
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.feature:hover::before {
+    height: 100%;
 }
 
 .feature h3 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
+    color: var(--dark);
+    font-weight: 700;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.feature:hover h3 {
     color: var(--pink);
 }
 
@@ -207,6 +274,8 @@ section {
     line-height: 1.8;
     color: var(--dark);
     opacity: 0.9;
+    font-size: 1.1rem;
+    position: relative;
 }
 
 /* Today Section */
@@ -216,19 +285,49 @@ section {
 
 /* CTA Section */
 .cta-section {
-    min-height: 50vh;
+    min-height: 40vh;
     text-align: center;
-    background: white;
-    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #fff, #f8f9fa);
+    padding: 6rem 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2rem;
+    gap: 3rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta-section::before,
+.cta-section::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: var(--pink);
+    opacity: 0.03;
+    z-index: 0;
+}
+
+.cta-section::before {
+    top: -100px;
+    left: -100px;
+}
+
+.cta-section::after {
+    bottom: -100px;
+    right: -100px;
 }
 
 .cta-section h2 {
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-size: clamp(2rem, 4vw, 3.5rem);
     color: var(--dark);
+    font-weight: 700;
+    line-height: 1.2;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
 }
 
 .cta-button {
@@ -240,13 +339,22 @@ section {
     border-radius: 30px;
     font-weight: 600;
     font-size: 1.2rem;
-    transition: all 0.3s ease;
+    transition: all 0.4s ease;
     box-shadow: 0 10px 20px rgba(255, 56, 92, 0.2);
+    position: relative;
+    z-index: 1;
+    border: 2px solid transparent;
 }
 
 .cta-button:hover {
-    transform: translateY(-5px);
+    transform: translateY(-5px) scale(1.02);
     box-shadow: 0 15px 30px rgba(255, 56, 92, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.cta-button:active {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(255, 56, 92, 0.2);
 }
 
 /* ============ CONTACT PAGE STYLES ============ */

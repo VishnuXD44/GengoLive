@@ -326,11 +326,12 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
-    justify-content: flex-end; 
+    justify-content: flex-end;
     padding: 1rem 2rem;
     background-color: transparent;
     z-index: 1000;
     transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
 }
 
 .nav-links {
@@ -459,17 +460,57 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2rem;  /* Increased gap between elements */
-    padding: 3rem;
+    gap: 2rem;
+    padding: 2rem;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     max-width: 400px;
-    margin: 2rem auto;
+    margin: 6rem auto 2rem;
     width: 100%;
     position: relative;
     z-index: 1;
+}
+
+.language-selection,
+.role-selection {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 0;
+}
+
+.language-selection label,
+.role-selection label {
+    font-weight: 500;
+    color: var(--dark);
+    font-size: 1rem;
+    margin-bottom: 0.2rem;
+}
+
+#language,
+#role {
+    padding: 0.75rem 1rem;
+    border: 2px solid rgba(236, 240, 241, 0.8);
+    border-radius: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+    width: 100%;
+    background-color: white;
+    cursor: pointer;
+    color: var(--dark);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+    padding-right: 2.5rem;
 }
 
 .selection-container h1 {
@@ -490,7 +531,24 @@ html, body {
     color: var(--dark);
 }
 
-.form-group select {
+.language-selection,
+.role-selection {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.language-selection label,
+.role-selection label {
+    font-weight: 500;
+    color: var(--dark);
+    font-size: 1rem;
+}
+
+#language,
+#role {
     padding: 0.75rem;
     border: 2px solid rgba(236, 240, 241, 0.8);
     border-radius: 8px;
@@ -499,10 +557,40 @@ html, body {
     outline: none;
     transition: all 0.3s ease;
     width: 100%;
+    background-color: white;
+    cursor: pointer;
 }
 
-.form-group select:hover {
+#language:hover,
+#role:hover {
     border-color: var(--pink);
+}
+
+#language:focus,
+#role:focus {
+    border-color: var(--pink);
+    box-shadow: 0 0 0 2px rgba(255, 56, 92, 0.2);
+}
+
+#connect {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    background: var(--pink);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 1rem;
+    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+}
+
+#connect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
 }
 
 /* ============ VIDEO CONTAINER ============ */
@@ -513,25 +601,55 @@ html, body {
     gap: 20px;
     width: 100%;
     max-width: 1200px;
-    margin: 0 auto;
+    margin: 80px auto 100px; /* Added top and bottom margin */
     background: rgba(0, 0, 0, 0.05);
     padding: 20px;
     border-radius: 10px;
     position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Add controls container for video view */
+/* Video controls container */
 .video-controls {
-    position: absolute;
-    bottom: -60px;
+    position: fixed;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     width: 100%;
     max-width: 400px;
     justify-content: center;
     padding: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.control-button.leave {
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    background: var(--pink);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(255, 56, 92, 0.2);
+}
+
+.control-button.leave:hover {
+    background: #ff1a1a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 56, 92, 0.3);
+}
+
+.control-button.leave:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 56, 92, 0.2);
 }
 
 /* Update leave button visibility */
@@ -553,6 +671,10 @@ html, body {
     position: relative;
     width: 100%;
     padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .video-wrapper video {
@@ -563,10 +685,24 @@ html, body {
     height: 100%;
     object-fit: cover;
     background: #000;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+    border: none;
+    transition: all 0.3s ease;
 }
 
-/* Add loading state for videos */
+.video-wrapper .video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 15px;
+    z-index: 2;
+}
+
+/* Loading state for videos */
 .video-wrapper.loading::after {
     content: 'Connecting...';
     position: absolute;
@@ -575,6 +711,15 @@ html, body {
     transform: translate(-50%, -50%);
     color: white;
     font-size: 14px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 16px;
+    border-radius: 20px;
+    z-index: 1;
+}
+
+/* Video wrapper hover effect */
+.video-wrapper:hover video {
+    transform: scale(1.02);
 }
 
 /* ============ BUTTONS ============ */

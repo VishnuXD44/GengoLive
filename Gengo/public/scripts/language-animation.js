@@ -28,58 +28,44 @@ class FloatingText {
         const greeting = greetings[Math.floor(Math.random() * greetings.length)];
         this.element.textContent = greeting;
         
-        // Random size between 1rem and 2.5rem
-        const size = Math.random() * (2.5 - 1) + 1;
+        // Random size between 0.8rem and 2rem
+        const size = Math.random() * (2 - 0.8) + 0.8;
         this.element.style.fontSize = `${size}rem`;
         
-        // Random starting position
-        const startX = Math.random() * 80 + 10; // 10% to 90% of viewport width
+        // Random starting position (both X and Y)
+        const startX = Math.random() * 90 + 5; // 5% to 95% of viewport width
         const startY = Math.random() * 20 + 90; // 90% to 110% of viewport height
         this.element.style.left = `${startX}vw`;
         this.element.style.top = `${startY}vh`;
         
-        // Random duration between 6-10 seconds for smoother animation
-        const duration = Math.random() * (10 - 6) + 6;
+        // Random duration between 4-8 seconds
+        const duration = Math.random() * (8 - 4) + 4;
         
-        // Random delay before starting
-        const delay = Math.random() * 2;
-        
-        // Reset animation with delay
+        // Reset animation
         this.element.style.animation = 'none';
         this.element.offsetHeight; // Trigger reflow
-        this.element.style.animation = `float ${duration}s ${delay}s linear`;
-        
-        // Add random rotation
-        const rotation = Math.random() * 20 - 10; // -10 to 10 degrees
-        this.element.style.transform = `rotate(${rotation}deg)`;
+        this.element.style.animation = `float ${duration}s linear`;
     }
 }
 
 // Create and manage floating texts
 const createFloatingTexts = () => {
     const texts = [];
-    const numTexts = 10; // Reduced number for better performance
-    const baseDelay = 800; // Increased delay between texts
+    const numTexts = 15; // Number of floating texts
 
-    // Create initial texts
     for (let i = 0; i < numTexts; i++) {
         const text = new FloatingText();
         texts.push(text);
         
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
-            // Remove old element
-            text.element.remove();
-            // Create new text
-            const newText = new FloatingText();
-            texts[texts.indexOf(text)] = newText;
+            text.startAnimation();
         });
 
-        // Stagger the start times with random variation
-        const randomDelay = Math.random() * 500;
+        // Stagger the start times
         setTimeout(() => {
             text.startAnimation();
-        }, i * baseDelay + randomDelay);
+        }, i * 500); // 500ms delay between each text's first appearance
     }
 };
 
