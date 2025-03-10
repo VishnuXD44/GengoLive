@@ -22,7 +22,7 @@ class AgoraClient {
         }
     }
 
-    async connectToRoom(token, roomName, localVideoElement, remoteVideoElement) {
+    async connectToRoom(appId, channelName, localVideoElement, remoteVideoElement) {
         try {
             // Show loading state
             document.getElementById('loadingIndicator').classList.remove('hidden');
@@ -38,70 +38,82 @@ class AgoraClient {
             
             // Initialize the client
             this.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
-            // Initialize the local stream
-            this.localStream = await AgoraRTC.createStream({
+            
+            // Initialize the client with your App ID
+            await this.client.init(appId);
+            
+            // Create the local stream
+            this.localStream = AgoraRTC.createStream({
+                streamID: Math.floor(Math.random() * 100000),
                 audio: true,
                 video: true,
-                screen: false,
+                screen: false
             });
-
-            // Initialize the client and join the channel
-            await this.client.init(token); // token is the APP_ID
             
-            // Add event listeners
-            this.client.on('stream-added', event => {
-                const remoteStream = event.stream;
-                console.log('New stream added: ', remoteStream.getId());
-                this.client.subscribe(remoteStream);
+            // Initialize the local stream
+            await this.localStream.init();
+            
+            // Play local stream
+            this.localStream.play(localVideoElement.id);
+
+            // Register event listeners
+            this.client.on('stream-added', evt => {
+                // Subscribe to the stream
+                this.client.subscribe(evt.stream, { video: true, audio: true });
+                console.log('Stream added, subscribing: ', evt.stream.getId());
             });
 
-            this.client.on('stream-subscribed', event => {
-                const remoteStream = event.stream;
+            this.client.on('stream-subscribed', evt => {
+                const remoteStream = evt.stream;
                 console.log('Successfully subscribed to: ', remoteStream.getId());
+                // Play the remote stream
                 remoteStream.play(remoteVideoElement.id);
                 this.remoteStreams[remoteStream.getId()] = remoteStream;
+                
+                // Show quality indicator
                 this.updateNetworkQualityIndicator(3); // Default to 'Fair'
             });
 
-            this.client.on('stream-removed', event => {
-                const remoteStream = event.stream;
-                console.log('Stream removed: ', remoteStream.getId());
-                remoteStream.stop();
-                delete this.remoteStreams[remoteStream.getId()];
+            this.client.on('stream-removed', evt => {
+                const remoteStream = evt.stream;
+                if (remoteStream) {
+                    remoteStream.stop();
+                    delete this.remoteStreams[remoteStream.getId()];
+                    console.log('Remote stream removed: ', remoteStream.getId());
+                }
             });
             
-            this.client.on('peer-leave', event => {
-                const remoteStream = this.remoteStreams[event.uid];
-                if(remoteStream) {
-                    remoteStream.stop();
-                    delete this.remoteStreams[event.uid];
-                    showMessage('Your peer has left the call', 'warning');
+            this.client.on('peer-leave', evt => {
+                console.log('Peer left: ', evt.uid);
+                // If we have this user's stream, remove it
+                const streams = Object.values(this.remoteStreams);
+                for (let stream of streams) {
+                    if (stream.getId() === evt.uid) {
+                        stream.stop();
+                        delete this.remoteStreams[stream.getId()];
+                        // Show message that peer left
+                        this.showConnectionStatus('Your partner has left the call', 'warning');
+                        break;
+                    }
                 }
             });
 
-            this.client.on('network-quality', stats => {
-                // Convert Agora's network quality to our scale (0-5)
-                const qualityLevel = 5 - stats.downlinkNetworkQuality; // Invert scale (Agora: 1=excellent, 6=poor)
-                this.updateNetworkQualityIndicator(qualityLevel);
-            });
-
             // Join the channel
-            const uid = await this.client.join(null, roomName, null);
+            await this.client.join(null, channelName, null);
+            console.log('Successfully joined channel: ', channelName);
             
-            // Initialize and publish local stream
-            await this.localStream.init();
-            this.localStream.play(localVideoElement.id);
+            // Publish the local stream
             await this.client.publish(this.localStream);
+            console.log('Successfully published local stream');
             
-            console.log('Successfully joined room and published local stream');
+            // Hide loading indicator
             document.getElementById('loadingIndicator').classList.add('hidden');
             
-            return { uid, roomName };
+            return { channelName };
         } catch (error) {
-            console.error('Error connecting to Agora room:', error);
-            document.querySelector('.video-container').style.display = 'none';
-            document.querySelector('.video-controls').style.display = 'none';
+            console.error('Error connecting to Agora channel:', error);
+            // Cleanup on error
+            this.cleanup();
             document.getElementById('loadingIndicator').classList.add('hidden');
             throw error;
         }
@@ -117,13 +129,16 @@ class AgoraClient {
             5: { class: 'good', text: 'Excellent Connection' }
         }[level] || { class: 'unknown', text: 'Unknown Quality' };
 
-        const indicator = document.querySelector('.quality-indicator') || document.createElement('div');
-        indicator.className = `quality-indicator ${quality.class}`;
-        indicator.textContent = quality.text;
-
-        if (!indicator.parentElement) {
+        let indicator = document.querySelector('.quality-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = `quality-indicator ${quality.class}`;
             document.querySelector('.video-container').appendChild(indicator);
+        } else {
+            indicator.className = `quality-indicator ${quality.class}`;
         }
+        
+        indicator.textContent = quality.text;
     }
 
     toggleAudio() {
@@ -176,14 +191,19 @@ class AgoraClient {
     }
 
     showConnectionStatus(message, type = 'info') {
-        const statusElement = document.createElement('div');
-        statusElement.className = `message ${type}-message`;
-        statusElement.textContent = message;
-        document.body.appendChild(statusElement);
+        // Create a global function for showing messages
+        if (window.showMessage) {
+            window.showMessage(message, type);
+        } else {
+            const statusElement = document.createElement('div');
+            statusElement.className = `message ${type}-message`;
+            statusElement.textContent = message;
+            document.body.appendChild(statusElement);
 
-        setTimeout(() => {
-            statusElement.remove();
-        }, 3000);
+            setTimeout(() => {
+                statusElement.remove();
+            }, 3000);
+        }
     }
 
     cleanup() {
@@ -206,6 +226,12 @@ class AgoraClient {
             document.querySelector('.video-container').style.display = 'none';
             document.querySelector('.video-controls').style.display = 'none';
             document.querySelector('.selection-container').style.display = 'flex';
+            
+            // Remove quality indicator
+            const indicator = document.querySelector('.quality-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
             
         } catch (error) {
             console.error('Error cleaning up Agora resources:', error);
