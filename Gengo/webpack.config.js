@@ -2,17 +2,16 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js',
-        'twilioClient': './public/scripts/twilioClient.js',
-        styles: './public/styles.css',     // Add styles.css as an entry point
-        styles2: './public/styles2.css'    // Add styles2.css as an entry point
+        'agoraClient': './public/scripts/agoraClient.js',
     },
     output: {
-        filename: '[name].bundle.js',
+        filename: 'scripts/[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
         publicPath: '/'
@@ -26,6 +25,7 @@ module.exports = {
                     loader: 'babel-loader',
                     options: {
                         presets: ['@babel/preset-env'],
+                        plugins: ['@babel/plugin-transform-runtime']
                     },
                 },
             },
@@ -46,70 +46,74 @@ module.exports = {
         ],
     },
     plugins: [
+        new Dotenv({
+            systemvars: true, // Load all system variables
+            safe: true // Load .env.example as well
+        }),
         new MiniCssExtractPlugin({
-            filename: 'css/[name].css'  // Output CSS files to css directory
+            filename: 'css/[name].css'
         }),
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation', 'styles'],
-            inject: true
+            chunks: ['main', 'language-animation'],
+            favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'styles', 'twilioClient'],
-            inject: true
+            chunks: ['main', 'language-animation', 'agoraClient'],
+            favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
             template: './public/about.html',
             filename: 'about.html',
-            chunks: ['main', 'styles2'],
-            inject: true
+            chunks: ['main'],
+            favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
             template: './public/Contact.html',
             filename: 'Contact.html',
-            chunks: ['main', 'styles2'],
-            inject: true
+            chunks: ['main'],
+            favicon: './favicon.ico'
         }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
                 { from: 'public/icons', to: 'icons' },
-                { from: 'favicon.ico', to: 'favicon.ico' }
+                { from: 'favicon.ico', to: 'favicon.ico' },
+                { from: 'public/styles.css', to: 'styles.css' },
+                { from: 'public/styles2.css', to: 'styles2.css' }
             ],
-        }),
-        new CopyWebpackPlugin({
-            patterns: [
-                { 
-                    from: 'styles.css',
-                    to: 'styles/styles.css',
-                    context: 'public'
-                },
-                { 
-                    from: 'styles2.css',
-                    to: 'styles/styles2.css',
-                    context: 'public'
-                }
-            ]
-        }),
+        })
     ],
     resolve: {
         extensions: ['.js', '.css'],
         fallback: {
+            "path": require.resolve("path-browserify"),
             "buffer": require.resolve("buffer/"),
             "crypto": false,
             "stream": false
+        }
+    },
+    devServer: {
+        port: 9000,
+        static: {
+            directory: path.join(__dirname, 'dist'),
+        },
+        hot: true,
+        historyApiFallback: true,
+        proxy: {
+            '/api': 'http://localhost:3000',
+            '/socket.io': {
+                target: 'http://localhost:3000',
+                ws: true
+            }
         }
     },
     optimization: {
         splitChunks: {
             chunks: 'all'
         }
-    },
-    externals: {
-        'socket.io-client': 'io',
-        'twilio-video': 'Twilio.Video'
     }
 };

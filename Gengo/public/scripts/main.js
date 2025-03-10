@@ -1,18 +1,18 @@
 let currentState = 'idle';
 let currentRoom = null;
-let twilioVideo = null;
+let agoraVideo = null;
 let socket = null;
 
-// Initialize Twilio Video client
-const initializeTwilioVideo = () => {
-    twilioVideo = new TwilioVideoClient();
+// Initialize Agora Video client
+const initializeAgoraVideo = () => {
+    agoraVideo = new AgoraClient();
 };
 
 async function startVideoCall(language, role) {
     try {
         // Check permissions first
         try {
-            await twilioVideo.checkPermissions();
+            await agoraVideo.checkPermissions();
         } catch (error) {
             showMessage(error.message, 'error');
             return;
@@ -51,8 +51,8 @@ function setupSocketListeners() {
         showMessage('Match found! Connecting to video...', 'success');
         
         try {
-            // Get Twilio token
-            const response = await fetch('/api/token', {
+            // Get Agora app ID
+            const response = await fetch('/api/agora-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -67,16 +67,16 @@ function setupSocketListeners() {
                 throw new Error(data.error || 'Failed to get token');
             }
             
-            if (!data.token) {
-                throw new Error('Token not received from server');
+            if (!data.appId) {
+                throw new Error('App ID not received from server');
             }
             
-            showMessage('Token received, connecting to room...', 'info');
+            showMessage('Credentials received, connecting to room...', 'info');
             
             try {
-                // Connect to Twilio room
-                await twilioVideo.connectToRoom(
-                    data.token,
+                // Connect to Agora room
+                await agoraVideo.connectToRoom(
+                    data.appId,
                     currentRoom,
                     document.getElementById('localVideo'),
                     document.getElementById('remoteVideo')
@@ -151,11 +151,11 @@ function setupUIControls() {
 }
 
 function handleMuteClick() {
-    twilioVideo.toggleAudio();
+    agoraVideo.toggleAudio();
 }
 
 function handleVideoClick() {
-    twilioVideo.toggleVideo();
+    agoraVideo.toggleVideo();
 }
 
 function handleLeaveClick() {
@@ -166,8 +166,8 @@ function handleLeaveClick() {
 }
 
 function resetVideoCall() {
-    if (twilioVideo) {
-        twilioVideo.disconnect();
+    if (agoraVideo) {
+        agoraVideo.disconnect();
     }
     
     if (socket) {
@@ -286,7 +286,7 @@ function showMessage(message, type = 'info') {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    initializeTwilioVideo();
+    initializeAgoraVideo();
     
     const connectButton = document.getElementById('connect');
     connectButton?.addEventListener('click', async () => {

@@ -3,13 +3,12 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
-const twilioTokenRouter = require('./routes/twilioToken');
+const agoraTokenRouter = require('./routes/agoraToken');
 
 // Verify required environment variables
 const requiredEnvVars = [
-    'TWILIO_ACCOUNT_SID',
-    'TWILIO_API_KEY',
-    'TWILIO_API_SECRET'
+    'AGORA_APP_ID',
+    'AGORA_APP_CERTIFICATE'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -24,8 +23,8 @@ const io = socketIO(server);
 
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
-app.use('/api', twilioTokenRouter);
+app.use(express.static('dist'));  // Updated to serve from dist directory
+app.use('/api', agoraTokenRouter);
 
 // Constants
 const ROOM_TIMEOUT = 1000 * 60 * 60; // 1 hour
