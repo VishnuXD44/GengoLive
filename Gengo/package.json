@@ -14,6 +14,7 @@
         "@babel/runtime": "^7.26.7",
         "agora-access-token": "^2.0.4",
         "agora-rtc-sdk": "^3.6.11",
+        "agora-rtc-sdk-ng": "^4.23.2",
         "buffer": "^6.0.3",
         "copy-webpack-plugin": "^12.0.2",
         "cors": "^2.8.5",

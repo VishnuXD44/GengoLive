@@ -1,3 +1,4 @@
+import AgoraRTC from 'agora-rtc-sdk-ng';
 // public/scripts/agoraClient.js
 class AgoraClient {
     constructor() {
