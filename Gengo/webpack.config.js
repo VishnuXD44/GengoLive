@@ -2,7 +2,8 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const Dotenv = require('dotenv-webpack');
+// Remove dotenv-webpack dependency since it's causing issues
+// const Dotenv = require('dotenv-webpack');
 
 module.exports = {
     entry: {
@@ -46,10 +47,11 @@ module.exports = {
         ],
     },
     plugins: [
-        new Dotenv({
-            systemvars: true, // Load all system variables
-            safe: true // Load .env.example as well
-        }),
+        // Remove Dotenv plugin reference
+        // new Dotenv({
+        //    systemvars: true, 
+        //    safe: true 
+        // }),
         new MiniCssExtractPlugin({
             filename: 'css/[name].css'
         }),
@@ -83,7 +85,13 @@ module.exports = {
                 { from: 'public/icons', to: 'icons' },
                 { from: 'favicon.ico', to: 'favicon.ico' },
                 { from: 'public/styles.css', to: 'styles.css' },
-                { from: 'public/styles2.css', to: 'styles2.css' }
+                { from: 'public/styles2.css', to: 'styles2.css' },
+                // Add Agora SDK to make sure it's available
+                { 
+                    from: 'node_modules/agora-rtc-sdk-ng/AgoraRTC_N.js',
+                    to: 'scripts/AgoraRTC_N.js',
+                    noErrorOnMissing: true // Won't fail if file doesn't exist
+                }
             ],
         })
     ],
