@@ -67,16 +67,17 @@ function setupSocketListeners() {
                 throw new Error(data.error || 'Failed to get token');
             }
             
-            if (!data.appId) {
-                throw new Error('App ID not received from server');
+            if (!data.appId || !data.token) {
+                throw new Error('App ID or token not received from server');
             }
             
             showMessage('Credentials received, connecting to room...', 'info');
             
             try {
-                // Connect to Agora room
+                // Connect to Agora room with token
                 await agoraVideo.connectToRoom(
                     data.appId,
+                    data.token,  // Pass token here
                     currentRoom,
                     document.getElementById('localVideo'),
                     document.getElementById('remoteVideo')

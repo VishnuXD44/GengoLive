@@ -23,7 +23,7 @@ class AgoraClient {
         }
     }
 
-    async connectToRoom(appId, channelName, localVideoElement, remoteVideoElement) {
+    async connectToRoom(appId, token, channelName, localVideoElement, remoteVideoElement) {
         try {
             // Show loading state
             document.getElementById('loadingIndicator').classList.remove('hidden');
@@ -87,8 +87,8 @@ class AgoraClient {
                 this.showConnectionStatus('Your partner has left the call', 'warning');
             });
             
-            // Join the channel and publish local tracks
-            const uid = await this.client.join(appId, channelName, null, null);
+            // Join the channel and publish local tracks - Updated to use token
+            const uid = await this.client.join(appId, channelName, token, null);
             console.log('Successfully joined channel: ', channelName, 'with UID:', uid);
             
             // Publish the local tracks
