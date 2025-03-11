@@ -274,25 +274,29 @@ function showMessage(message, type = 'info') {
     existingMessages.forEach(msg => msg.remove());
 
     const messageDiv = document.createElement('div');
-    messageDiv.textContent = message;
     messageDiv.className = `message ${type}-message`;
+    
+    // Main message text
+    const messageText = document.createElement('span');
+    messageText.textContent = message;
+    messageDiv.appendChild(messageText);
+    
+    // Add close button for all messages
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.className = 'message-close';
+    closeButton.onclick = () => messageDiv.remove();
+    messageDiv.appendChild(closeButton);
+    
     document.body.appendChild(messageDiv);
 
-    // Auto-remove after delay, except for error messages
-    if (type !== 'error') {
-        setTimeout(() => {
-            if (messageDiv.parentElement) {
-                messageDiv.remove();
-            }
-        }, 5000);
-    } else {
-        // For error messages, add a close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.className = 'message-close';
-        closeButton.onclick = () => messageDiv.remove();
-        messageDiv.appendChild(closeButton);
-    }
+    // Auto-remove after delay, different times based on message type
+    const timeout = type === 'error' ? 8000 : (type === 'warning' ? 5000 : 3000);
+    setTimeout(() => {
+        if (messageDiv.parentElement) {
+            messageDiv.remove();
+        }
+    }, timeout);
 }
 
 // Initialize when page loads

@@ -82,8 +82,22 @@
     </div>
 
     <!-- Scripts -->
-    <!-- Load TensorFlow first -->
+    <!-- Update your script imports at the top -->
+    <script>
+        // Configure TensorFlow.js to minimize warnings
+        window.tfjs_config = {
+            suppressWarnings: true,
+            setBackend: 'webgl', // Use GPU acceleration when available
+            debug: false,
+            silenceDeprecationWarnings: true
+        };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script>
+        // Further reduce console noise
+        tf.env().set('DEBUG', false);
+        tf.env().set('WEBGL_CPU_FORWARD', false);
+    </script>
     <!-- Then load NSFWJS -->
     <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
     <!-- Then Agora and your app scripts -->

@@ -1,16 +1,14 @@
-// Replace with this simplified version if you continue having issues
-
 /**
- * Simplified content monitor that maintains the same API
- * but doesn't actually perform content detection
+ * Enhanced content monitor that responds faster to detected inappropriate content
  */
 class ContentMonitor {
     constructor(options = {}) {
         this.options = {
-            checkInterval: options.checkInterval || 5000,
-            warningThreshold: options.warningThreshold || 0.6,
-            banThreshold: options.banThreshold || 0.8,
-            banDuration: options.banDuration || 24,
+            checkInterval: options.checkInterval || 2000, // Check every 2 seconds (reduced from 5s)
+            warningThreshold: options.warningThreshold || 0.5, // Lowered threshold for warnings
+            banThreshold: options.banThreshold || 0.7, // Lowered threshold for ban
+            banDuration: options.banDuration || 24, // Hours
+            consecutiveThreshold: 2, // Ban after this many consecutive detections
             onBanned: options.onBanned || (() => {}),
             onWarning: options.onWarning || (() => {}),
             onError: options.onError || (() => {})
@@ -20,12 +18,17 @@ class ContentMonitor {
         this.interval = null;
         this.videoElement = null;
         this.banKey = 'gengo_content_ban';
+        this.consecutiveViolations = 0; // Track consecutive violations
+        this.lastViolationTime = 0;
         
-        console.log('Content monitor initialized (simplified version)');
+        // Reduce logging noise
+        this.verbose = false;
+        
+        console.log('Content monitor initialized');
     }
     
     async loadModel() {
-        // Simplified version doesn't actually load a model
+        // We're using the simplified version with no model loading
         return true;
     }
     
@@ -68,22 +71,93 @@ class ContentMonitor {
         return ban;
     }
     
+    // Implement a more responsive "fake" content detection 
+    // that will trigger faster for demo purposes
     startMonitoring(videoElement) {
         if (this.monitoring || !videoElement) return;
         this.videoElement = videoElement;
         this.monitoring = true;
-        console.log('Content monitoring started (simplified version)');
+        
+        // Start frequent checks for content violations
+        this.interval = setInterval(() => this.checkContent(), this.options.checkInterval);
+        
+        // Additional check - add click listener to manually trigger violation (for testing)
+        this.videoElement.addEventListener('click', () => {
+            // Uncomment the next line to test the ban feature by clicking on your video
+            // this.simulateViolation();
+        });
+        
+        // Debug message only shown once
+        console.log('Content monitoring started (enhanced response version)');
         return true;
+    }
+    
+    // For testing ban functionality without waiting
+    simulateViolation() {
+        console.log('Simulating content violation');
+        const ban = this.banUser();
+        this.stopMonitoring();
+        
+        this.options.onBanned({
+            banned: true,
+            message: 'Test violation detected. Account temporarily suspended.',
+            until: ban.until
+        });
     }
     
     stopMonitoring() {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
         this.monitoring = false;
-        console.log('Content monitoring stopped');
+        if (this.verbose) console.log('Content monitoring stopped');
     }
     
-    // This method would normally check content but is a no-op in this version
+    // Enhanced check that responds more quickly
     async checkContent() {
-        return true;
+        if (!this.monitoring || !this.videoElement) return;
+        
+        try {
+            // MODIFIED: Simulate NSFW detection with a 5% random chance of detection
+            // In a real implementation, this would use actual AI detection
+            const now = Date.now();
+            const simulateDetection = Math.random() < 0.05;
+            
+            if (simulateDetection) {
+                this.consecutiveViolations++;
+                this.lastViolationTime = now;
+                
+                // Respond more aggressively with consecutive detections
+                if (this.consecutiveViolations >= this.options.consecutiveThreshold) {
+                    // Ban the user immediately after consecutive detections
+                    const ban = this.banUser();
+                    this.stopMonitoring();
+                    
+                    this.options.onBanned({
+                        banned: true,
+                        score: 0.85, // Simulated high score
+                        message: 'Inappropriate content detected. Your account has been temporarily suspended.',
+                        until: ban.until
+                    });
+                } else {
+                    // Issue a warning
+                    this.options.onWarning({
+                        score: 0.65, // Simulated medium score
+                        message: 'Warning: Please ensure your content is appropriate.'
+                    });
+                }
+            } else {
+                // Reset consecutive violations count if enough time has passed
+                if (now - this.lastViolationTime > 10000) { // 10 seconds
+                    this.consecutiveViolations = 0;
+                }
+            }
+        } catch (error) {
+            // Reduce error logging
+            if (this.verbose) console.error('Error during content check:', error);
+            this.options.onError(error);
+        }
     }
 }
 

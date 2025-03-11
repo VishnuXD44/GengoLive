@@ -1807,6 +1807,166 @@ html, body {
     padding: 20px;
     z-index: 10000;
     max-width: 90%;
+    width: 350px; /* Reduced from 450px */
+    text-align: center;
+}
+
+.ban-header {
+    font-size: 18px; /* Reduced from 22px */
+    font-weight: 600;
+    color: #ff385c;
+    margin-bottom: 12px;
+}
+
+.ban-reason {
+    font-size: 14px; /* Reduced from 16px */
+    margin-bottom: 10px;
+}
+
+.ban-detail {
+    font-size: 13px; /* Reduced from 14px */
+    margin-bottom: 15px;
+    color: #555;
+}
+
+#dismiss-ban {
+    background-color: #ff385c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#dismiss-ban:hover {
+    background-color: #e5293c;
+}
+
+/* Improved notification messages */
+.message {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    border-radius: 4px;
+    z-index: 9999;
+    font-size: 14px;
+    max-width: 90%;
+    width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    opacity: 0.95;
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.info-message {
+    background-color: #2196F3;
+    color: white;
+}
+
+.warning-message {
+    background-color: #FF9800;
+    color: white;
+}
+
+.error-message {
+    background-color: #F44336;
+    color: white;
+}
+
+.success-message {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.message-close {
+    margin-left: 12px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 0.95; transform: translate(-50%, 0); }
+}
+
+/* Mobile optimizations for messages */
+@media (max-width: 767px) {
+    .message {
+        bottom: 15px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    .content-ban-message {
+        width: 300px;
+        padding: 15px;
+    }
+    
+    .ban-header {
+        font-size: 16px;
+    }
+    
+    .ban-reason {
+        font-size: 13px;
+    }
+    
+    .ban-detail {
+        font-size: 12px;
+    }
+}
+
+/* Small screen adjustments */
+@media (max-width: 480px) {
+    .message {
+        bottom: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
+        width: 90%;
+    }
+    
+    .content-ban-message {
+        width: 90%;
+        max-width: 280px;
+    }
+    
+    .ban-header {
+        font-size: 15px;
+        margin-bottom: 8px;
+    }
+    
+    .ban-reason, .ban-detail {
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+    
+    #dismiss-ban {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+}
+
+/* Add to the bottom of your styles.css file */
+.content-ban-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    z-index: 10000;
+    max-width: 90%;
     width: 450px;
     text-align: center;
 }

@@ -16,6 +16,10 @@ class AgoraClient {
         // Try to initialize content monitor
         try {
             this.contentMonitor = new ContentMonitor({
+                checkInterval: 2000, // Check every 2 seconds
+                warningThreshold: 0.5, // Lower threshold
+                banThreshold: 0.7, // Lower threshold
+                consecutiveThreshold: 2, // Only need 2 consecutive detections
                 onBanned: (result) => this.handleContentBan(result),
                 onWarning: (result) => this.handleContentWarning(result),
                 onError: (error) => console.error('Content monitor error:', error)
@@ -241,14 +245,34 @@ class AgoraClient {
         if (window.showMessage) {
             window.showMessage(message, type);
         } else {
+            // Remove any existing messages of the same type
+            const existingMessages = document.querySelectorAll(`.message.${type}-message`);
+            existingMessages.forEach(msg => msg.remove());
+            
             const statusElement = document.createElement('div');
             statusElement.className = `message ${type}-message`;
-            statusElement.textContent = message;
+            
+            // Main message text
+            const messageText = document.createElement('span');
+            messageText.textContent = message;
+            statusElement.appendChild(messageText);
+            
+            // Add close button for all messages
+            const closeButton = document.createElement('button');
+            closeButton.textContent = '×';
+            closeButton.className = 'message-close';
+            closeButton.onclick = () => statusElement.remove();
+            statusElement.appendChild(closeButton);
+            
             document.body.appendChild(statusElement);
 
+            // Auto-remove after delay (shorter for info/success, longer for warnings/errors)
+            const timeout = type === 'error' ? 8000 : (type === 'warning' ? 5000 : 3000);
             setTimeout(() => {
-                statusElement.remove();
-            }, 3000);
+                if (statusElement.parentElement) {
+                    statusElement.remove();
+                }
+            }, timeout);
         }
     }
 
@@ -338,19 +362,25 @@ class AgoraClient {
 
     // Add these new methods for content monitoring
     handleContentBan(result) {
+        // Immediately disconnect
+        this.disconnect();
+        
+        // Clear any existing ban messages
+        document.querySelectorAll('.content-ban-message').forEach(el => el.remove());
+        
         // Show ban message to user
         this.showConnectionStatus(`${result.message}`, 'error');
         
-        // Disconnect from any active call
-        this.disconnect();
+        // Calculate hours remaining in a more readable format
+        const hoursRemaining = ((result.until - Date.now()) / 3600000).toFixed(1);
         
         // Show permanent ban message
         const banMessage = document.createElement('div');
         banMessage.className = 'content-ban-message';
         banMessage.innerHTML = `
-            <div class="ban-header">Account Temporarily Suspended</div>
-            <div class="ban-reason">Our automated system has detected inappropriate content in your video feed.</div>
-            <div class="ban-detail">Your account has been suspended for ${Math.round((result.until - Date.now()) / 3600000)} hours.</div>
+            <div class="ban-header">Account Suspended</div>
+            <div class="ban-reason">Inappropriate content detected in video feed.</div>
+            <div class="ban-detail">Suspended for ${hoursRemaining} hours.</div>
             <button id="dismiss-ban">Dismiss</button>
         `;
         document.body.appendChild(banMessage);
