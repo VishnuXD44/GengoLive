@@ -6,10 +6,41 @@ class AgoraClient {
         this.localTracks = null;
         this.remoteStreams = {};
         this.hasPermissions = false;
+        
+        // Store connection parameters for potential reconnection
+        this.appId = null;
+        this.token = null;
+        this.channelName = null;
+        this.uid = null;
+        
+        // Remove cloud proxy reference
+        this.cloudProxyEnabled = false; 
+        
+        // Log domain information
+        console.log('Agora client initialized on:', {
+            domain: window.location.hostname,
+            protocol: window.location.protocol,
+            secure: window.isSecureContext
+        });
     }
 
     async checkPermissions() {
         try {
+            // Check if we're in a secure context (HTTPS)
+            if (!window.isSecureContext) {
+                console.warn('Not in a secure context. Video/audio permissions may be denied.');
+                this.showConnectionStatus('Please use HTTPS for video/audio access', 'warning');
+                
+                // Redirect to HTTPS www.gengo.live if needed
+                if (window.location.protocol === 'http:' || window.location.hostname === 'gengo.live') {
+                    const httpsUrl = 'https://www.gengo.live' + window.location.pathname + window.location.search;
+                    console.log('Redirecting to secure connection:', httpsUrl);
+                    this.showConnectionStatus('Redirecting to secure connection...', 'warning');
+                    window.location.href = httpsUrl;
+                    return false;
+                }
+            }
+            
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
             stream.getTracks().forEach(track => track.stop());
             this.hasPermissions = true;
@@ -19,12 +50,18 @@ class AgoraClient {
             this.hasPermissions = false;
             throw new Error(error.name === 'NotAllowedError' 
                 ? 'Please allow camera and microphone access to use video chat'
-                : 'Could not access media devices');
+                : `Could not access media devices: ${error.message || error.name}`);
         }
     }
 
     async connectToRoom(appId, token, channelName, localVideoElement, remoteVideoElement, uid) {
         try {
+            // Store these for potential reconnection
+            this.appId = appId;
+            this.token = token;
+            this.channelName = channelName;
+            this.uid = uid;
+            
             // Show loading state
             document.getElementById('loadingIndicator').classList.remove('hidden');
             
@@ -37,8 +74,19 @@ class AgoraClient {
             document.querySelector('.video-container').style.display = 'grid';
             document.querySelector('.video-controls').style.display = 'flex';
             
-            // Initialize the client
-            this.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+            // Initialize the client (no cloud proxy)
+            this.client = AgoraRTC.createClient({ 
+                mode: 'rtc', 
+                codec: 'vp8'
+            });
+            
+            // Add network quality monitoring
+            this.client.on('network-quality', (stats) => {
+                // Update the UI with quality information
+                this.updateNetworkQualityIndicator(
+                    Math.min(stats.downlinkNetworkQuality, stats.uplinkNetworkQuality)
+                );
+            });
             
             // Create local audio and video tracks
             const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
@@ -66,8 +114,15 @@ class AgoraClient {
                 }
             });
             
+            // Log connection information with domain
+            console.log(`Connecting to Agora from ${window.location.hostname} with:`, {
+                channelName,
+                hasToken: !!token,
+                tokenLength: token ? token.length : 0,
+                uidProvided: !!uid
+            });
+            
             // Join the channel and publish local tracks
-            // The key part - using the token and uid correctly
             const clientUid = await this.client.join(appId, channelName, token, uid || null);
             console.log('Successfully joined channel:', channelName, 'with UID:', clientUid);
             
@@ -175,6 +230,12 @@ class AgoraClient {
 
     cleanup() {
         try {
+            // Clear saved session info
+            this.appId = null;
+            this.token = null;
+            this.channelName = null;
+            this.uid = null;
+            
             // Close local tracks
             if (this.localTracks) {
                 Object.values(this.localTracks).forEach(track => {
@@ -213,6 +274,39 @@ class AgoraClient {
     disconnect() {
         this.cleanup();
         this.showConnectionStatus('Disconnected', 'info');
+    }
+
+    // Add this new method to your class
+    async reconnect(attempts = 3) {
+        if (!this.appId || !this.channelName || !this.token) {
+            console.error('Cannot reconnect: Missing connection parameters');
+            return false;
+        }
+        
+        let attemptCount = 0;
+        while (attemptCount < attempts) {
+            attemptCount++;
+            this.showConnectionStatus(`Reconnecting... Attempt ${attemptCount}/${attempts}`, 'warning');
+            
+            try {
+                // Try to rejoin with same parameters
+                await this.client.join(this.appId, this.channelName, this.token, this.uid);
+                
+                if (this.localTracks) {
+                    await this.client.publish(Object.values(this.localTracks));
+                }
+                
+                this.showConnectionStatus('Connection restored!', 'success');
+                return true;
+            } catch (error) {
+                console.error(`Reconnection attempt ${attemptCount} failed:`, error);
+                // Wait before next attempt
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+        
+        this.showConnectionStatus('Failed to reconnect after multiple attempts', 'error');
+        return false;
     }
 }
 
