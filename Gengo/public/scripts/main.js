@@ -96,6 +96,10 @@ function setupSocketListeners() {
                 updateState('connected');
                 setupUIControls();
                 showMessage('Successfully connected to video room', 'success');
+                
+                // Initialize content monitoring for local video
+                await initContentMonitoring();
+                
             } catch (videoError) {
                 console.error('Video connection failed:', videoError);
                 throw new Error('Failed to establish video connection: ' + videoError.message);
@@ -297,6 +301,82 @@ function showMessage(message, type = 'info') {
             messageDiv.remove();
         }
     }, timeout);
+}
+
+// Initialize content monitoring for local video
+async function initContentMonitoring() {
+    try {
+        // Only start monitoring after local video is ready and permissions granted
+        const localVideo = document.getElementById('local-video');
+        if (!localVideo || !localVideo.srcObject) {
+            return;
+        }
+        
+        // Create content monitor with appropriate callbacks
+        const contentMonitor = new ContentMonitor({
+            checkInterval: 3000,  // Check every 3 seconds
+            warningThreshold: 0.7,
+            banThreshold: 0.85,
+            consecutiveThreshold: 3,
+            onWarning: (data) => {
+                // Display warning message
+                showMessage(data.message, 'warning');
+            },
+            onBanned: (data) => {
+                // Show ban message
+                showContentBanMessage(data);
+                // Disconnect from call
+                leaveCall();
+            },
+            onError: (error) => {
+                console.error('Content monitoring error:', error);
+                // No need to show errors to user unless critical
+            }
+        });
+        
+        // Initialize the monitor with the video element
+        await contentMonitor.init(localVideo);
+        
+        // Start monitoring
+        contentMonitor.startMonitoring();
+        
+        // Store reference to stop later
+        window.contentMonitor = contentMonitor;
+    } catch (error) {
+        console.error('Failed to initialize content monitoring:', error);
+    }
+}
+
+// Show content ban message
+function showContentBanMessage(data) {
+    const banContainer = document.createElement('div');
+    banContainer.className = 'content-ban-message';
+    
+    const banHeader = document.createElement('div');
+    banHeader.className = 'ban-header';
+    banHeader.textContent = 'Content Policy Violation';
+    
+    const banReason = document.createElement('div');
+    banReason.className = 'ban-reason';
+    banReason.textContent = data.message;
+    
+    const banDetail = document.createElement('div');
+    banDetail.className = 'ban-detail';
+    banDetail.textContent = `You can try again after ${data.until.toLocaleTimeString()}.`;
+    
+    const dismissButton = document.createElement('button');
+    dismissButton.id = 'dismiss-ban';
+    dismissButton.textContent = 'Dismiss';
+    dismissButton.addEventListener('click', () => {
+        document.body.removeChild(banContainer);
+    });
+    
+    banContainer.appendChild(banHeader);
+    banContainer.appendChild(banReason);
+    banContainer.appendChild(banDetail);
+    banContainer.appendChild(dismissButton);
+    
+    document.body.appendChild(banContainer);
 }
 
 // Initialize when page loads

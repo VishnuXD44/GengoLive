@@ -861,22 +861,54 @@ html, body {
     position: fixed;
     top: 20px;
     right: 20px;
-    padding: 1rem 2rem;
+    padding: 12px 20px;
     border-radius: 8px;
     color: white;
     z-index: 2000;
+    width: auto;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     animation: fadeInOut 5s ease-in-out;
+    font-size: 14px;
+    opacity: 0.95;
+    text-align: left;
+    transform: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .success-message { background-color: #2ecc71; }
 .error-message { background-color: #e74c3c; }
-.info-message { background-color: var(--blue); }
+.info-message { background-color: #2196F3; }
+.warning-message { background-color: #FF9800; }
+
+.message-close {
+    margin-left: 12px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+}
 
 @keyframes fadeInOut {
     0% { opacity: 0; transform: translateY(-20px); }
-    10% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 1; transform: translateY(0); }
+    10% { opacity: 0.95; transform: translateY(0); }
+    90% { opacity: 0.95; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Mobile adjustments for messages */
+@media (max-width: 767px) {
+    .message {
+        top: 15px;
+        right: 15px;
+        padding: 10px 16px;
+        font-size: 13px;
+        max-width: 250px;
+    }
 }
 
 /* ============ FLOATING TEXT ============ */
@@ -1684,7 +1716,7 @@ html, body {
     position: fixed;
     top: 20px;
     right: 20px;
-    padding: 12px 24px;
+    padding: 12px 20px;
     border-radius: 8px;
     color: white;
     font-weight: 500;
