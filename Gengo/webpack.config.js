@@ -10,6 +10,7 @@ module.exports = {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js',
         'agoraClient': './public/scripts/agoraClient.js',
+        'contentMonitor': './public/scripts/contentMonitor.js'  // Add this line
     },
     output: {
         filename: 'scripts/[name].bundle.js',
@@ -64,7 +65,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'agoraClient'],
+            chunks: ['main', 'language-animation', 'agoraClient', 'contentMonitor'], // Add contentMonitor
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({

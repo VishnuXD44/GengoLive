@@ -13,8 +13,12 @@ class AgoraClient {
         this.channelName = null;
         this.uid = null;
         
-        // Remove cloud proxy reference
-        this.cloudProxyEnabled = false; 
+        // Initialize content monitor
+        this.contentMonitor = new ContentMonitor({
+            onBanned: (result) => this.handleContentBan(result),
+            onWarning: (result) => this.handleContentWarning(result),
+            onError: (error) => console.error('Content monitor error:', error)
+        });
         
         // Log domain information
         console.log('Agora client initialized on:', {
@@ -62,6 +66,12 @@ class AgoraClient {
             this.channelName = channelName;
             this.uid = uid;
             
+            // First check if user is banned
+            const isBanned = await this.contentMonitor.checkBanStatus();
+            if (isBanned) {
+                throw new Error('Your account is temporarily suspended due to a content violation.');
+            }
+            
             // Show loading state
             document.getElementById('loadingIndicator').classList.remove('hidden');
             
@@ -98,6 +108,9 @@ class AgoraClient {
             
             // Play local video track
             this.localTracks.videoTrack.play(localVideoElement.id);
+            
+            // Start content monitoring on local video element
+            this.contentMonitor.startMonitoring(localVideoElement);
             
             // Register event listeners
             this.client.on('user-published', async (user, mediaType) => {
@@ -230,6 +243,9 @@ class AgoraClient {
 
     cleanup() {
         try {
+            // Stop content monitoring
+            this.contentMonitor.stopMonitoring();
+            
             // Clear saved session info
             this.appId = null;
             this.token = null;
@@ -307,6 +323,34 @@ class AgoraClient {
         
         this.showConnectionStatus('Failed to reconnect after multiple attempts', 'error');
         return false;
+    }
+
+    // Add these new methods for content monitoring
+    handleContentBan(result) {
+        // Show ban message to user
+        this.showConnectionStatus(`${result.message}`, 'error');
+        
+        // Disconnect from any active call
+        this.disconnect();
+        
+        // Show permanent ban message
+        const banMessage = document.createElement('div');
+        banMessage.className = 'content-ban-message';
+        banMessage.innerHTML = `
+            <div class="ban-header">Account Temporarily Suspended</div>
+            <div class="ban-reason">Our automated system has detected inappropriate content in your video feed.</div>
+            <div class="ban-detail">Your account has been suspended for ${Math.round((result.until - Date.now()) / 3600000)} hours.</div>
+            <button id="dismiss-ban">Dismiss</button>
+        `;
+        document.body.appendChild(banMessage);
+        
+        document.getElementById('dismiss-ban').addEventListener('click', () => {
+            banMessage.remove();
+        });
+    }
+    
+    handleContentWarning(result) {
+        this.showConnectionStatus(`${result.message}`, 'warning');
     }
 }
 

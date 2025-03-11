@@ -1794,3 +1794,84 @@ html, body {
         padding: 6px 12px;
     }
 }
+
+/* Add to the bottom of your styles.css file */
+.content-ban-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    z-index: 10000;
+    max-width: 90%;
+    width: 450px;
+    text-align: center;
+}
+
+.ban-header {
+    font-size: 22px;
+    font-weight: 600;
+    color: #ff385c;
+    margin-bottom: 15px;
+}
+
+.ban-reason {
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.ban-detail {
+    font-size: 14px;
+    margin-bottom: 20px;
+    color: #555;
+}
+
+#dismiss-ban {
+    background-color: #ff385c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#dismiss-ban:hover {
+    background-color: #e5293c;
+}
+
+/* Message styles for warnings/errors */
+.message {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    border-radius: 4px;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.info-message {
+    background-color: #2196F3;
+    color: white;
+}
+
+.warning-message {
+    background-color: #FF9800;
+    color: white;
+}
+
+.error-message {
+    background-color: #F44336;
+    color: white;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
