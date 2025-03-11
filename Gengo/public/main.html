@@ -82,8 +82,11 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/nsfwjs@2.4.2"></script>
+    <!-- Load TensorFlow first -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <!-- Then load NSFWJS -->
+    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+    <!-- Then Agora and your app scripts -->
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/scripts/contentMonitor.bundle.js"></script>

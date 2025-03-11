@@ -108,6 +108,10 @@ module.exports = {
             "buffer": require.resolve("buffer/"),
             "crypto": false,
             "stream": false
+        },
+        alias: {
+            '@tensorflow/tfjs': false,
+            'nsfwjs': false
         }
     },
     devServer: {

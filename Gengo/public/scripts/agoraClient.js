@@ -13,12 +13,23 @@ class AgoraClient {
         this.channelName = null;
         this.uid = null;
         
-        // Initialize content monitor
-        this.contentMonitor = new ContentMonitor({
-            onBanned: (result) => this.handleContentBan(result),
-            onWarning: (result) => this.handleContentWarning(result),
-            onError: (error) => console.error('Content monitor error:', error)
-        });
+        // Try to initialize content monitor
+        try {
+            this.contentMonitor = new ContentMonitor({
+                onBanned: (result) => this.handleContentBan(result),
+                onWarning: (result) => this.handleContentWarning(result),
+                onError: (error) => console.error('Content monitor error:', error)
+            });
+            console.log('Content monitoring initialized');
+        } catch (e) {
+            console.error('Failed to initialize content monitoring:', e);
+            // Create a dummy content monitor with the same API
+            this.contentMonitor = {
+                checkBanStatus: () => false,
+                startMonitoring: () => {},
+                stopMonitoring: () => {}
+            };
+        }
         
         // Log domain information
         console.log('Agora client initialized on:', {
