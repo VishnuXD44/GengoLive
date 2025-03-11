@@ -73,14 +73,24 @@ function setupSocketListeners() {
             
             showMessage('Credentials received, connecting to room...', 'info');
             
+            // Inside your match-found handler, right before calling connectToRoom
+            console.log('Connecting with credentials:', {
+                appId: data.appId.substring(0, 3) + '...', // Only show part of the ID for security
+                hasToken: !!data.token,
+                tokenLength: data.token ? data.token.length : 0,
+                uid: data.uid,
+                channel: currentRoom
+            });
+            
             try {
-                // Connect to Agora room with token
+                // Connect to Agora room with token and UID
                 await agoraVideo.connectToRoom(
                     data.appId,
-                    data.token,  // Pass token here
+                    data.token,
                     currentRoom,
                     document.getElementById('localVideo'),
-                    document.getElementById('remoteVideo')
+                    document.getElementById('remoteVideo'),
+                    data.uid  // Pass the UID from the server
                 );
                 
                 updateState('connected');

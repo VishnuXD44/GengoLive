@@ -23,7 +23,7 @@ class AgoraClient {
         }
     }
 
-    async connectToRoom(appId, token, channelName, localVideoElement, remoteVideoElement) {
+    async connectToRoom(appId, token, channelName, localVideoElement, remoteVideoElement, uid) {
         try {
             // Show loading state
             document.getElementById('loadingIndicator').classList.remove('hidden');
@@ -37,13 +37,12 @@ class AgoraClient {
             document.querySelector('.video-container').style.display = 'grid';
             document.querySelector('.video-controls').style.display = 'flex';
             
-            // Initialize the client - UPDATED FOR AGORA v4.x
+            // Initialize the client
             this.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
             
-            // Create local audio and video tracks - UPDATED FOR AGORA v4.x
+            // Create local audio and video tracks
             const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
             
-            // Store tracks in the local stream object for easier handling
             this.localTracks = {
                 audioTrack: microphoneTrack,
                 videoTrack: cameraTrack
@@ -52,56 +51,35 @@ class AgoraClient {
             // Play local video track
             this.localTracks.videoTrack.play(localVideoElement.id);
             
-            // Register event listeners for remote users
+            // Register event listeners
             this.client.on('user-published', async (user, mediaType) => {
-                // Subscribe to the remote user
                 await this.client.subscribe(user, mediaType);
                 
                 console.log('Subscribe success, uid: ' + user.uid);
                 
-                // If it's video, play it
                 if (mediaType === 'video') {
                     user.videoTrack.play(remoteVideoElement.id);
                 }
                 
-                // If it's audio, play it
                 if (mediaType === 'audio') {
                     user.audioTrack.play();
                 }
-                
-                // Show quality indicator
-                this.updateNetworkQualityIndicator(3); // Default to 'Fair'
             });
             
-            this.client.on('user-unpublished', (user, mediaType) => {
-                console.log('User unpublished: ', user.uid, mediaType);
-                // Handle the unpublished stream
-                if (mediaType === 'video') {
-                    // Stop displaying the user's video
-                }
-            });
+            // Join the channel and publish local tracks
+            // The key part - using the token and uid correctly
+            const clientUid = await this.client.join(appId, channelName, token, uid || null);
+            console.log('Successfully joined channel:', channelName, 'with UID:', clientUid);
             
-            this.client.on('user-left', (user) => {
-                console.log('User left: ', user.uid);
-                // Show message that peer left
-                this.showConnectionStatus('Your partner has left the call', 'warning');
-            });
-            
-            // Join the channel and publish local tracks - Updated to use token
-            const uid = await this.client.join(appId, channelName, token, null);
-            console.log('Successfully joined channel: ', channelName, 'with UID:', uid);
-            
-            // Publish the local tracks
             await this.client.publish([this.localTracks.audioTrack, this.localTracks.videoTrack]);
             console.log('Successfully published local tracks');
             
             // Hide loading indicator
             document.getElementById('loadingIndicator').classList.add('hidden');
             
-            return { channelName, uid };
+            return { channelName, uid: clientUid };
         } catch (error) {
             console.error('Error connecting to Agora channel:', error);
-            // Cleanup on error
             this.cleanup();
             document.getElementById('loadingIndicator').classList.add('hidden');
             throw error;
