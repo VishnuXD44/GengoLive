@@ -3,7 +3,7 @@ import AgoraRTC from 'agora-rtc-sdk-ng';
 class AgoraClient {
     constructor() {
         this.client = null;
-        this.localStream = null;
+        this.localTracks = null;
         this.remoteStreams = {};
         this.hasPermissions = false;
     }
@@ -37,80 +37,68 @@ class AgoraClient {
             document.querySelector('.video-container').style.display = 'grid';
             document.querySelector('.video-controls').style.display = 'flex';
             
-            // Initialize the client
+            // Initialize the client - UPDATED FOR AGORA v4.x
             this.client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
             
-            // Initialize the client with your App ID
-            await this.client.init(appId);
+            // Create local audio and video tracks - UPDATED FOR AGORA v4.x
+            const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
             
-            // Create the local stream
-            this.localStream = AgoraRTC.createStream({
-                streamID: Math.floor(Math.random() * 100000),
-                audio: true,
-                video: true,
-                screen: false
-            });
+            // Store tracks in the local stream object for easier handling
+            this.localTracks = {
+                audioTrack: microphoneTrack,
+                videoTrack: cameraTrack
+            };
             
-            // Initialize the local stream
-            await this.localStream.init();
+            // Play local video track
+            this.localTracks.videoTrack.play(localVideoElement.id);
             
-            // Play local stream
-            this.localStream.play(localVideoElement.id);
-
-            // Register event listeners
-            this.client.on('stream-added', evt => {
-                // Subscribe to the stream
-                this.client.subscribe(evt.stream, { video: true, audio: true });
-                console.log('Stream added, subscribing: ', evt.stream.getId());
-            });
-
-            this.client.on('stream-subscribed', evt => {
-                const remoteStream = evt.stream;
-                console.log('Successfully subscribed to: ', remoteStream.getId());
-                // Play the remote stream
-                remoteStream.play(remoteVideoElement.id);
-                this.remoteStreams[remoteStream.getId()] = remoteStream;
+            // Register event listeners for remote users
+            this.client.on('user-published', async (user, mediaType) => {
+                // Subscribe to the remote user
+                await this.client.subscribe(user, mediaType);
+                
+                console.log('Subscribe success, uid: ' + user.uid);
+                
+                // If it's video, play it
+                if (mediaType === 'video') {
+                    user.videoTrack.play(remoteVideoElement.id);
+                }
+                
+                // If it's audio, play it
+                if (mediaType === 'audio') {
+                    user.audioTrack.play();
+                }
                 
                 // Show quality indicator
                 this.updateNetworkQualityIndicator(3); // Default to 'Fair'
             });
-
-            this.client.on('stream-removed', evt => {
-                const remoteStream = evt.stream;
-                if (remoteStream) {
-                    remoteStream.stop();
-                    delete this.remoteStreams[remoteStream.getId()];
-                    console.log('Remote stream removed: ', remoteStream.getId());
+            
+            this.client.on('user-unpublished', (user, mediaType) => {
+                console.log('User unpublished: ', user.uid, mediaType);
+                // Handle the unpublished stream
+                if (mediaType === 'video') {
+                    // Stop displaying the user's video
                 }
             });
             
-            this.client.on('peer-leave', evt => {
-                console.log('Peer left: ', evt.uid);
-                // If we have this user's stream, remove it
-                const streams = Object.values(this.remoteStreams);
-                for (let stream of streams) {
-                    if (stream.getId() === evt.uid) {
-                        stream.stop();
-                        delete this.remoteStreams[stream.getId()];
-                        // Show message that peer left
-                        this.showConnectionStatus('Your partner has left the call', 'warning');
-                        break;
-                    }
-                }
+            this.client.on('user-left', (user) => {
+                console.log('User left: ', user.uid);
+                // Show message that peer left
+                this.showConnectionStatus('Your partner has left the call', 'warning');
             });
-
-            // Join the channel
-            await this.client.join(null, channelName, null);
-            console.log('Successfully joined channel: ', channelName);
             
-            // Publish the local stream
-            await this.client.publish(this.localStream);
-            console.log('Successfully published local stream');
+            // Join the channel and publish local tracks
+            const uid = await this.client.join(appId, channelName, null, null);
+            console.log('Successfully joined channel: ', channelName, 'with UID:', uid);
+            
+            // Publish the local tracks
+            await this.client.publish([this.localTracks.audioTrack, this.localTracks.videoTrack]);
+            console.log('Successfully published local tracks');
             
             // Hide loading indicator
             document.getElementById('loadingIndicator').classList.add('hidden');
             
-            return { channelName };
+            return { channelName, uid };
         } catch (error) {
             console.error('Error connecting to Agora channel:', error);
             // Cleanup on error
@@ -143,14 +131,14 @@ class AgoraClient {
     }
 
     toggleAudio() {
-        if (!this.localStream) return false;
+        if (!this.localTracks?.audioTrack) return false;
 
         try {
-            if (this.localStream.isAudioOn()) {
-                this.localStream.muteAudio();
+            if (this.localTracks.audioTrack.enabled) {
+                this.localTracks.audioTrack.setEnabled(false);
                 this.updateButton('muteAudio', true);
             } else {
-                this.localStream.unmuteAudio();
+                this.localTracks.audioTrack.setEnabled(true);
                 this.updateButton('muteAudio', false);
             }
             return true;
@@ -161,14 +149,14 @@ class AgoraClient {
     }
 
     toggleVideo() {
-        if (!this.localStream) return false;
+        if (!this.localTracks?.videoTrack) return false;
 
         try {
-            if (this.localStream.isVideoOn()) {
-                this.localStream.muteVideo();
+            if (this.localTracks.videoTrack.enabled) {
+                this.localTracks.videoTrack.setEnabled(false);
                 this.updateButton('hideVideo', true);
             } else {
-                this.localStream.unmuteVideo();
+                this.localTracks.videoTrack.setEnabled(true);
                 this.updateButton('hideVideo', false);
             }
             return true;
@@ -209,16 +197,21 @@ class AgoraClient {
 
     cleanup() {
         try {
-            if (this.localStream) {
-                this.localStream.stop();
-                this.localStream.close();
-                this.localStream = null;
+            // Close local tracks
+            if (this.localTracks) {
+                Object.values(this.localTracks).forEach(track => {
+                    if (track) {
+                        track.close();
+                    }
+                });
+                this.localTracks = null;
             }
             
+            // Leave the channel
             if (this.client) {
-                this.client.leave(() => {
+                this.client.leave().then(() => {
                     console.log('Client left channel successfully');
-                }, err => {
+                }).catch(err => {
                     console.error('Failed to leave channel:', err);
                 });
                 this.client = null;
