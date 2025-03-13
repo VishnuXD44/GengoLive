@@ -228,7 +228,7 @@ class ContentMonitor {
             
             const r2 = data2[i];
             const g2 = data2[i + 1];
-            const b2 = data2[i + 2];
+            const b2 = [i + 2];
             
             // Calculate color difference
             const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
@@ -327,9 +327,6 @@ class ContentMonitor {
      */
     async checkBanStatus() {
         try {
-            // In production, you would check with your backend service
-            // For now, just return false (not banned)
-            
             // Check local storage for ban information
             const banInfo = localStorage.getItem('content_ban_info');
             if (banInfo) {
@@ -368,10 +365,5 @@ class ContentMonitor {
     }
 }
 
-// Make it available globally for non-module scripts
-if (typeof window !== 'undefined') {
-    window.ContentMonitor = ContentMonitor;
-}
-
-// Use module.exports for CommonJS compatibility
-module.exports = ContentMonitor;
+// Make it available globally
+window.ContentMonitor = ContentMonitor;

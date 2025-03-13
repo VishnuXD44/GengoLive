@@ -1,4 +1,3 @@
-import AgoraRTC from 'agora-rtc-sdk-ng';
 const ContentMonitor = require('./contentMonitor.js'); // Update import syntax for CommonJS
 
 // public/scripts/agoraClient.js
@@ -399,6 +398,3 @@ class AgoraClient {
 
 // Make it available globally
 window.AgoraClient = AgoraClient;
-
-// Use module.exports for CommonJS compatibility
-module.exports = AgoraClient;

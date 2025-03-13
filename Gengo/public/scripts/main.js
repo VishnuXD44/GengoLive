@@ -1,5 +1,4 @@
-const AgoraClient = require('./agoraClient.js');
-
+// Just use the global variables
 let currentState = 'idle';
 let currentRoom = null;
 let agoraVideo = null;
