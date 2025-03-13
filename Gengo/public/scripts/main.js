@@ -16,12 +16,11 @@ async function startVideoCall(language, role) {
         try {
             await agoraVideo.checkPermissions();
         } catch (error) {
-            showMessage(error.message, 'error');
+            console.error('Permission error:', error);
             return;
         }
 
         updateState('connecting');
-        showMessage('Connecting to server...', 'info');
 
         // Initialize socket if not already connected
         if (!socket) {
@@ -41,7 +40,6 @@ async function startVideoCall(language, role) {
 
     } catch (error) {
         console.error('Error starting video call:', error);
-        showMessage('Failed to start video call. Please try again.', 'error');
         updateState('idle');
         
         // Remove loading state from connect button
@@ -57,7 +55,6 @@ async function startVideoCall(language, role) {
 function setupSocketListeners() {
     socket.on('match-found', async ({ room, role, peerRole }) => {
         currentRoom = room;
-        showMessage('Match found! Connecting to video...', 'success');
         
         // Hide waiting indicator
         hideWaitingIndicator();
@@ -83,8 +80,6 @@ function setupSocketListeners() {
                 throw new Error('App ID or token not received from server');
             }
             
-            showMessage('Credentials received, connecting to room...', 'info');
-            
             // Inside your match-found handler, right before calling connectToRoom
             console.log('Connecting with credentials:', {
                 appId: data.appId.substring(0, 3) + '...', // Only show part of the ID for security
@@ -107,7 +102,6 @@ function setupSocketListeners() {
                 
                 updateState('connected');
                 setupUIControls();
-                showMessage('Successfully connected to video room', 'success');
                 
                 // Initialize content monitoring for local video
                 await initContentMonitoring();
@@ -119,7 +113,6 @@ function setupSocketListeners() {
             
         } catch (error) {
             console.error('Connection failed:', error);
-            showMessage(error.message || 'Failed to establish video connection', 'error');
             // Emit error before resetting
             if (socket) {
                 socket.emit('error', { error: error.message });
@@ -130,32 +123,27 @@ function setupSocketListeners() {
 
     socket.on('waiting', () => {
         updateState('waiting');
-        showMessage('Waiting for a match...', 'info');
         showWaitingIndicator();
     });
 
     // Update other socket event handlers to hide the waiting indicator
     socket.on('room-closed', ({ reason }) => {
-        showMessage(`Room closed: ${reason}`, 'warning');
         hideWaitingIndicator();
         resetVideoCall();
     });
 
     socket.on('error', ({ message }) => {
-        showMessage(message, 'error');
         hideWaitingIndicator();
         resetVideoCall();
     });
 
     socket.on('disconnect', () => {
-        showMessage('Disconnected from server', 'warning');
         hideWaitingIndicator();
         resetVideoCall();
     });
 
     // Handle socket reconnection
     socket.on('reconnect', () => {
-        showMessage('Reconnected to server', 'success');
         // If we were in a room, we need to rejoin
         if (currentRoom) {
             const language = document.getElementById('language').value;
@@ -363,18 +351,15 @@ async function initContentMonitoring() {
             banThreshold: 0.85,
             consecutiveThreshold: 3,
             onWarning: (data) => {
-                // Display warning message
-                showMessage(data.message, 'warning');
+                console.warn('Content warning:', data.message);
             },
             onBanned: (data) => {
-                // Show ban message
+                console.error('Content ban:', data.message);
                 showContentBanMessage(data);
-                // Disconnect from call
                 leaveCall();
             },
             onError: (error) => {
                 console.error('Content monitoring error:', error);
-                // No need to show errors to user unless critical
             }
         });
         
