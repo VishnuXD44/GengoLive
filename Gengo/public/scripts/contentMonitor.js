@@ -322,7 +322,10 @@ class ContentMonitor {
     }
 }
 
-// Export the class
+// Make it available both globally and as a module
+window.ContentMonitor = ContentMonitor;
+
+// For module bundlers
 if (typeof module !== 'undefined') {
-    module.exports = ContentMonitor;
+  module.exports = ContentMonitor;
 }

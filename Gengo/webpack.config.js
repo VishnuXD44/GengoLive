@@ -26,8 +26,7 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env'],
-                        plugins: ['@babel/plugin-transform-runtime']
+                        presets: ['@babel/preset-env']
                     },
                 },
             },
@@ -102,17 +101,7 @@ module.exports = {
         })
     ],
     resolve: {
-        extensions: ['.js', '.css'],
-        fallback: {
-            "path": require.resolve("path-browserify"),
-            "buffer": require.resolve("buffer/"),
-            "crypto": false,
-            "stream": false
-        },
-        alias: {
-            '@tensorflow/tfjs': false,
-            'nsfwjs': false
-        }
+        extensions: ['.js']
     },
     devServer: {
         port: 9000,

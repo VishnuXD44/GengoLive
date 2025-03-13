@@ -1,4 +1,6 @@
 import AgoraRTC from 'agora-rtc-sdk-ng';
+import ContentMonitor from './contentMonitor.js'; // Add this import
+
 // public/scripts/agoraClient.js
 class AgoraClient {
     constructor() {
@@ -397,3 +399,6 @@ class AgoraClient {
 
 // Make it available globally
 window.AgoraClient = AgoraClient;
+
+// Also export as ES module
+export default AgoraClient;

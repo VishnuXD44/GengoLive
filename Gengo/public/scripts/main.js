@@ -1,3 +1,6 @@
+import AgoraClient from './agoraClient.js';
+// No need to import ContentMonitor here as it's used internally by AgoraClient
+
 let currentState = 'idle';
 let currentRoom = null;
 let agoraVideo = null;
@@ -381,6 +384,10 @@ function showContentBanMessage(data) {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize your app
+    window.agoraClient = new AgoraClient();
+    
+    // Your existing initialization code...
     initializeAgoraVideo();
     
     const connectButton = document.getElementById('connect');
