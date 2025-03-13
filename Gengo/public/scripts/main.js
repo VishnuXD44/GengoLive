@@ -9,6 +9,7 @@ const initializeAgoraVideo = () => {
     agoraVideo = new window.AgoraClient();
 };
 
+// Update the startVideoCall function
 async function startVideoCall(language, role) {
     try {
         // Check permissions first
@@ -22,7 +23,7 @@ async function startVideoCall(language, role) {
         updateState('connecting');
         showMessage('Connecting to server...', 'info');
 
-        // Initialize socket if not alreaSdy connected
+        // Initialize socket if not already connected
         if (!socket) {
             socket = io();
             setupSocketListeners();
@@ -31,6 +32,9 @@ async function startVideoCall(language, role) {
         // Add loading state to connect button
         const connectButton = document.getElementById('connect');
         connectButton.classList.add('loading');
+
+        // Show waiting indicator
+        showWaitingIndicator();
 
         // Join the matching queue
         socket.emit('join', { language, role });
@@ -43,13 +47,20 @@ async function startVideoCall(language, role) {
         // Remove loading state from connect button
         const connectButton = document.getElementById('connect');
         connectButton.classList.remove('loading');
+
+        // Hide waiting indicator
+        hideWaitingIndicator();
     }
 }
 
+// Update the setupSocketListeners function
 function setupSocketListeners() {
     socket.on('match-found', async ({ room, role, peerRole }) => {
         currentRoom = room;
         showMessage('Match found! Connecting to video...', 'success');
+        
+        // Hide waiting indicator
+        hideWaitingIndicator();
         
         try {
             // Get Agora app ID
@@ -120,21 +131,25 @@ function setupSocketListeners() {
     socket.on('waiting', () => {
         updateState('waiting');
         showMessage('Waiting for a match...', 'info');
+        showWaitingIndicator();
     });
 
+    // Update other socket event handlers to hide the waiting indicator
     socket.on('room-closed', ({ reason }) => {
         showMessage(`Room closed: ${reason}`, 'warning');
+        hideWaitingIndicator();
         resetVideoCall();
     });
 
     socket.on('error', ({ message }) => {
         showMessage(message, 'error');
+        hideWaitingIndicator();
         resetVideoCall();
     });
 
-    // Handle socket disconnection
     socket.on('disconnect', () => {
         showMessage('Disconnected from server', 'warning');
+        hideWaitingIndicator();
         resetVideoCall();
     });
 
@@ -150,37 +165,7 @@ function setupSocketListeners() {
     });
 }
 
-function setupUIControls() {
-    const muteButton = document.getElementById('muteAudio');
-    const hideVideoButton = document.getElementById('hideVideo');
-    const leaveButton = document.getElementById('leave');
-
-    // Remove any existing listeners
-    muteButton?.removeEventListener('click', handleMuteClick);
-    hideVideoButton?.removeEventListener('click', handleVideoClick);
-    leaveButton?.removeEventListener('click', handleLeaveClick);
-
-    // Add new listeners
-    muteButton?.addEventListener('click', handleMuteClick);
-    hideVideoButton?.addEventListener('click', handleVideoClick);
-    leaveButton?.addEventListener('click', handleLeaveClick);
-}
-
-function handleMuteClick() {
-    agoraVideo.toggleAudio();
-}
-
-function handleVideoClick() {
-    agoraVideo.toggleVideo();
-}
-
-function handleLeaveClick() {
-    // Show confirmation dialog
-    if (confirm('Are you sure you want to leave the call?')) {
-        resetVideoCall();
-    }
-}
-
+// Update the resetVideoCall function
 function resetVideoCall() {
     if (agoraVideo) {
         agoraVideo.disconnect();
@@ -212,6 +197,40 @@ function resetVideoCall() {
     // Remove any quality indicators or status messages
     const qualityIndicator = document.querySelector('.quality-indicator');
     if (qualityIndicator) qualityIndicator.remove();
+
+    // Hide waiting indicator
+    hideWaitingIndicator();
+}
+
+function setupUIControls() {
+    const muteButton = document.getElementById('muteAudio');
+    const hideVideoButton = document.getElementById('hideVideo');
+    const leaveButton = document.getElementById('leave');
+
+    // Remove any existing listeners
+    muteButton?.removeEventListener('click', handleMuteClick);
+    hideVideoButton?.removeEventListener('click', handleVideoClick);
+    leaveButton?.removeEventListener('click', handleLeaveClick);
+
+    // Add new listeners
+    muteButton?.addEventListener('click', handleMuteClick);
+    hideVideoButton?.addEventListener('click', handleVideoClick);
+    leaveButton?.addEventListener('click', handleLeaveClick);
+}
+
+function handleMuteClick() {
+    agoraVideo.toggleAudio();
+}
+
+function handleVideoClick() {
+    agoraVideo.toggleVideo();
+}
+
+function handleLeaveClick() {
+    // Show confirmation dialog
+    if (confirm('Are you sure you want to leave the call?')) {
+        resetVideoCall();
+    }
 }
 
 function updateState(newState) {
@@ -273,6 +292,30 @@ function updateUI(state) {
     }
 }
 
+// Add this function to show the waiting indicator
+function showWaitingIndicator() {
+    // Remove any existing waiting indicator
+    hideWaitingIndicator();
+    
+    const waitingIndicator = document.createElement('div');
+    waitingIndicator.className = 'waiting-indicator';
+    waitingIndicator.innerHTML = `
+        <div class="spinner"></div>
+        <p>Waiting for a match...</p>
+        <p class="queue-status">This may take a few moments</p>
+    `;
+    document.body.appendChild(waitingIndicator);
+}
+
+// Add this function to hide the waiting indicator
+function hideWaitingIndicator() {
+    const waitingIndicator = document.querySelector('.waiting-indicator');
+    if (waitingIndicator) {
+        waitingIndicator.remove();
+    }
+}
+
+// Update the showMessage function to make it more reliable
 function showMessage(message, type = 'info') {
     // Remove any existing messages of the same type
     const existingMessages = document.querySelectorAll(`.message.${type}-message`);
