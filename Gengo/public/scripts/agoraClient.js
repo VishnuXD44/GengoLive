@@ -1,5 +1,5 @@
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import ContentMonitor from './contentMonitor.js'; // Add this import
+const ContentMonitor = require('./contentMonitor.js'); // Update import syntax for CommonJS
 
 // public/scripts/agoraClient.js
 class AgoraClient {
@@ -31,7 +31,7 @@ class AgoraClient {
             console.error('Failed to initialize content monitoring:', e);
             // Create a dummy content monitor with the same API
             this.contentMonitor = {
-                checkBanStatus: () => false,
+                checkBanStatus: () => Promise.resolve(false),
                 startMonitoring: () => {},
                 stopMonitoring: () => {}
             };
@@ -400,5 +400,5 @@ class AgoraClient {
 // Make it available globally
 window.AgoraClient = AgoraClient;
 
-// Also export as ES module
-export default AgoraClient;
+// Use module.exports for CommonJS compatibility
+module.exports = AgoraClient;

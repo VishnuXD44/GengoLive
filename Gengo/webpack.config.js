@@ -2,27 +2,19 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-// Remove dotenv-webpack dependency since it's causing issues
-// const Dotenv = require('dotenv-webpack');
 
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'language-animation': './public/scripts/language-animation.js',
         'agoraClient': './public/scripts/agoraClient.js',
-        'contentMonitor': './public/scripts/contentMonitor.js'  // Add this line
+        'contentMonitor': './public/scripts/contentMonitor.js'
     },
     output: {
         filename: 'scripts/[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/',
-        library: {
-            type: 'module'
-        }
-    },
-    experiments: {
-        outputModule: true,
+        publicPath: '/'
     },
     module: {
         rules: [
@@ -53,11 +45,6 @@ module.exports = {
         ],
     },
     plugins: [
-        // Remove Dotenv plugin reference
-        // new Dotenv({
-        //    systemvars: true, 
-        //    safe: true 
-        // }),
         new MiniCssExtractPlugin({
             filename: 'css/[name].css'
         }),
@@ -70,7 +57,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'agoraClient', 'contentMonitor'], // Add contentMonitor
+            chunks: ['main', 'language-animation', 'agoraClient', 'contentMonitor'],
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
@@ -92,7 +79,6 @@ module.exports = {
                 { from: 'favicon.ico', to: 'favicon.ico' },
                 { from: 'public/styles.css', to: 'styles.css' },
                 { from: 'public/styles2.css', to: 'styles2.css' },
-                // Ensure Agora SDK is copied - both possible sources
                 { 
                     from: 'node_modules/agora-rtc-sdk-ng/AgoraRTC_N.js',
                     to: 'scripts/AgoraRTC_N.js',

@@ -373,5 +373,5 @@ if (typeof window !== 'undefined') {
     window.ContentMonitor = ContentMonitor;
 }
 
-// Use proper ES module export
-export default ContentMonitor;
+// Use module.exports for CommonJS compatibility
+module.exports = ContentMonitor;

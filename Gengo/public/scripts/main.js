@@ -1,5 +1,4 @@
-import AgoraClient from './agoraClient.js';
-// No need to import ContentMonitor here as it's used internally by AgoraClient
+const AgoraClient = require('./agoraClient.js');
 
 let currentState = 'idle';
 let currentRoom = null;
