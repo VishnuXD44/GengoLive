@@ -315,7 +315,7 @@ function hideWaitingIndicator() {
     }
 }
 
-// Update the showMessage function to make it more reliable
+// Update the showMessage function to be more compact
 function showMessage(message, type = 'info') {
     // Remove any existing messages of the same type
     const existingMessages = document.querySelectorAll(`.message.${type}-message`);
@@ -338,8 +338,8 @@ function showMessage(message, type = 'info') {
     
     document.body.appendChild(messageDiv);
 
-    // Auto-remove after delay, different times based on message type
-    const timeout = type === 'error' ? 8000 : (type === 'warning' ? 5000 : 3000);
+    // Auto-remove after a short delay
+    const timeout = type === 'error' ? 5000 : (type === 'warning' ? 4000 : 3000);
     setTimeout(() => {
         if (messageDiv.parentElement) {
             messageDiv.remove();

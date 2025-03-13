@@ -859,55 +859,63 @@ html, body {
 /* ============ MESSAGES ============ */
 .message {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
+    top: 15px;
+    right: 15px;
+    left: auto;
+    transform: none;
+    padding: 8px 12px;
     border-radius: 8px;
     color: white;
     z-index: 2000;
     width: auto;
-    max-width: 300px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    animation: fadeInOut 5s ease-in-out;
-    font-size: 14px;
+    max-width: 250px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: fadeInRight 0.3s ease-out;
+    font-size: 12px;
     opacity: 0.95;
     text-align: left;
-    transform: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-.success-message { background-color: #2ecc71; }
-.error-message { background-color: #e74c3c; }
-.info-message { background-color: #2196F3; }
-.warning-message { background-color: #FF9800; }
+.success-message { background-color: rgba(46, 204, 113, 0.95); }
+.error-message { background-color: rgba(231, 76, 60, 0.95); }
+.info-message { background-color: rgba(33, 150, 243, 0.95); }
+.warning-message { background-color: rgba(255, 152, 0, 0.95); }
 
 .message-close {
-    margin-left: 12px;
+    margin-left: 10px;
     background: none;
     border: none;
     color: white;
-    font-size: 16px;
+    font-size: 14px;
     cursor: pointer;
     padding: 0 4px;
+    opacity: 0.8;
 }
 
-@keyframes fadeInOut {
-    0% { opacity: 0; transform: translateY(-20px); }
-    10% { opacity: 0.95; transform: translateY(0); }
-    90% { opacity: 0.95; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-20px); }
+.message-close:hover {
+    opacity: 1;
+}
+
+@keyframes fadeInRight {
+    from { opacity: 0; right: -300px; }
+    to { opacity: 0.95; right: 15px; }
 }
 
 /* Mobile adjustments for messages */
 @media (max-width: 767px) {
     .message {
-        top: 15px;
-        right: 15px;
-        left: 15px;
-        padding: 10px 16px;
-        font-size: 13px;
+        top: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+        max-width: 200px;
+    }
+    
+    .message-close {
+        font-size: 12px;
     }
 }
 
@@ -1714,18 +1722,24 @@ html, body {
 /* Message Styles */
 .message {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
+    top: 15px;
+    right: 15px;
+    left: auto;
+    transform: none;
+    padding: 8px 12px;
     border-radius: 8px;
     color: white;
-    font-weight: 500;
     z-index: 2000;
-    animation: fadeInOut 5s ease-in-out;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(4px);
-    max-width: 90%;
-    word-wrap: break-word;
+    width: auto;
+    max-width: 250px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: fadeInRight 0.3s ease-out;
+    font-size: 12px;
+    opacity: 0.95;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .success-message {
@@ -1737,11 +1751,46 @@ html, body {
 }
 
 .info-message {
-    background-color: rgba(52, 152, 219, 0.95);
+    background-color: rgba(33, 150, 243, 0.95);
 }
 
 .warning-message {
-    background-color: rgba(241, 196, 15, 0.95);
+    background-color: rgba(255, 152, 0, 0.95);
+}
+
+.message-close {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.8;
+}
+
+.message-close:hover {
+    opacity: 1;
+}
+
+@keyframes fadeInRight {
+    from { opacity: 0; right: -300px; }
+    to { opacity: 0.95; right: 15px; }
+}
+
+/* Mobile adjustments for messages */
+@media (max-width: 767px) {
+    .message {
+        top: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+        max-width: 200px;
+    }
+    
+    .message-close {
+        font-size: 12px;
+    }
 }
 
 /* Video Chat Components */
