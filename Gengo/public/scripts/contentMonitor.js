@@ -298,6 +298,20 @@ class ContentMonitor {
         const banDuration = 15 * 60 * 1000; // 15 minutes (in ms)
         const banUntil = new Date(Date.now() + banDuration);
         
+        // Store ban info in local storage for persistence
+        const banInfo = {
+            reason: 'Content policy violation',
+            until: banUntil.getTime(),
+            duration: banDuration,
+            timestamp: Date.now()
+        };
+        
+        try {
+            localStorage.setItem('content_ban_info', JSON.stringify(banInfo));
+        } catch (e) {
+            this.logError('Failed to store ban info:', e);
+        }
+        
         // In production, you would record this ban in your backend
         
         return {
@@ -305,6 +319,38 @@ class ContentMonitor {
             until: banUntil,
             duration: banDuration
         };
+    }
+    
+    /**
+     * Check if the user is currently banned
+     * @returns {Promise<boolean>} True if user is banned, false otherwise
+     */
+    async checkBanStatus() {
+        try {
+            // In production, you would check with your backend service
+            // For now, just return false (not banned)
+            
+            // Check local storage for ban information
+            const banInfo = localStorage.getItem('content_ban_info');
+            if (banInfo) {
+                const ban = JSON.parse(banInfo);
+                const now = Date.now();
+                
+                // If ban is still active
+                if (ban.until > now) {
+                    this.logInfo('User is currently banned until', new Date(ban.until));
+                    return true;
+                } else {
+                    // Ban expired, remove from storage
+                    localStorage.removeItem('content_ban_info');
+                }
+            }
+            
+            return false;
+        } catch (error) {
+            this.logError('Error checking ban status:', error);
+            return false; // Default to not banned on error
+        }
     }
     
     /**
@@ -322,10 +368,10 @@ class ContentMonitor {
     }
 }
 
-// Make it available both globally and as a module
-window.ContentMonitor = ContentMonitor;
-
-// For module bundlers
-if (typeof module !== 'undefined') {
-  module.exports = ContentMonitor;
+// Make it available globally for non-module scripts
+if (typeof window !== 'undefined') {
+    window.ContentMonitor = ContentMonitor;
 }
+
+// Use proper ES module export
+export default ContentMonitor;

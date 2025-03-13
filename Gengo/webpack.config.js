@@ -16,7 +16,13 @@ module.exports = {
         filename: 'scripts/[name].bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
-        publicPath: '/'
+        publicPath: '/',
+        library: {
+            type: 'module'
+        }
+    },
+    experiments: {
+        outputModule: true,
     },
     module: {
         rules: [
