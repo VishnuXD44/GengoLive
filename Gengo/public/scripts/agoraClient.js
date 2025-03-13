@@ -1,4 +1,5 @@
-const ContentMonitor = require('./contentMonitor.js'); // Update import syntax for CommonJS
+// Remove the require statement
+// const ContentMonitor = require('./contentMonitor.js');
 
 // public/scripts/agoraClient.js
 class AgoraClient {
@@ -16,7 +17,8 @@ class AgoraClient {
         
         // Try to initialize content monitor
         try {
-            this.contentMonitor = new ContentMonitor({
+            // Use the global ContentMonitor class
+            this.contentMonitor = new window.ContentMonitor({
                 checkInterval: 2000, // Check every 2 seconds
                 warningThreshold: 0.5, // Lower threshold
                 banThreshold: 0.7, // Lower threshold

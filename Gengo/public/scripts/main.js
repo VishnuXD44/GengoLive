@@ -6,7 +6,7 @@ let socket = null;
 
 // Initialize Agora Video client
 const initializeAgoraVideo = () => {
-    agoraVideo = new AgoraClient();
+    agoraVideo = new window.AgoraClient();
 };
 
 async function startVideoCall(language, role) {
@@ -22,7 +22,7 @@ async function startVideoCall(language, role) {
         updateState('connecting');
         showMessage('Connecting to server...', 'info');
 
-        // Initialize socket if not already connected
+        // Initialize socket if not alreaSdy connected
         if (!socket) {
             socket = io();
             setupSocketListeners();

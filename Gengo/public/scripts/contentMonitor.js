@@ -5,14 +5,13 @@
 class ContentMonitor {
     constructor(options = {}) {
         this.options = {
-            checkInterval: 2000,         // How often to check content (ms)
-            warningThreshold: 0.6,       // Score threshold for warning
-            banThreshold: 0.8,           // Score threshold for ban
-            consecutiveThreshold: 3,     // How many consecutive violations before ban
-            onWarning: () => {},         // Warning callback
-            onBanned: () => {},          // Ban callback  
-            onError: () => {},           // Error callback
-            ...options
+            checkInterval: options.checkInterval || 3000,
+            warningThreshold: options.warningThreshold || 0.7,
+            banThreshold: options.banThreshold || 0.85,
+            consecutiveThreshold: options.consecutiveThreshold || 3,
+            onWarning: options.onWarning || function(){},
+            onBanned: options.onBanned || function(){},
+            onError: options.onError || function(){}
         };
         
         this.videoElement = null;
@@ -24,7 +23,7 @@ class ContentMonitor {
         this.lastFrameData = null;
         this.model = null;
         this.modelLoaded = false;
-        this.verbose = false; // Set to true for debugging
+        this.verbose = true; // Set to false in production
     }
 
     /**
@@ -228,7 +227,7 @@ class ContentMonitor {
             
             const r2 = data2[i];
             const g2 = data2[i + 1];
-            const b2 = [i + 2];
+            const b2 = [i + 2]; 
             
             // Calculate color difference
             const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);

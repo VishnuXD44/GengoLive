@@ -86,8 +86,11 @@
     <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Load contentMonitor first -->
     <script src="/scripts/contentMonitor.bundle.js"></script>
+    <!-- Then load agoraClient which depends on contentMonitor -->
     <script src="/scripts/agoraClient.bundle.js"></script>
+    <!-- Finally load main -->
     <script src="/scripts/main.bundle.js"></script>
 
     <!-- Error handling for script loading -->
