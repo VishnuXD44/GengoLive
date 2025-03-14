@@ -615,31 +615,29 @@ html, body {
     gap: 24px;
     width: 100%;
     max-width: 1400px;
-    margin: 2rem auto;
+    margin: 2rem auto 100px; /* Added bottom margin to make space for controls */
     padding: 24px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(10px);
     position: relative;
-    transition: all 0.3s ease;
 }
 
 /* Video controls container */
 .video-controls {
     position: fixed;
-    bottom: 32px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 0;
+    left: 0;
+    width: 100%;
     display: flex;
+    justify-content: center;
     gap: 20px;
     padding: 16px 24px;
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 30px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(10px);
     z-index: 1000;
-    transition: all 0.3s ease;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .control-button {
@@ -2109,34 +2107,24 @@ html, body {
 
 /* Update the video controls positioning for mobile */
 @media (max-width: 767px) {
+    .video-container {
+        grid-template-columns: 1fr;
+        margin-bottom: 80px; /* Increased bottom margin for mobile */
+        padding: 12px;
+        gap: 12px;
+    }
+
     .video-controls {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        padding: 10px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        display: flex;
-        justify-content: space-around;
+        padding: 12px;
         gap: 10px;
-        border-top: 1px solid rgba(0, 0, 0, 0.1);
-        transform: none;
-        border-radius: 0;
     }
 
     .control-button {
         padding: 8px 12px;
-        font-size: 12px;
     }
 
     .control-button img {
-        width: 16px;
-        height: 16px;
-    }
-
-    /* Add padding to the video container to prevent overlap */
-    .video-container {
-        padding-bottom: 80px;  /* Space for controls */
+        width: 20px;
+        height: 20px;
     }
 }
