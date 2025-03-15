@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gengo - Language Exchange Platform</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="styles.css" rel="stylesheet" type="text/css">
     <script src="/socket.io/socket.io.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -12,9 +12,6 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">
-            <a href="index.html">GENGO</a>
-        </div>
         <div class="nav-links">
             <a href="index.html" class="active">Home</a>
             <a href="main.html">Practice</a>
@@ -25,46 +22,34 @@
 
     <div class="container">
         <div class="content-wrapper">
-            <div class="hero-section">
+            <div class="logo-section">
                 <h1 class="main-logo">GENGO</h1>
                 <p class="hero-text">
-                    Connect with native speakers worldwide for authentic conversations that accelerate your language learning journey.
+                    Gengo is a vibrant language exchange app that connects you with native speakers for authentic conversations, helping you learn and grow together.
                 </p>
-                <button onclick="window.location.href='main.html'" class="get-started">
-                    Start Practicing
-                </button>
             </div>
 
             <div class="features">
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <img src="assets/bgimg2.png" alt="Learn" class="feature-image">
-                    </div>
+                    <img src="assets/bgimg2.png" alt="Learn" class="feature-image">
                     <h2 class="feature-title">LEARN</h2>
-                    <p class="feature-description">Master new languages through real conversations with native speakers.</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <img src="assets/bgimg1.png" alt="Exchange" class="feature-image">
-                    </div>
+                    <img src="assets/bgimg1.png" alt="Exchange" class="feature-image">
                     <h2 class="feature-title">EXCHANGE</h2>
-                    <p class="feature-description">Share your language skills while learning from others in a collaborative environment.</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <img src="assets/bgimg3.png" alt="Communicate" class="feature-image">
-                    </div>
+                    <img src="assets/bgimg3.png" alt="Communicate" class="feature-image">
                     <h2 class="feature-title">COMMUNICATE</h2>
-                    <p class="feature-description">Build confidence through real-time video conversations with language partners.</p>
                 </div>
             </div>
+
+            <button onclick="window.location.href='main.html'" class="get-started">
+                Get Started
+            </button>
         </div>
     </div>
-
-    <footer class="site-footer">
-        <p>© 2023 Gengo. All rights reserved.</p>
-    </footer>
 </body>
 </html>
