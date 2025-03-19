@@ -34,7 +34,7 @@ class FloatingText {
     constructor() {
         this.element = document.createElement('div');
         this.element.className = 'floating-text';
-        document.body.appendChild(this.element);
+        document.body.insertBefore(this.element, document.body.firstChild);
         this.startAnimation();
     }
 
@@ -63,12 +63,14 @@ class FloatingText {
             videoContainerRect = videoContainer.getBoundingClientRect();
         }
         
-        // Random starting position (both X and Y)
+        // Random starting position (both X and Y), keeping within viewport bounds
         let startX, startY;
         
         do {
-            startX = Math.random() * 90 + 5; // 5% to 95% of viewport width
-            startY = Math.random() * 20 + 80; // 80% to 100% of viewport height
+            // Adjust the range to keep text fully within viewport (5-90% instead of 5-95%)
+            startX = Math.random() * 85 + 5; // 5% to 90% of viewport width
+            // Start from more of the middle of the screen (20-70% of viewport height)
+            startY = Math.random() * 50 + 20; // 20% to 70% of viewport height
             
             // Convert to pixels for comparison
             const pixelX = (startX * window.innerWidth) / 100;
@@ -104,11 +106,19 @@ class FloatingText {
 // Create and manage floating texts
 const createFloatingTexts = () => {
     const texts = [];
-    const numTexts = 12; // Number of floating texts
+    // Reduce number of texts to minimize potential impact on performance
+    const numTexts = 8; // Reduced from 12
+    
+    // Check viewport size and adjust number of texts for smaller screens
+    const isMobile = window.innerWidth < 768;
+    const actualNumTexts = isMobile ? 4 : numTexts;
 
-    for (let i = 0; i < numTexts; i++) {
+    for (let i = 0; i < actualNumTexts; i++) {
         const text = new FloatingText();
         texts.push(text);
+        
+        // Store reference to instance for easier cleanup
+        text.element.__instance = text;
         
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
@@ -120,18 +130,32 @@ const createFloatingTexts = () => {
             text.startAnimation();
         }, i * 700); // 700ms delay between each text's first appearance
     }
-};
+    
+    return texts;
+}
 
 // Start animations when document is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Create a cleanup function to remove elements when leaving the page
+    let floatingTexts = [];
+    
     // Wait a bit before starting animations to ensure all elements are loaded
-    setTimeout(createFloatingTexts, 1000);
+    setTimeout(() => {
+        floatingTexts = createFloatingTexts();
+    }, 1000);
     
     // Add window resize handler to reposition text if needed
     window.addEventListener('resize', () => {
         document.querySelectorAll('.floating-text').forEach(text => {
             const instance = text.__instance;
             if (instance) instance.startAnimation();
+        });
+    });
+    
+    // Cleanup function for page transitions
+    window.addEventListener('beforeunload', () => {
+        document.querySelectorAll('.floating-text').forEach(element => {
+            element.remove();
         });
     });
 });

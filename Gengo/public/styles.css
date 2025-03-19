@@ -932,24 +932,25 @@ html, body {
     }
 }
 
-/* ============ FLOATING TEXT ============ */
-
+/* Floating Text Styles */
 .floating-text {
-    position: absolute;
+    position: fixed; /* Fixed positioning relative to viewport */
     opacity: 0;
     color: var(--pink);
     font-family: 'Nunito', sans-serif;
     font-weight: 600;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
     pointer-events: none;
-    z-index: 10;
+    z-index: -1; /* Negative z-index to ensure it's behind all other elements */
+    transform-origin: center;
+    will-change: transform, opacity;
 }
 
-/* Animation for floating text */
+/* Animation for floating text - keeps text within viewport bounds */
 @keyframes float {
     0% {
         opacity: 0;
-        transform: translateY(0) rotate(0deg);
+        transform: translateY(0) translateX(0) rotate(0deg);
     }
     10% {
         opacity: 0.8;
@@ -959,7 +960,7 @@ html, body {
     }
     100% {
         opacity: 0;
-        transform: translateY(-80vh) rotate(10deg);
+        transform: translateY(-40vh) translateX(20px) rotate(10deg);
     }
 }
 
@@ -1738,187 +1739,6 @@ html, body {
 }
 
 /* Message Styles */
-.message {
-    position: fixed;
-    top: 15px;
-    right: 15px;
-    left: auto;
-    transform: none;
-    padding: 8px 12px;
-    border-radius: 8px;
-    color: white;
-    z-index: 2000;
-    width: auto;
-    max-width: 250px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    animation: fadeInRight 0.3s ease-out;
-    font-size: 12px;
-    opacity: 0.95;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.success-message {
-    background-color: rgba(46, 204, 113, 0.95);
-}
-
-.error-message {
-    background-color: rgba(231, 76, 60, 0.95);
-}
-
-.info-message {
-    background-color: rgba(33, 150, 243, 0.95);
-}
-
-.warning-message {
-    background-color: rgba(255, 152, 0, 0.95);
-}
-
-.message-close {
-    margin-left: 10px;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 0 4px;
-    opacity: 0.8;
-}
-
-.message-close:hover {
-    opacity: 1;
-}
-
-@keyframes fadeInRight {
-    from { opacity: 0; right: -300px; }
-    to { opacity: 0.95; right: 15px; }
-}
-
-/* Mobile adjustments for messages */
-@media (max-width: 767px) {
-    .message {
-        top: 10px;
-        right: 10px;
-        padding: 6px 10px;
-        font-size: 11px;
-        max-width: 200px;
-    }
-    
-    .message-close {
-        font-size: 12px;
-    }
-}
-
-/* Video Chat Components */
-.waiting-indicator {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.8);
-    padding: 15px;
-    border-radius: 12px;
-    color: white;
-    text-align: center;
-    z-index: 1000;
-    width: auto;
-    min-width: 150px;
-    max-width: 80%;
-}
-
-.waiting-indicator .spinner {
-    width: 30px;
-    height: 30px;
-    margin: 0 auto 10px;
-    border: 4px solid rgba(255, 255, 255, 0.2);
-    border-top: 4px solid var(--pink);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-.waiting-indicator p {
-    margin: 5px 0;
-    font-size: 14px;
-}
-
-.queue-status {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-    margin-top: 5px;
-}
-
-@media (max-width: 767px) {
-    .waiting-indicator {
-        padding: 10px;
-        min-width: 140px;
-    }
-
-    .waiting-indicator .spinner {
-        width: 25px;
-        height: 25px;
-    }
-
-    .waiting-indicator p {
-        font-size: 12px;
-    }
-
-    .queue-status {
-        font-size: 10px;
-    }
-}
-
-/* Add to the bottom of your styles.css file */
-.content-ban-message {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    padding: 20px;
-    z-index: 10000;
-    max-width: 90%;
-    width: 350px; /* Reduced from 450px */
-    text-align: center;
-}
-
-.ban-header {
-    font-size: 18px; /* Reduced from 22px */
-    font-weight: 600;
-    color: #ff385c;
-    margin-bottom: 12px;
-}
-
-.ban-reason {
-    font-size: 14px; /* Reduced from 16px */
-    margin-bottom: 10px;
-}
-
-.ban-detail {
-    font-size: 13px; /* Reduced from 14px */
-    margin-bottom: 15px;
-    color: #555;
-}
-
-#dismiss-ban {
-    background-color: #ff385c;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 7px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-#dismiss-ban:hover {
-    background-color: #e5293c;
-}
-
-/* Improved notification messages */
 .message {
     position: fixed;
     bottom: 20px;
