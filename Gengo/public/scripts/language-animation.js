@@ -46,8 +46,8 @@ class FloatingText {
         const greeting = greetings[Math.floor(Math.random() * greetings.length)];
         this.element.textContent = greeting;
         
-        // Slightly larger text size for better visibility with pastel colors
-        const size = Math.random() * (2.8 - 1.5) + 1.5;
+        // Slightly smaller text size to reduce impact on layout
+        const size = Math.random() * (2.2 - 1.3) + 1.3;
         this.element.style.fontSize = `${size}rem`;
         
         // Add random color class
@@ -59,6 +59,10 @@ class FloatingText {
         this.element.classList.remove(...fontClasses);
         const randomFont = fontClasses[Math.floor(Math.random() * fontClasses.length)];
         this.element.classList.add(randomFont);
+        
+        // Get viewport dimensions to ensure text stays within bounds
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
         
         // Check for content elements we need to avoid
         const elementsToAvoid = [
@@ -81,24 +85,17 @@ class FloatingText {
         
         do {
             attempts++;
-            // More focused placement along the sides of the screen
-            // This helps avoid important central content
-            if (Math.random() > 0.5) {
-                // Left or right side
-                startX = Math.random() > 0.5 ? 
-                    Math.random() * 20 + 5 :  // Left side (5-25%)
-                    Math.random() * 20 + 75;  // Right side (75-95%)
-            } else {
-                // More centered but still avoiding main content
-                startX = Math.random() * 60 + 20; // 20-80%
-            }
             
-            // Start lower on the page for upward movement
-            startY = Math.random() * 20 + 70; // 70-90% of viewport height
+            // Keep text well within the viewport horizontally
+            startX = Math.random() * 70 + 15; // 15-85% of viewport width
+            
+            // Keep text at the bottom portion of the viewport for upward movement
+            // But not too low that it causes scroll
+            startY = Math.random() * 15 + 65; // 65-80% of viewport height
             
             // Convert to pixels for comparison
-            const pixelX = (startX * window.innerWidth) / 100;
-            const pixelY = (startY * window.innerHeight) / 100;
+            const pixelX = (startX * viewportWidth) / 100;
+            const pixelY = (startY * viewportHeight) / 100;
             
             // Check if position overlaps with any element to avoid
             positionIsValid = true;
@@ -121,12 +118,12 @@ class FloatingText {
         this.element.style.left = `${startX}vw`;
         this.element.style.top = `${startY}vh`;
         
-        // Minimal rotation for more elegant appearance
-        const rotation = Math.random() * 10 - 5; // -5 to 5 degrees
+        // Very minimal rotation
+        const rotation = Math.random() * 6 - 3; // -3 to 3 degrees
         this.element.style.transform = `rotate(${rotation}deg)`;
         
-        // Longer duration for smoother animation
-        const duration = Math.random() * (20 - 12) + 12; // 12-20 seconds
+        // Shorter duration for less impact on scroll
+        const duration = Math.random() * (16 - 10) + 10; // 10-16 seconds
         
         // Add a small random delay for more natural staggered effect
         const delay = Math.random() * 0.8;
@@ -138,15 +135,15 @@ class FloatingText {
     }
 }
 
-// Create and manage floating texts
+// Create and manage floating texts - reduce quantity
 const createFloatingTexts = () => {
     const texts = [];
-    // Reduced number of texts for cleaner appearance
-    const numTexts = 6;
+    // Reduce number of texts to minimize impact on layout
+    const numTexts = 4; // Reduced from 6
     
     // Check viewport size and adjust number of texts for smaller screens
     const isMobile = window.innerWidth < 768;
-    const actualNumTexts = isMobile ? 3 : numTexts;
+    const actualNumTexts = isMobile ? 2 : numTexts;
 
     for (let i = 0; i < actualNumTexts; i++) {
         const text = new FloatingText();
@@ -158,37 +155,66 @@ const createFloatingTexts = () => {
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
             setTimeout(() => {
-                // Longer delay before restarting to keep animations sparse
+                // Delay before restarting
                 text.startAnimation();
-            }, Math.random() * 2000 + 1000); // 1-3 second delay
+            }, Math.random() * 2000 + 2000); // 2-4 second delay
         });
 
         // More widely staggered start times
         setTimeout(() => {
             text.startAnimation();
-        }, i * 1200 + Math.random() * 800); // Base delay plus random offset
+        }, i * 1500 + Math.random() * 1000); // Base delay plus random offset
     }
     
     return texts;
 }
 
-// Start animations when document is loaded
+// Start animations when document is loaded, with checks to prevent viewport issues
 document.addEventListener('DOMContentLoaded', () => {
+    // Function to check if content fits in viewport
+    const checkViewportFit = () => {
+        const body = document.body;
+        const html = document.documentElement;
+        
+        // Get maximum height of the page
+        const height = Math.max(
+            body.scrollHeight, body.offsetHeight,
+            html.clientHeight, html.scrollHeight, html.offsetHeight
+        );
+        
+        // Check if page height exceeds viewport significantly
+        return height <= window.innerHeight * 1.1; // Allow 10% tolerance
+    };
+    
     // Create a cleanup function to remove elements when leaving the page
     let floatingTexts = [];
     
     // Wait a bit before starting animations to ensure all elements are loaded
     setTimeout(() => {
-        floatingTexts = createFloatingTexts();
+        // Only create floating texts if content fits viewport reasonably well
+        if (checkViewportFit()) {
+            floatingTexts = createFloatingTexts();
+        } else {
+            // If content doesn't fit viewport, use fewer texts with limited animation
+            const reduced = Math.min(2, window.innerWidth < 768 ? 1 : 2);
+            const container = document.createElement('div');
+            container.style.cssText = 'position:absolute; bottom:20px; left:0; right:0; overflow:hidden; height:200px; pointer-events:none;';
+            document.body.appendChild(container);
+            
+            for (let i = 0; i < reduced; i++) {
+                const text = new FloatingText();
+                container.appendChild(text.element);
+                floatingTexts.push(text);
+                text.element.__instance = text;
+                
+                text.element.addEventListener('animationend', () => {
+                    setTimeout(() => text.startAnimation(), 3000);
+                });
+                
+                setTimeout(() => text.startAnimation(), i * 2000);
+            }
+        }
     }, 1500);
-    
-    // Add window resize handler to reposition text if needed
-    window.addEventListener('resize', () => {
-        document.querySelectorAll('.floating-text').forEach(text => {
-            const instance = text.__instance;
-            if (instance) instance.startAnimation();
-        });
-    });
     
     // Cleanup function for page transitions
     window.addEventListener('beforeunload', () => {

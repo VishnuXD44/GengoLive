@@ -97,19 +97,22 @@ html, body {
 
 /* ============ CONTAINER STYLES ============ */
 .container {
+    position: relative;
     min-height: 100vh;
-    height: auto;
+    width: 100%;
+    overflow-x: hidden;
     padding: 80px 2rem 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: auto;
-    position: relative;
     background-color: #fff;
 }
 
 .content-wrapper {
     position: relative;
+    max-width: 100%;
+    overflow-x: hidden;
     z-index: 2;
     width: 100%;
     max-width: 1200px;
@@ -313,17 +316,40 @@ html, body {
     transform-origin: center;
     will-change: transform, opacity;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.07));
+    overflow: hidden;
 }
 
-/* Smoother animation for floating text */
+/* Ensure container has proper height */
+.container {
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+/* Fix content wrapper to maintain viewport constraints */
+.content-wrapper {
+    position: relative;
+    max-width: 100%;
+    overflow-x: hidden;
+    z-index: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Animation that stays within viewport boundaries */
 @keyframes float {
     0% {
         opacity: 0;
-        transform: translateY(5vh) translateX(0);
+        transform: translateY(10vh) translateX(0);
     }
     10% {
         opacity: 0.7;
-        transform: translateY(3vh) translateX(5px);
+        transform: translateY(5vh) translateX(5px);
     }
     40% {
         opacity: 0.7;
@@ -331,15 +357,15 @@ html, body {
     }
     70% {
         opacity: 0.7;
-        transform: translateY(-25vh) translateX(5px);
+        transform: translateY(-20vh) translateX(5px);
     }
     90% {
         opacity: 0.7;
-        transform: translateY(-40vh) translateX(0);
+        transform: translateY(-30vh) translateX(0);
     }
     100% {
         opacity: 0;
-        transform: translateY(-45vh) translateX(-5px);
+        transform: translateY(-35vh) translateX(-5px);
     }
 }
 
