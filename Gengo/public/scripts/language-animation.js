@@ -16,11 +16,15 @@ const greetings = [
     'Xin chào',  // Vietnamese
 ];
 
+// Updated color classes to use pastel colors
 const colorClasses = [
-    'floating-text-pink',
-    'floating-text-orange',
-    'floating-text-blue',
-    'floating-text-dark'
+    'floating-text-earth',
+    'floating-text-mauve',
+    'floating-text-cream',
+    'floating-text-sky',
+    'floating-text-dream',
+    'floating-text-awake',
+    'floating-text-light'
 ];
 
 const fontClasses = [
@@ -42,8 +46,8 @@ class FloatingText {
         const greeting = greetings[Math.floor(Math.random() * greetings.length)];
         this.element.textContent = greeting;
         
-        // Random size between 1rem and 2.5rem
-        const size = Math.random() * (2.5 - 1) + 1;
+        // Slightly larger text size for better visibility with pastel colors
+        const size = Math.random() * (2.8 - 1.5) + 1.5;
         this.element.style.fontSize = `${size}rem`;
         
         // Add random color class
@@ -77,8 +81,20 @@ class FloatingText {
         
         do {
             attempts++;
-            startX = Math.random() * 80 + 10; // 10% to 90% of viewport width
-            startY = Math.random() * 40 + 30; // 30% to 70% of viewport height
+            // More focused placement along the sides of the screen
+            // This helps avoid important central content
+            if (Math.random() > 0.5) {
+                // Left or right side
+                startX = Math.random() > 0.5 ? 
+                    Math.random() * 20 + 5 :  // Left side (5-25%)
+                    Math.random() * 20 + 75;  // Right side (75-95%)
+            } else {
+                // More centered but still avoiding main content
+                startX = Math.random() * 60 + 20; // 20-80%
+            }
+            
+            // Start lower on the page for upward movement
+            startY = Math.random() * 20 + 70; // 70-90% of viewport height
             
             // Convert to pixels for comparison
             const pixelX = (startX * window.innerWidth) / 100;
@@ -96,8 +112,8 @@ class FloatingText {
                 }
             }
             
-            // Prevent infinite loops - after 10 attempts, accept any position
-            if (attempts > 10) {
+            // Prevent infinite loops - after 8 attempts, accept any position
+            if (attempts > 8) {
                 positionIsValid = true;
             }
         } while (!positionIsValid);
@@ -105,31 +121,32 @@ class FloatingText {
         this.element.style.left = `${startX}vw`;
         this.element.style.top = `${startY}vh`;
         
-        // Random rotation between -15 and 15 degrees
-        const rotation = Math.random() * 30 - 15;
+        // Minimal rotation for more elegant appearance
+        const rotation = Math.random() * 10 - 5; // -5 to 5 degrees
         this.element.style.transform = `rotate(${rotation}deg)`;
         
-        // Random duration between 8-15 seconds for smoother animation
-        const duration = Math.random() * (15 - 8) + 8;
+        // Longer duration for smoother animation
+        const duration = Math.random() * (20 - 12) + 12; // 12-20 seconds
         
         // Add a small random delay for more natural staggered effect
-        const delay = Math.random() * 0.5;
+        const delay = Math.random() * 0.8;
         
         // Reset animation
         this.element.style.animation = 'none';
         this.element.offsetHeight; // Trigger reflow
-        this.element.style.animation = `float ${duration}s ${delay}s cubic-bezier(0.25, 0.1, 0.25, 1) forwards`;
+        this.element.style.animation = `float ${duration}s ${delay}s ease-in-out forwards`;
     }
 }
 
 // Create and manage floating texts
 const createFloatingTexts = () => {
     const texts = [];
-    const numTexts = 8; // Reduced from 12
+    // Reduced number of texts for cleaner appearance
+    const numTexts = 6;
     
     // Check viewport size and adjust number of texts for smaller screens
     const isMobile = window.innerWidth < 768;
-    const actualNumTexts = isMobile ? 4 : numTexts;
+    const actualNumTexts = isMobile ? 3 : numTexts;
 
     for (let i = 0; i < actualNumTexts; i++) {
         const text = new FloatingText();
@@ -141,15 +158,15 @@ const createFloatingTexts = () => {
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
             setTimeout(() => {
-                // Small delay before restarting to avoid having all animations sync up
+                // Longer delay before restarting to keep animations sparse
                 text.startAnimation();
-            }, Math.random() * 1000); // Random delay between 0-1000ms
+            }, Math.random() * 2000 + 1000); // 1-3 second delay
         });
 
-        // Stagger the start times more naturally
+        // More widely staggered start times
         setTimeout(() => {
             text.startAnimation();
-        }, i * 600 + Math.random() * 400); // Base delay plus random offset
+        }, i * 1200 + Math.random() * 800); // Base delay plus random offset
     }
     
     return texts;
@@ -163,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait a bit before starting animations to ensure all elements are loaded
     setTimeout(() => {
         floatingTexts = createFloatingTexts();
-    }, 1000);
+    }, 1500);
     
     // Add window resize handler to reposition text if needed
     window.addEventListener('resize', () => {
