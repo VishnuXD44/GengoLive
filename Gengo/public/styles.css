@@ -935,40 +935,45 @@ html, body {
 /* ============ FLOATING TEXT ============ */
 
 .floating-text {
-    position: fixed;
-    color: var(--dark);
+    position: absolute;
     opacity: 0;
+    color: var(--pink);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
     pointer-events: none;
-    z-index: 0;  /* Lower z-index so it appears behind the selection container */
-    font-weight: 700;
-    font-size: 1.8rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-    letter-spacing: 0.05em;
-    animation: float 8s linear;
-    will-change: transform, opacity;  /* Optimize animation performance */
+    z-index: 10;
 }
 
-/* Update Floating Text animation */
+/* Animation for floating text */
 @keyframes float {
     0% {
-        transform: translateY(100vh) translateX(-50%);
         opacity: 0;
+        transform: translateY(0) rotate(0deg);
     }
     10% {
-        opacity: 0.4;
-    }
-    45% {
-        opacity: 0.4;
+        opacity: 0.8;
     }
     90% {
-        opacity: 0.4;
+        opacity: 0.8;
     }
     100% {
-        transform: translateY(-100vh) translateX(50%);
         opacity: 0;
+        transform: translateY(-80vh) rotate(10deg);
     }
 }
 
+/* Floating text colors */
+.floating-text-pink { color: var(--pink); }
+.floating-text-orange { color: var(--orange); }
+.floating-text-blue { color: var(--blue); }
+.floating-text-dark { color: var(--dark); }
+
+/* Floating text fonts */
+.font-nunito { font-family: 'Nunito', sans-serif; }
+.font-space { font-family: 'Space Grotesk', sans-serif; }
+.font-poppins { font-family: 'Poppins', sans-serif; }
+.font-montserrat { font-family: 'Montserrat', sans-serif; }
 
 /* ============ RESPONSIVE STYLES ============ */
 
