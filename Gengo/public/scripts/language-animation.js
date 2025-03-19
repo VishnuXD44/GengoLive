@@ -62,7 +62,9 @@ class FloatingText {
             document.querySelector('.logo-section'),
             document.querySelector('.features'),
             document.querySelector('.selection-container'),
-            document.querySelector('.cta-section')
+            document.querySelector('.cta-section'),
+            document.querySelector('.beginning-section'),
+            document.querySelector('.contact-section')
         ].filter(element => element !== null);
         
         // Get the rectangles of all elements to avoid
@@ -75,10 +77,8 @@ class FloatingText {
         
         do {
             attempts++;
-            // Adjust the range to keep text fully within viewport (5-90% instead of 5-95%)
-            startX = Math.random() * 85 + 5; // 5% to 90% of viewport width
-            // Start from more of the middle of the screen (20-70% of viewport height)
-            startY = Math.random() * 50 + 20; // 20% to 70% of viewport height
+            startX = Math.random() * 80 + 10; // 10% to 90% of viewport width
+            startY = Math.random() * 40 + 30; // 30% to 70% of viewport height
             
             // Convert to pixels for comparison
             const pixelX = (startX * window.innerWidth) / 100;
@@ -109,20 +109,22 @@ class FloatingText {
         const rotation = Math.random() * 30 - 15;
         this.element.style.transform = `rotate(${rotation}deg)`;
         
-        // Random duration between 5-10 seconds
-        const duration = Math.random() * (10 - 5) + 5;
+        // Random duration between 8-15 seconds for smoother animation
+        const duration = Math.random() * (15 - 8) + 8;
+        
+        // Add a small random delay for more natural staggered effect
+        const delay = Math.random() * 0.5;
         
         // Reset animation
         this.element.style.animation = 'none';
         this.element.offsetHeight; // Trigger reflow
-        this.element.style.animation = `float ${duration}s ease-in-out`;
+        this.element.style.animation = `float ${duration}s ${delay}s cubic-bezier(0.25, 0.1, 0.25, 1) forwards`;
     }
 }
 
 // Create and manage floating texts
 const createFloatingTexts = () => {
     const texts = [];
-    // Reduce number of texts to minimize potential impact on performance
     const numTexts = 8; // Reduced from 12
     
     // Check viewport size and adjust number of texts for smaller screens
@@ -138,13 +140,16 @@ const createFloatingTexts = () => {
         
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
-            text.startAnimation();
+            setTimeout(() => {
+                // Small delay before restarting to avoid having all animations sync up
+                text.startAnimation();
+            }, Math.random() * 1000); // Random delay between 0-1000ms
         });
 
-        // Stagger the start times
+        // Stagger the start times more naturally
         setTimeout(() => {
             text.startAnimation();
-        }, i * 700); // 700ms delay between each text's first appearance
+        }, i * 600 + Math.random() * 400); // Base delay plus random offset
     }
     
     return texts;

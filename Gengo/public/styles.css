@@ -935,33 +935,51 @@ html, body {
 
 /* Floating Text Styles */
 .floating-text {
-    position: fixed; /* Fixed positioning relative to viewport */
+    position: fixed;
     opacity: 0;
     color: var(--pink);
     font-family: 'Nunito', sans-serif;
     font-weight: 600;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
     pointer-events: none;
-    z-index: 1; /* Low positive z-index instead of negative */
+    z-index: 1;
     transform-origin: center;
     will-change: transform, opacity;
+    transition: transform 0.2s ease-out; /* Added for smoother movement */
 }
 
-/* Animation for floating text - keeps text within viewport bounds */
+/* Animation for floating text - more fluid and smoother */
 @keyframes float {
     0% {
         opacity: 0;
-        transform: translateY(0) translateX(0) rotate(0deg);
+        transform: translateY(10vh) translateX(-5px) rotate(0deg);
     }
-    10% {
-        opacity: 0.8;
+    5% {
+        opacity: 0;
     }
-    90% {
+    15% {
         opacity: 0.8;
+        transform: translateY(5vh) translateX(5px) rotate(3deg);
+    }
+    30% {
+        transform: translateY(0vh) translateX(15px) rotate(6deg);
+    }
+    50% {
+        transform: translateY(-15vh) translateX(10px) rotate(3deg);
+    }
+    70% {
+        transform: translateY(-30vh) translateX(5px) rotate(0deg);
+    }
+    85% {
+        opacity: 0.8;
+        transform: translateY(-50vh) translateX(-5px) rotate(-3deg);
+    }
+    95% {
+        opacity: 0;
     }
     100% {
         opacity: 0;
-        transform: translateY(-40vh) translateX(20px) rotate(10deg);
+        transform: translateY(-60vh) translateX(-10px) rotate(-6deg);
     }
 }
 
@@ -1971,4 +1989,43 @@ html, body {
 .cta-section {
     position: relative;
     z-index: 5; /* Ensure content sections are above floating text */
+}
+
+/* Add glassy transparent style for images */
+.feature-image, 
+.beginning-image img,
+.team-member img,
+.expertise-image img {
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    transition: all 0.4s ease;
+}
+
+.feature-image:hover, 
+.beginning-image img:hover,
+.team-member img:hover,
+.expertise-image img:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.35);
+}
+
+/* Glassy card styling */
+.feature-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.4s ease;
+}
+
+.feature-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
