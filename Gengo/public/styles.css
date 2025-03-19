@@ -622,6 +622,7 @@ html, body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(10px);
     position: relative;
+    z-index: 10;
 }
 
 /* Video controls container */
@@ -941,7 +942,7 @@ html, body {
     font-weight: 600;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
     pointer-events: none;
-    z-index: -1; /* Negative z-index to ensure it's behind all other elements */
+    z-index: 1; /* Low positive z-index instead of negative */
     transform-origin: center;
     will-change: transform, opacity;
 }
@@ -1952,4 +1953,22 @@ html, body {
         width: 20px;
         height: 20px;
     }
+}
+
+/* Make sure important content is above the floating text */
+.navbar {
+    z-index: 1000; /* Already has high z-index */
+}
+
+.video-container {
+    position: relative;
+    z-index: 10; /* Ensure video container is above floating text */
+}
+
+.features, 
+.logo-section,
+.selection-container,
+.cta-section {
+    position: relative;
+    z-index: 5; /* Ensure content sections are above floating text */
 }

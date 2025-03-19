@@ -34,7 +34,7 @@ class FloatingText {
     constructor() {
         this.element = document.createElement('div');
         this.element.className = 'floating-text';
-        document.body.insertBefore(this.element, document.body.firstChild);
+        document.body.appendChild(this.element);
         this.startAnimation();
     }
 
@@ -56,17 +56,25 @@ class FloatingText {
         const randomFont = fontClasses[Math.floor(Math.random() * fontClasses.length)];
         this.element.classList.add(randomFont);
         
-        // Get video container position to avoid overlapping
-        const videoContainer = document.querySelector('.video-container');
-        let videoContainerRect = null;
-        if (videoContainer) {
-            videoContainerRect = videoContainer.getBoundingClientRect();
-        }
+        // Check for content elements we need to avoid
+        const elementsToAvoid = [
+            document.querySelector('.video-container'),
+            document.querySelector('.logo-section'),
+            document.querySelector('.features'),
+            document.querySelector('.selection-container'),
+            document.querySelector('.cta-section')
+        ].filter(element => element !== null);
+        
+        // Get the rectangles of all elements to avoid
+        const rectsToAvoid = elementsToAvoid.map(element => element.getBoundingClientRect());
         
         // Random starting position (both X and Y), keeping within viewport bounds
         let startX, startY;
+        let positionIsValid = false;
+        let attempts = 0;
         
         do {
+            attempts++;
             // Adjust the range to keep text fully within viewport (5-90% instead of 5-95%)
             startX = Math.random() * 85 + 5; // 5% to 90% of viewport width
             // Start from more of the middle of the screen (20-70% of viewport height)
@@ -76,15 +84,23 @@ class FloatingText {
             const pixelX = (startX * window.innerWidth) / 100;
             const pixelY = (startY * window.innerHeight) / 100;
             
-            // Check if position overlaps with video container
-            if (!videoContainerRect || 
-                !(pixelX >= videoContainerRect.left && 
-                  pixelX <= videoContainerRect.right && 
-                  pixelY >= videoContainerRect.top && 
-                  pixelY <= videoContainerRect.bottom)) {
-                break; // Valid position found
+            // Check if position overlaps with any element to avoid
+            positionIsValid = true;
+            for (const rect of rectsToAvoid) {
+                if (pixelX >= rect.left && 
+                    pixelX <= rect.right && 
+                    pixelY >= rect.top && 
+                    pixelY <= rect.bottom) {
+                    positionIsValid = false;
+                    break;
+                }
             }
-        } while (true);
+            
+            // Prevent infinite loops - after 10 attempts, accept any position
+            if (attempts > 10) {
+                positionIsValid = true;
+            }
+        } while (!positionIsValid);
         
         this.element.style.left = `${startX}vw`;
         this.element.style.top = `${startY}vh`;
