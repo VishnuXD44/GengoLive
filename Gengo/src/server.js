@@ -26,6 +26,22 @@ app.use(express.json());
 app.use(express.static('dist'));  // Updated to serve from dist directory
 app.use('/api', agoraTokenRouter);
 
+// Add this middleware to handle clean URLs without .html extension
+app.get('/:page', (req, res, next) => {
+  const page = req.params.page;
+  // Skip for files that already have extensions or API routes
+  if (page.includes('.') || page === 'api') {
+    return next();
+  }
+  
+  // Try to serve the HTML file
+  res.sendFile(path.join(__dirname, '../dist', `${page}.html`), err => {
+    if (err) {
+      next(); // If file doesn't exist, continue to next middleware
+    }
+  });
+});
+
 // Constants
 const ROOM_TIMEOUT = 1000 * 60 * 60; // 1 hour
 const waitingQueue = {

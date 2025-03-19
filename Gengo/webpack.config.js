@@ -105,7 +105,12 @@ module.exports = {
             directory: path.join(__dirname, 'dist'),
         },
         hot: true,
-        historyApiFallback: true,
+        historyApiFallback: {
+            rewrites: [
+                { from: /^\/(about|Contact|main)$/, to: context => `/${context.match[1]}.html` },
+                { from: /./, to: '/index.html' }
+            ]
+        },
         proxy: {
             '/api': 'http://localhost:3000',
             '/socket.io': {
