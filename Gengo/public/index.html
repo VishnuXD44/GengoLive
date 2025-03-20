@@ -9,6 +9,29 @@
     <script src="/socket.io/socket.io.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="scripts/language-animation.js" defer></script>
+    <style>
+      html, body {
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .container {
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+      }
+      
+      /* Force content to fit in single viewport */
+      .index-content {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -51,5 +74,22 @@
             </button>
         </div>
     </div>
+    <script>
+      // Force single viewport behavior
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      
+      // Add class to body for styling
+      document.body.classList.add('index-page');
+      
+      // Prevent scrolling events
+      window.addEventListener('wheel', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+      
+      window.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+    </script>
 </body>
 </html>

@@ -304,6 +304,21 @@ html, body {
 /* Note: The full file would include all your original styles */
 /* with only the above modifications for mobile optimization */
 
+/* Force single viewport on index page with no scrollbars */
+body.index-page {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.index-page .container {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+}
+
 /* Improved Floating Text Styles */
 .floating-text {
     position: fixed;
@@ -313,59 +328,27 @@ html, body {
     letter-spacing: 0.03em;
     pointer-events: none;
     z-index: 1;
-    transform-origin: center;
+    /* Use GPU acceleration for smoother animation */
+    transform: translateZ(0);
     will-change: transform, opacity;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.07));
-    overflow: hidden;
 }
 
-/* Ensure container has proper height */
-.container {
-    position: relative;
-    min-height: 100vh;
-    width: 100%;
-    overflow-x: hidden;
-}
-
-/* Fix content wrapper to maintain viewport constraints */
-.content-wrapper {
-    position: relative;
-    max-width: 100%;
-    overflow-x: hidden;
-    z-index: 2;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-/* Animation that stays within viewport boundaries */
+/* Much smoother animation - simplified with just opacity changes */
 @keyframes float {
     0% {
         opacity: 0;
-        transform: translateY(10vh) translateX(0);
+        transform: translateY(0) translateX(0);
     }
-    10% {
-        opacity: 0.7;
-        transform: translateY(5vh) translateX(5px);
+    5% {
+        opacity: 0.8;
     }
-    40% {
-        opacity: 0.7;
-        transform: translateY(-10vh) translateX(10px);
-    }
-    70% {
-        opacity: 0.7;
-        transform: translateY(-20vh) translateX(5px);
-    }
-    90% {
-        opacity: 0.7;
-        transform: translateY(-30vh) translateX(0);
+    95% {
+        opacity: 0.8;
     }
     100% {
         opacity: 0;
-        transform: translateY(-35vh) translateX(-5px);
+        transform: translateY(-30vh) translateX(5px);
     }
 }
 
