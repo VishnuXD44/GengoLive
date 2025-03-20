@@ -26,15 +26,11 @@ const greetings = [
     'Xin chào',  // Vietnamese
 ];
 
-// Updated color classes to use pastel colors
 const colorClasses = [
-    'floating-text-earth',
-    'floating-text-mauve',
-    'floating-text-cream',
-    'floating-text-sky',
-    'floating-text-dream',
-    'floating-text-awake',
-    'floating-text-light'
+    'floating-text-pink',
+    'floating-text-orange',
+    'floating-text-blue',
+    'floating-text-dark'
 ];
 
 const fontClasses = [
@@ -49,19 +45,15 @@ class FloatingText {
         this.element = document.createElement('div');
         this.element.className = 'floating-text';
         document.body.appendChild(this.element);
+        this.startAnimation();
     }
 
     startAnimation() {
-        // Clear any existing animation
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-        }
-        
         const greeting = greetings[Math.floor(Math.random() * greetings.length)];
         this.element.textContent = greeting;
         
-        // Smaller text size
-        const size = Math.random() * (2 - 1.2) + 1.2;
+        // Random size between 1rem and 2.5rem
+        const size = Math.random() * (2.5 - 1) + 1;
         this.element.style.fontSize = `${size}rem`;
         
         // Add random color class
@@ -74,84 +66,121 @@ class FloatingText {
         const randomFont = fontClasses[Math.floor(Math.random() * fontClasses.length)];
         this.element.classList.add(randomFont);
         
-        // Get viewport dimensions
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        // Check for content elements we need to avoid
+        const elementsToAvoid = [
+            document.querySelector('.video-container'),
+            document.querySelector('.logo-section'),
+            document.querySelector('.features'),
+            document.querySelector('.selection-container'),
+            document.querySelector('.cta-section'),
+            document.querySelector('.beginning-section'),
+            document.querySelector('.contact-section')
+        ].filter(element => element !== null);
         
-        // Position text at bottom of viewport, away from content
-        const startX = Math.random() * 80 + 10; // 10-90% width
-        const startY = Math.random() * 10 + 85; // 85-95% height
+        // Get the rectangles of all elements to avoid
+        const rectsToAvoid = elementsToAvoid.map(element => element.getBoundingClientRect());
+        
+        // Random starting position (both X and Y), keeping within viewport bounds
+        let startX, startY;
+        let positionIsValid = false;
+        let attempts = 0;
+        
+        do {
+            attempts++;
+            // Adjust the range to keep text fully within viewport (5-90% instead of 5-95%)
+            startX = Math.random() * 85 + 5; // 5% to 90% of viewport width
+            // Start from more of the middle of the screen (20-70% of viewport height)
+            startY = Math.random() * 50 + 20; // 20% to 70% of viewport height
+            
+            // Convert to pixels for comparison
+            const pixelX = (startX * window.innerWidth) / 100;
+            const pixelY = (startY * window.innerHeight) / 100;
+            
+            // Check if position overlaps with any element to avoid
+            positionIsValid = true;
+            for (const rect of rectsToAvoid) {
+                if (pixelX >= rect.left && 
+                    pixelX <= rect.right && 
+                    pixelY >= rect.top && 
+                    pixelY <= rect.bottom) {
+                    positionIsValid = false;
+                    break;
+                }
+            }
+            
+            // Prevent infinite loops - after 10 attempts, accept any position
+            if (attempts > 10) {
+                positionIsValid = true;
+            }
+        } while (!positionIsValid);
         
         this.element.style.left = `${startX}vw`;
         this.element.style.top = `${startY}vh`;
         
-        // Very slight rotation
-        const rotation = Math.random() * 4 - 2; // -2 to 2 degrees
+        // Random rotation between -15 and 15 degrees
+        const rotation = Math.random() * 30 - 15;
+        this.element.style.transform = `rotate(${rotation}deg)`;
         
-        // Long duration for very smooth animation
-        const duration = Math.random() * (25 - 18) + 18; // 18-25 seconds
+        // Random duration between 5-10 seconds
+        const duration = Math.random() * (10 - 5) + 5;
         
-        // Simplified animation with CSS
+        // Reset animation
         this.element.style.animation = 'none';
         this.element.offsetHeight; // Trigger reflow
-        this.element.style.animation = `float ${duration}s ease-out forwards`;
-        this.element.style.transform = `rotate(${rotation}deg)`;
+        this.element.style.animation = `float ${duration}s ease-in-out`;
     }
 }
 
 // Create and manage floating texts
 const createFloatingTexts = () => {
-    // First clean up any existing text
-    document.querySelectorAll('.floating-text').forEach(el => el.remove());
-    
     const texts = [];
-    // Reduced number of texts
-    const numTexts = 3;
+    // Reduce number of texts to minimize potential impact on performance
+    const numTexts = 8; // Reduced from 12
     
-    for (let i = 0; i < numTexts; i++) {
+    // Check viewport size and adjust number of texts for smaller screens
+    const isMobile = window.innerWidth < 768;
+    const actualNumTexts = isMobile ? 4 : numTexts;
+
+    for (let i = 0; i < actualNumTexts; i++) {
         const text = new FloatingText();
         texts.push(text);
         
-        // Store reference for cleanup
+        // Store reference to instance for easier cleanup
         text.element.__instance = text;
         
         // Restart animation when it ends
         text.element.addEventListener('animationend', () => {
-            setTimeout(() => {
-                text.startAnimation();
-            }, Math.random() * 3000); // 0-3 second delay
+            text.startAnimation();
         });
 
-        // Staggered start
+        // Stagger the start times
         setTimeout(() => {
             text.startAnimation();
-        }, i * 2000); // 2 second between each
+        }, i * 700); // 700ms delay between each text's first appearance
     }
     
     return texts;
-};
+}
 
 // Start animations when document is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // If it's the index page, force disable scrolling
-    if (document.body.classList.contains('index-page')) {
-        // Force viewport height to window height
-        document.documentElement.style.height = '100%';
-        document.body.style.height = '100%';
-        
-        // Prevent any scrolling behavior
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-        
-        // Add event listener to prevent scrolling
-        document.addEventListener('wheel', preventScroll, { passive: false });
-        document.addEventListener('touchmove', preventScroll, { passive: false });
-    }
+    // Create a cleanup function to remove elements when leaving the page
+    let floatingTexts = [];
     
-    // Start floating texts after a short delay
-    setTimeout(createFloatingTexts, 1000);
+    // Wait a bit before starting animations to ensure all elements are loaded
+    setTimeout(() => {
+        floatingTexts = createFloatingTexts();
+    }, 1000);
     
-    // Cleanup when leaving page
+    // Add window resize handler to reposition text if needed
+    window.addEventListener('resize', () => {
+        document.querySelectorAll('.floating-text').forEach(text => {
+            const instance = text.__instance;
+            if (instance) instance.startAnimation();
+        });
+    });
+    
+    // Cleanup function for page transitions
     window.addEventListener('beforeunload', () => {
         document.querySelectorAll('.floating-text').forEach(element => {
             element.remove();

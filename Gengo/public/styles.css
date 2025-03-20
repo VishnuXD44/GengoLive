@@ -319,36 +319,35 @@ body.index-page {
     overflow: hidden;
 }
 
-/* Improved Floating Text Styles */
+/* Floating Text Styles */
 .floating-text {
-    position: fixed;
+    position: fixed; /* Fixed positioning relative to viewport */
     opacity: 0;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 500;
-    letter-spacing: 0.03em;
+    color: var(--pink);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
     pointer-events: none;
-    z-index: 1;
-    /* Use GPU acceleration for smoother animation */
-    transform: translateZ(0);
+    z-index: 1; /* Low positive z-index instead of negative */
+    transform-origin: center;
     will-change: transform, opacity;
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.07));
 }
 
-/* Much smoother animation - simplified with just opacity changes */
+/* Animation for floating text - keeps text within viewport bounds */
 @keyframes float {
     0% {
         opacity: 0;
-        transform: translateY(0) translateX(0);
+        transform: translateY(0) translateX(0) rotate(0deg);
     }
-    5% {
+    10% {
         opacity: 0.8;
     }
-    95% {
+    90% {
         opacity: 0.8;
     }
     100% {
         opacity: 0;
-        transform: translateY(-30vh) translateX(5px);
+        transform: translateY(-40vh) translateX(20px) rotate(10deg);
     }
 }
 
