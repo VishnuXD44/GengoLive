@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gengo - Language Exchange Platform</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link href="styles.css" rel="stylesheet" type="text/css">
+    <link href="styles2.css" rel="stylesheet" type="text/css">
     <script src="/socket.io/socket.io.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -30,8 +33,10 @@
                     Our platform matches you with compatible partners for immersive, engaging practice sessions.
                 </p>
                 <div class="btn-group">
-                    <a href="/main" class="btn btn-primary btn-lg">Start Learning</a>
-                    <a href="/about" class="btn btn-outline">Learn More</a>
+                    <a href="/main" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play-circle"></i>
+                        Start Learning
+                    </a>
                 </div>
             </div>
             <div class="hero-image-container">
@@ -40,54 +45,39 @@
         </div>
     </section>
 
-    <section class="features-section">
-        <div class="features-container">
-            <div class="features-header">
-                <h2>How Gengo Works</h2>
-                <p>Our platform makes language exchange simple, effective, and enjoyable</p>
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <h3>Gengo</h3>
+                <p>Language Exchange Platform</p>
             </div>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-image-container">
-                        <img src="assets/bgimg2.png" alt="Learn" class="feature-image">
-                    </div>
-                    <h3 class="feature-title">LEARN</h3>
-                    <p class="feature-description">Practice with native speakers who can help correct your pronunciation and grammar</p>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Platform</h4>
+                    <a href="/">Home</a>
+                    <a href="/main">Practice</a>
+                    <a href="/about">About</a>
+                    <a href="/Contact">Contact</a>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-image-container">
-                        <img src="assets/bgimg1.png" alt="Exchange" class="feature-image">
-                    </div>
-                    <h3 class="feature-title">EXCHANGE</h3>
-                    <p class="feature-description">Share your language skills while learning from others in balanced exchanges</p>
+                <div class="footer-column">
+                    <h4>Languages</h4>
+                    <a href="#">English</a>
+                    <a href="#">Spanish</a>
+                    <a href="#">Japanese</a>
+                    <a href="#">French</a>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-image-container">
-                        <img src="assets/bgimg3.png" alt="Communicate" class="feature-image">
-                    </div>
-                    <h3 class="feature-title">COMMUNICATE</h3>
-                    <p class="feature-description">Build confidence through real conversations about topics that interest you</p>
-                </div>
-            </div>
-            <div style="text-align: center; margin-top: 48px;">
-                <a href="/main" class="btn btn-secondary btn-lg">Start Practicing Now</a>
             </div>
         </div>
-    </section>
+        <div class="footer-bottom">
+            <p>&copy; 2023 Gengo Language Exchange. All rights reserved.</p>
+        </div>
+    </footer>
 
     <script>
-        // Simple navbar scroll effect - no fancy animations
         document.addEventListener('DOMContentLoaded', () => {
             const navbar = document.querySelector('.navbar');
-            
             window.addEventListener('scroll', () => {
-                if (window.scrollY > 50) {
-                    navbar.classList.add('scrolled');
-                } else {
-                    navbar.classList.remove('scrolled');
-                }
+                navbar.classList.toggle('scrolled', window.scrollY > 50);
             });
         });
     </script>

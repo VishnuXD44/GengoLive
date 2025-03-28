@@ -2,16 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gengo - Video Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles2.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
    <nav class="navbar">
     <div class="nav-links">
-        <a href="/" class="active"><i class="fas fa-home"></i><span>Home</span></a>
-        <a href="/main"><i class="fas fa-comments"></i><span>Practice</span></a>
+        <a href="/"><i class="fas fa-home"></i><span>Home</span></a>
+        <a href="/main" class="active"><i class="fas fa-comments"></i><span>Practice</span></a>
         <a href="/about"><i class="fas fa-info-circle"></i><span>About</span></a>
         <a href="/Contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
     </div>
@@ -19,10 +23,6 @@
 
     <div class="selection-container">
         <h1>Choose Your Session</h1>
-        <div class="permission-notice">
-            This app requires access to your camera and microphone.
-            You'll be prompted to allow access when you click Connect.
-        </div>
         <div class="language-selection">
             <label for="language">Choose Language:</label>
             <select id="language">
@@ -43,7 +43,10 @@
             </select>
         </div>
         
-        <button id="connect" class="connect-button">Connect</button>
+        <button id="connect" class="connect-button">
+            <i class="fas fa-video"></i>
+            Start Session
+        </button>
     </div>
 
     <!-- Video containers (initially hidden) -->
@@ -63,23 +66,17 @@
     <!-- Video controls (initially hidden) -->
     <div class="video-controls" style="display: none;">
         <button id="muteAudio" class="control-button">
-            <img src="/icons/mic.svg" alt="Mute Audio">
+            <i class="fas fa-microphone"></i>
             <span>Mute Audio</span>
         </button>
         <button id="hideVideo" class="control-button">
-            <img src="/icons/camera.svg" alt="Hide Video">
+            <i class="fas fa-video"></i>
             <span>Hide Video</span>
         </button>
         <button id="leave" class="control-button leave">
-            <img src="/icons/phone.svg" alt="Leave Call">
+            <i class="fas fa-phone-slash"></i>
             <span>Leave Call</span>
         </button>
-    </div>
-
-    <!-- Loading indicator -->
-    <div id="loadingIndicator" class="loading-indicator hidden">
-        <div class="spinner"></div>
-        <div class="loading-text">Connecting...</div>
     </div>
 
     <!-- Scripts -->
@@ -94,17 +91,14 @@
     <!-- Finally load main -->
     <script src="/scripts/main.bundle.js"></script>
 
-    <!-- Error handling for script loading -->
+    <!-- Navbar scroll effect -->
     <script>
-        window.addEventListener('error', function(e) {
-            if (e.target.tagName === 'SCRIPT') {
-                console.error('Failed to load script:', e.target.src);
-                const messageDiv = document.createElement('div');
-                messageDiv.textContent = 'Failed to load required resources. Please refresh the page.';
-                messageDiv.className = 'message error-message';
-                document.body.appendChild(messageDiv);
-            }
-        }, true);
+        document.addEventListener('DOMContentLoaded', () => {
+            const navbar = document.querySelector('.navbar');
+            window.addEventListener('scroll', () => {
+                navbar.classList.toggle('scrolled', window.scrollY > 50);
+            });
+        });
     </script>
 </body>
 </html>

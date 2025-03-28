@@ -6,7 +6,6 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
-        'language-animation': './public/scripts/language-animation.js',
         'agoraClient': './public/scripts/agoraClient.js',
         'contentMonitor': './public/scripts/contentMonitor.js'
     },
@@ -55,13 +54,13 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/index.html',
             filename: 'index.html',
-            chunks: ['main', 'language-animation'],
+            chunks: ['main'],
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
             template: './public/main.html',
             filename: 'main.html',
-            chunks: ['main', 'language-animation', 'agoraClient', 'contentMonitor'],
+            chunks: ['main', 'agoraClient', 'contentMonitor'],
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({

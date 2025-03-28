@@ -180,7 +180,6 @@ function resetVideoCall() {
     // Reset video containers and controls
     document.querySelector('.video-container').style.display = 'none';
     document.querySelector('.video-controls').style.display = 'none';
-    document.querySelector('.selection-container').style.display = 'flex';
 
     // Remove any quality indicators or status messages
     const qualityIndicator = document.querySelector('.quality-indicator');
@@ -245,7 +244,6 @@ function updateUI(state) {
             connectButton.textContent = 'Connect';
             connectButton.disabled = false;
             connectButton.classList.remove('loading');
-            selectionContainer.style.display = 'flex';
             videoContainer.style.display = 'none';
             videoControls.style.display = 'none';
             loadingIndicator.classList.add('hidden');
@@ -280,59 +278,44 @@ function updateUI(state) {
     }
 }
 
-// Add this function to show the waiting indicator
+// Update waiting indicator to be integrated into the UI
 function showWaitingIndicator() {
-    // Remove any existing waiting indicator
-    hideWaitingIndicator();
-    
-    const waitingIndicator = document.createElement('div');
-    waitingIndicator.className = 'waiting-indicator';
-    waitingIndicator.innerHTML = `
-        <div class="spinner"></div>
-        <p>Waiting for a match...</p>
-        <p class="queue-status">This may take a few moments</p>
-    `;
-    document.body.appendChild(waitingIndicator);
-}
-
-// Add this function to hide the waiting indicator
-function hideWaitingIndicator() {
-    const waitingIndicator = document.querySelector('.waiting-indicator');
-    if (waitingIndicator) {
-        waitingIndicator.remove();
+    const connectButton = document.getElementById('connect');
+    if (connectButton) {
+        connectButton.innerHTML = `
+            <span class="spinner-small"></span>
+            <span>Waiting...</span>
+        `;
     }
 }
 
-// Update the showMessage function to be more compact
+function hideWaitingIndicator() {
+    const connectButton = document.getElementById('connect');
+    if (connectButton) {
+        connectButton.innerHTML = 'Connect';
+    }
+}
+
+// Update the showMessage function to use a fixed status bar
 function showMessage(message, type = 'info') {
-    // Remove any existing messages of the same type
-    const existingMessages = document.querySelectorAll(`.message.${type}-message`);
-    existingMessages.forEach(msg => msg.remove());
+    const statusBar = document.getElementById('status-bar') || (() => {
+        const bar = document.createElement('div');
+        bar.id = 'status-bar';
+        bar.className = 'status-bar';
+        document.body.appendChild(bar);
+        return bar;
+    })();
 
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
+    statusBar.textContent = message;
+    statusBar.className = `status-bar ${type}`;
     
-    // Main message text
-    const messageText = document.createElement('span');
-    messageText.textContent = message;
-    messageDiv.appendChild(messageText);
-    
-    // Add close button for all messages
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '×';
-    closeButton.className = 'message-close';
-    closeButton.onclick = () => messageDiv.remove();
-    messageDiv.appendChild(closeButton);
-    
-    document.body.appendChild(messageDiv);
-
-    // Auto-remove after a short delay
-    const timeout = type === 'error' ? 5000 : (type === 'warning' ? 4000 : 3000);
-    setTimeout(() => {
-        if (messageDiv.parentElement) {
-            messageDiv.remove();
-        }
-    }, timeout);
+    // Only show for errors
+    if (type === 'error') {
+        statusBar.style.display = 'block';
+        setTimeout(() => {
+            statusBar.style.display = 'none';
+        }, 5000);
+    }
 }
 
 // Initialize content monitoring for local video
@@ -344,17 +327,12 @@ async function initContentMonitoring() {
             return;
         }
         
-        // Create content monitor with appropriate callbacks
+        // Create content monitor with simplified callbacks
         const contentMonitor = new ContentMonitor({
             checkInterval: 3000,  // Check every 3 seconds
-            warningThreshold: 0.7,
             banThreshold: 0.85,
             consecutiveThreshold: 3,
-            onWarning: (data) => {
-                console.warn('Content warning:', data.message);
-            },
             onBanned: (data) => {
-                console.error('Content ban:', data.message);
                 showContentBanMessage(data);
                 leaveCall();
             },
@@ -376,36 +354,15 @@ async function initContentMonitoring() {
     }
 }
 
-// Show content ban message
+// Show content ban message in the status bar
 function showContentBanMessage(data) {
-    const banContainer = document.createElement('div');
-    banContainer.className = 'content-ban-message';
-    
-    const banHeader = document.createElement('div');
-    banHeader.className = 'ban-header';
-    banHeader.textContent = 'Content Policy Violation';
-    
-    const banReason = document.createElement('div');
-    banReason.className = 'ban-reason';
-    banReason.textContent = data.message;
-    
-    const banDetail = document.createElement('div');
-    banDetail.className = 'ban-detail';
-    banDetail.textContent = `You can try again after ${data.until.toLocaleTimeString()}.`;
-    
-    const dismissButton = document.createElement('button');
-    dismissButton.id = 'dismiss-ban';
-    dismissButton.textContent = 'Dismiss';
-    dismissButton.addEventListener('click', () => {
-        document.body.removeChild(banContainer);
-    });
-    
-    banContainer.appendChild(banHeader);
-    banContainer.appendChild(banReason);
-    banContainer.appendChild(banDetail);
-    banContainer.appendChild(dismissButton);
-    
-    document.body.appendChild(banContainer);
+    const statusBar = document.getElementById('status-bar');
+    if (statusBar) {
+        statusBar.textContent = `Content Policy Violation: ${data.message}`;
+        statusBar.className = 'status-bar error';
+        statusBar.style.display = 'block';
+    }
+    resetVideoCall();
 }
 
 // Initialize when page loads

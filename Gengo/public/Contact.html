@@ -4,50 +4,150 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gengo - Contact Us</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="styles2.css" rel="stylesheet" type="text/css">
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles2.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
    <nav class="navbar">
     <div class="nav-links">
-        <a href="/" class="active"><i class="fas fa-home"></i><span>Home</span></a>
+        <a href="/"><i class="fas fa-home"></i><span>Home</span></a>
         <a href="/main"><i class="fas fa-comments"></i><span>Practice</span></a>
         <a href="/about"><i class="fas fa-info-circle"></i><span>About</span></a>
-        <a href="/Contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
+        <a href="/Contact" class="active"><i class="fas fa-envelope"></i><span>Contact</span></a>
     </div>
 </nav>
 
-    <div class="about-main">
-        <section class="contact-section">
-            <div class="contact-content">
-                <span class="subtitle">GET IN TOUCH</span>
-                <h2>Connect With Our Team</h2>
-                <p>Have questions about Gengo? Want to join our growing community of language learners and teachers? Reach out to our team members below.</p>
-                
-                <div class="team-grid">
-                    <div class="team-member">
-                        <h3>Vishnu Patel</h3>
-                        <p class="role"></p>
-                        <div class="contact-links">
-                            <a href="mailto:vishnuxd21@gmail.com" class="contact-link">vishnuxd21@gmail.com</a>
-                            <a href="https://www.linkedin.com/in/vishnu-patel-10b52b329/" class="contact-link">LinkedIn Profile</a>
-                        </div>
-                    </div>
-
-                    <div class="team-member">
-                        <h3>Utkarsh Upadhyay</h3>
-                        <p class="role"></p>
-                        <div class="contact-links">
-                            <a href="mailto:utkars95@gmail.com" class="contact-link">utkars95@gmail.com</a>
-                            <a href="https://www.linkedin.com/in/utkarsh-upadhyay-416169251/" class="contact-link">LinkedIn Profile</a>
-                        </div>
-                    </div>
-
+    <main class="contact-main">
+        <section class="contact-hero-section">
+            <div class="contact-container">
+                <div class="contact-header">
+                    <div class="hero-subtitle">GET IN TOUCH</div>
+                    <h1 class="contact-heading">Connect With Our <span class="highlight">Team</span></h1>
+                    <p class="contact-description">
+                        Have questions about Gengo? Want to join our growing community of language learners 
+                        and teachers? Reach out to our team members below.
+                    </p>
                 </div>
             </div>
         </section>
-    </div>
+
+        <section class="team-section">
+            <div class="contact-container">
+                <div class="team-grid">
+                    <div class="team-card">
+                        <div class="team-avatar">VP</div>
+                        <h3>Vishnu Patel</h3>
+                        <p class="team-role">Co-founder</p>
+                        <div class="team-social">
+                            <a href="mailto:vishnuxd21@gmail.com" class="social-icon">
+                                <i class="fas fa-envelope"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/vishnu-patel-10b52b329/" class="social-icon">
+                                <i class="fab fa-linkedin"></i>
+                            </a>
+                            <a href="#" class="social-icon">
+                                <i class="fab fa-github"></i>
+                            </a>
+                        </div>
+                        <a href="mailto:vishnuxd21@gmail.com" class="team-email">vishnuxd21@gmail.com</a>
+                    </div>
+
+                    <div class="team-card">
+                        <div class="team-avatar">UU</div>
+                        <h3>Utkarsh Upadhyay</h3>
+                        <p class="team-role">Co-founder</p>
+                        <div class="team-social">
+                            <a href="mailto:utkars95@gmail.com" class="social-icon">
+                                <i class="fas fa-envelope"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/utkarsh-upadhyay-416169251/" class="social-icon">
+                                <i class="fab fa-linkedin"></i>
+                            </a>
+                            <a href="#" class="social-icon">
+                                <i class="fab fa-github"></i>
+                            </a>
+                        </div>
+                        <a href="mailto:utkars95@gmail.com" class="team-email">utkars95@gmail.com</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact-form-section">
+            <div class="contact-container">
+                <div class="contact-form-container">
+                    <div class="contact-form-header">
+                        <h2>Send Us a Message</h2>
+                        <p>We'd love to hear from you! Fill out the form below and we'll get back to you soon.</p>
+                    </div>
+                    <form class="contact-form">
+                        <div class="form-group">
+                            <label for="name">Your Name</label>
+                            <input type="text" id="name" name="name" placeholder="Enter your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Your Email</label>
+                            <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="subject">Subject</label>
+                            <input type="text" id="subject" name="subject" placeholder="Enter subject">
+                        </div>
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="5" placeholder="Enter your message" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <h3>Gengo</h3>
+                <p>Language Exchange Platform</p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Platform</h4>
+                    <a href="/">Home</a>
+                    <a href="/main">Practice</a>
+                    <a href="/about">About</a>
+                    <a href="/Contact">Contact</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Languages</h4>
+                    <a href="#">English</a>
+                    <a href="#">Spanish</a>
+                    <a href="#">Japanese</a>
+                    <a href="#">French</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2023 Gengo Language Exchange. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navbar = document.querySelector('.navbar');
+            
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    navbar.classList.add('scrolled');
+                } else {
+                    navbar.classList.remove('scrolled');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
