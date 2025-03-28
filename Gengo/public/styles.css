@@ -58,12 +58,22 @@ html, body {
     top: 0;
     width: 100%;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between; /* Changed from flex-end to allow for logo */
+    align-items: center;
     padding: 1rem 2rem;
-    background-color: transparent;
+    background-color: rgba(255, 255, 255, 0.9);
     z-index: 1000;
     transition: all 0.3s ease;
     backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Add logo to navbar */
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--dark);
+    text-decoration: none;
 }
 
 .nav-links {
@@ -74,20 +84,23 @@ html, body {
 .nav-links a {
     text-decoration: none;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--dark);
     transition: all 0.3s ease;
     position: relative;
+    padding: 0.5rem 0;
 }
 
+/* More modern animated underline for nav links */
 .nav-links a::after {
     content: '';
     position: absolute;
     width: 0;
     height: 2px;
-    bottom: -4px;
-    left: 0;
+    bottom: 0;
+    left: 50%;
     background-color: var(--pink);
-    transition: width 0.3s ease;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
 }
 
 .nav-links a:hover::after,
@@ -126,6 +139,7 @@ html, body {
 .logo-section {
     text-align: center;
     margin-bottom: 1rem;
+    animation: fadeInUp 0.8s ease-out forwards;
 }
 
 .main-logo {
@@ -153,13 +167,76 @@ html, body {
     width: 100%;
 }
 
+/* Modern feature cards */
 .feature-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
-    padding: 2rem;
-    transition: transform 0.3s ease;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
+    position: relative;
+    animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.feature-card:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.feature-card:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.feature-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--pink), var(--orange));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s ease;
+}
+
+.feature-card:hover::after {
+    transform: scaleX(1);
+}
+
+.feature-image {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 1.5rem;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.4s ease;
+}
+
+.feature-card:hover .feature-image {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.feature-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--dark), var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 1rem 0 0.8rem;
 }
 
 .feature-card p {
@@ -169,26 +246,12 @@ html, body {
     margin-top: 0.5rem;
 }
 
-.feature-image {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 20px;
-    transition: transform 0.3s ease;
-}
-
-.feature-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--dark);
-    margin: 1rem 0 0.5rem;
-}
-
 /* ============ BUTTONS ============ */
+/* Modern button styles */
 .connect-btn,
 .leave-btn,
 .get-started {
-    padding: 0.75rem 2rem;
+    padding: 0.9rem 2.2rem;
     font-size: 1.1rem;
     font-weight: 600;
     color: white;
@@ -200,48 +263,47 @@ html, body {
     max-width: 400px;
     display: block;
     margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.connect-btn:before,
+.leave-btn:before,
+.get-started:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: all 0.6s ease;
+}
+
+.connect-btn:hover:before,
+.leave-btn:hover:before,
+.get-started:hover:before {
+    left: 100%;
 }
 
 .connect-btn {
-    background: var(--pink);
-    box-shadow: 0 5px 15px rgba(255, 56, 92, 0.3);
+    background: linear-gradient(135deg, var(--pink), #ff5277);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.25);
 }
 
 .leave-btn {
-    background: var(--dark);
+    background: linear-gradient(135deg, var(--dark), #3d5a73);
     margin-top: 1rem;
-    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
-    display: none;
-}
-
-.connect-btn:hover,
-.get-started:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.4);
-}
-
-.leave-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.4);
+    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.25);
 }
 
 .get-started {
     margin-top: 3rem;
-    padding: 1rem 3rem;
+    padding: 1.2rem 3.5rem;
     font-size: 1.2rem;
-    font-weight: 600;
-    background: var(--pink);
-    color: white;
-    border: none;
-    border-radius: 30px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(255, 56, 92, 0.3);
-}
-
-.get-started:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 56, 92, 0.4);
+    background: linear-gradient(135deg, var(--pink), #ff5277);
+    box-shadow: 0 8px 20px rgba(255, 56, 92, 0.25);
+    animation: pulse 2s infinite;
 }
 
 /* ============ RESPONSIVE STYLES ============ */
@@ -1100,9 +1162,15 @@ body.index-page {
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 56, 92, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 56, 92, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 56, 92, 0);
+    }
 }
 
 /* Connection Status */
@@ -1399,4 +1467,98 @@ body.index-page {
     background: rgba(255, 255, 255, 0.2);
     transform: translateY(-5px);
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Modern animations and micro-interactions */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.logo-section, .feature-card, .selection-container, .get-started {
+    animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.feature-card:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.feature-card:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* Add pulse animation to buttons */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 56, 92, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 56, 92, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 56, 92, 0);
+    }
+}
+
+.get-started {
+    animation: pulse 2s infinite;
+}
+
+/* Modern form elements */
+.selection-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.selection-container h1 {
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    background: linear-gradient(135deg, var(--dark), var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.8rem;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.form-group select {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: var(--pink);
+    box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.1);
 }
