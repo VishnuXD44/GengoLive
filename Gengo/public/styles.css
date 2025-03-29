@@ -33,7 +33,7 @@
 }
 
 /* Import fonts properly */
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;600&display=swap');
 
 /* Base Styles */
 * {
@@ -43,11 +43,13 @@
 }
 
 html, body {
-    font-family: 'VT323', monospace;
+    font-family: 'Montserrat', sans-serif;
     line-height: 1.6;
     color: var(--dark);
     background-color: var(--light);
-    font-size: 18px;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Retro Scrollbar */
@@ -93,8 +95,9 @@ html, body {
 }
 
 .nav-links a {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.7rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--dark);
     text-decoration: none;
     padding: 0.75rem 1rem;
@@ -146,9 +149,8 @@ html, body {
 /* Hero Section */
 .hero-section {
     min-height: 90vh;
-    padding: 4rem 0;
+    padding: 6rem 0;
     background-color: var(--light);
-    border-bottom: 4px solid var(--primary);
     position: relative;
     display: flex;
     align-items: center;
@@ -158,12 +160,11 @@ html, body {
 .hero-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 1rem;
+    padding: 2rem;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 3rem;
+    gap: 4rem;
     align-items: center;
-    min-height: auto;
 }
 
 .hero-content {
@@ -172,32 +173,34 @@ html, body {
 }
 
 .hero-subtitle {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
     color: var(--primary);
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 4px;
     position: relative;
     display: inline-block;
+    font-weight: 600;
 }
 
 .hero-subtitle::after {
     content: '';
     position: absolute;
-    bottom: -8px;
+    bottom: -12px;
     left: 0;
-    width: 40px;
-    height: 4px;
+    width: 60px;
+    height: 2px;
     background-color: var(--primary);
 }
 
 .hero-heading {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 2.5rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
     color: var(--dark);
-    line-height: 1.4;
-    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    margin-bottom: 2rem;
+    font-weight: 700;
 }
 
 .hero-heading .highlight {
@@ -209,39 +212,69 @@ html, body {
 .hero-heading .highlight::after {
     content: '';
     position: absolute;
-    bottom: 4px;
-    left: 0;
-    width: 100%;
-    height: 8px;
+    bottom: 8px;
+    left: -4px;
+    width: calc(100% + 8px);
+    height: 12px;
     background-color: var(--accent);
     z-index: -1;
-    opacity: 0.5;
+    opacity: 0.3;
 }
 
 .hero-description {
-    font-size: 1.3rem;
-    margin-bottom: 2rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.2rem;
+    margin-bottom: 3rem;
     max-width: 600px;
     color: var(--neutral-700);
-    line-height: 1.6;
+    line-height: 1.8;
 }
 
-.btn-group {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    margin-bottom: 1rem;
+.cta-button {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 1.2rem 2.8rem;
+    background-color: var(--primary);
+    color: var(--light);
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    border: none;
+    position: relative;
+    overflow: hidden;
 }
 
-.btn-lg {
-    padding: 1.2rem 2.5rem;
-    font-size: 0.9rem;
+.cta-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transition: all 0.6s ease;
+}
+
+.cta-button:hover::before {
+    left: 100%;
+}
+
+.cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
 }
 
 /* Buttons */
 .btn {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
     padding: 1rem 2rem;
     border: 4px solid var(--primary);
     background: var(--light);
@@ -285,8 +318,8 @@ html, body {
 
 /* Form Elements */
 input, select, textarea {
-    font-family: 'VT323', monospace;
-    font-size: 1.2rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
     padding: 0.8rem;
     border: 4px solid var(--primary);
     background: var(--light);
@@ -318,8 +351,9 @@ label {
 
 /* Video Controls */
 .video-controls button {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.7rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
     padding: 0.8rem 1.5rem;
     border: 4px solid var(--primary);
     background: var(--light);
@@ -467,8 +501,9 @@ img {
 }
 
 .footer h3, .footer h4 {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 0.9rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
     margin-bottom: 1rem;
     color: var(--primary-dark);
     text-align: center;
@@ -489,8 +524,8 @@ img {
 }
 
 .footer-links a {
-    font-family: 'VT323', monospace;
-    font-size: 1.1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
     color: var(--dark);
     text-decoration: none;
     transition: all 0.3s ease;
@@ -521,12 +556,21 @@ img {
 /* Responsive Design */
 @media (max-width: 1024px) {
     .hero-container {
-        padding: 6rem 2rem;
-        gap: 3rem;
+        padding: 4rem 2rem;
+        gap: 2.5rem;
     }
 
     .hero-heading {
-        font-size: 2rem;
+        font-size: 2.8rem;
+    }
+
+    .hero-description {
+        font-size: 1.1rem;
+        line-height: 1.7;
+    }
+
+    .cta-button {
+        padding: 1rem 2.4rem;
     }
 
     .footer {
@@ -597,32 +641,31 @@ img {
     }
     
     .hero-heading {
-        font-size: 1.8rem;
+        font-size: 2.2rem;
+        line-height: 1.3;
     }
     
     .hero-subtitle {
-        margin-left: auto;
-        margin-right: auto;
+        margin: 0 auto 1.5rem;
+        font-size: 0.9rem;
     }
     
     .hero-subtitle::after {
         left: 50%;
         transform: translateX(-50%);
+        width: 40px;
     }
     
     .hero-description {
-        margin-left: auto;
-        margin-right: auto;
-        margin-bottom: 2rem;
+        margin: 0 auto 2rem;
+        font-size: 1.1rem;
+        max-width: 500px;
     }
     
-    .btn-group {
-        justify-content: center;
-    }
-    
-    .btn {
-        font-size: 0.7rem;
-        padding: 0.8rem 1.5rem;
+    .cta-button {
+        padding: 1rem 2rem;
+        width: auto;
+        min-width: 200px;
     }
     
     .footer-links {
@@ -676,29 +719,29 @@ img {
     }
 
     .hero-description {
-        font-size: 1.1rem;
-        margin-bottom: 1rem;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
     }
     
     .hero-heading {
-        font-size: 1.4rem;
-        margin-bottom: 1rem;
+        font-size: 1.8rem;
+        margin-bottom: 1.2rem;
+        line-height: 1.3;
     }
     
     .hero-subtitle {
-        font-size: 0.7rem;
-        margin-bottom: 1rem;
+        font-size: 0.8rem;
+        margin-bottom: 1.2rem;
+        letter-spacing: 3px;
     }
     
-    .btn-group {
-        flex-direction: column;
-        gap: 1rem;
+    .cta-button {
         width: 100%;
-    }
-    
-    .btn {
-        width: 100%;
-        text-align: center;
+        max-width: 280px;
+        margin: 0 auto;
+        padding: 0.9rem 1.8rem;
+        font-size: 0.9rem;
     }
     
     .selection-container {
