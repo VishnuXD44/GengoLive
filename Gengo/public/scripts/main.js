@@ -322,7 +322,7 @@ function showMessage(message, type = 'info') {
 async function initContentMonitoring() {
     try {
         // Only start monitoring after local video is ready and permissions granted
-        const localVideo = document.getElementById('local-video');
+        const localVideo = document.getElementById('localVideo');
         if (!localVideo || !localVideo.srcObject) {
             return;
         }
@@ -368,9 +368,6 @@ function showContentBanMessage(data) {
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize your app
-    window.agoraClient = new AgoraClient();
-    
-    // Your existing initialization code...
     initializeAgoraVideo();
     
     const connectButton = document.getElementById('connect');

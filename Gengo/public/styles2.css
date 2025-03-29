@@ -1,3 +1,132 @@
+/* Video Container */
+.video-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin: 2rem auto;
+    max-width: 1200px;
+    padding: 0 1rem;
+}
+
+.video-wrapper {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: var(--neutral-200);
+    overflow: hidden;
+}
+
+.video-wrapper video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem auto;
+    max-width: 1200px;
+    padding: 0 1rem;
+}
+
+.connection-status {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--light);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.6rem;
+    text-align: center;
+}
+
+/* Quality Indicator */
+.quality-indicator {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.5rem 1rem;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.6rem;
+    border: 2px solid;
+    z-index: 1000;
+}
+
+.quality-indicator.good {
+    background: #4CAF50;
+    color: white;
+    border-color: #45a049;
+}
+
+.quality-indicator.fair {
+    background: #FFC107;
+    color: black;
+    border-color: #FFA000;
+}
+
+.quality-indicator.poor {
+    background: #f44336;
+    color: white;
+    border-color: #d32f2f;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: var(--light);
+    padding: 2rem;
+    border: 4px solid var(--primary);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.loading-indicator.hidden {
+    display: none;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--primary);
+    border-top: 4px solid var(--light);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.8rem;
+    color: var(--primary);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Small spinner for buttons */
+.spinner-small {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--light);
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
 /* Import fonts properly */
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
@@ -714,31 +843,53 @@ html, body {
     }
 }
 
-/* Status Bar */
+/* Status Messages */
 .status-bar {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     padding: 1rem;
-    background: var(--primary);
-    color: var(--light);
     text-align: center;
     z-index: 2000;
     font-family: 'Press Start 2P', cursive;
     font-size: 0.7rem;
     transform: translateY(-100%);
     transition: transform 0.3s ease;
+    display: none;
+}
+
+.status-bar.info {
+    background: var(--primary);
+    color: var(--light);
 }
 
 .status-bar.error {
     background: #ff4444;
+    color: var(--light);
+}
+
+.status-bar.warning {
+    background: #FFC107;
+    color: var(--dark);
 }
 
 .status-bar.show {
     transform: translateY(0);
     display: block;
+}
+
+.message-close {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
 }
 
 /* Spinner */
