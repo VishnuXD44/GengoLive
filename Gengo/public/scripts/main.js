@@ -153,41 +153,81 @@ function setupSocketListeners() {
     });
 }
 
-// Update the resetVideoCall function
 function resetVideoCall() {
+    // First, cleanup the video streams
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    
+    if (localVideo && localVideo.srcObject) {
+        localVideo.srcObject.getTracks().forEach(track => track.stop());
+        localVideo.srcObject = null;
+    }
+    
+    if (remoteVideo && remoteVideo.srcObject) {
+        remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+        remoteVideo.srcObject = null;
+    }
+
+    // Disconnect from Agora
     if (agoraVideo) {
         agoraVideo.disconnect();
     }
     
+    // Disconnect socket
     if (socket) {
         socket.disconnect();
         socket = null;
     }
 
+    // Reset state
     currentRoom = null;
     updateState('idle');
 
-    // Reset UI elements
-    const localVideo = document.getElementById('localVideo');
-    const remoteVideo = document.getElementById('remoteVideo');
-    if (localVideo) localVideo.srcObject = null;
-    if (remoteVideo) remoteVideo.srcObject = null;
+    // Reset UI elements properly
+    const videoContainer = document.querySelector('.video-container');
+    const videoControls = document.querySelector('.video-controls');
+    const selectionContainer = document.querySelector('.selection-container');
+    
+    if (videoContainer) {
+        videoContainer.style.display = 'none';
+        // Clear any lingering video elements
+        videoContainer.innerHTML = `
+            <div class="video-wrapper" data-role="you">
+                <video id="localVideo" autoplay muted playsinline></video>
+            </div>
+            <div class="video-wrapper" data-role="partner">
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+        `;
+    }
+    
+    if (videoControls) {
+        videoControls.style.display = 'none';
+    }
+    
+    if (selectionContainer) {
+        selectionContainer.style.display = 'block';
+    }
 
-    // Remove loading state from connect button
+    // Reset buttons to initial state
+    const muteButton = document.getElementById('muteAudio');
+    const hideVideoButton = document.getElementById('hideVideo');
+    if (muteButton) muteButton.classList.remove('active');
+    if (hideVideoButton) hideVideoButton.classList.remove('active');
+
+    // Remove any status messages
+    const statusBar = document.getElementById('status-bar');
+    if (statusBar) statusBar.style.display = 'none';
+
+    // Reset connect button
     const connectButton = document.getElementById('connect');
-    connectButton.classList.remove('loading');
-
-    // Reset video containers and controls
-    document.querySelector('.video-container').style.display = 'none';
-    document.querySelector('.video-controls').style.display = 'none';
-
-    // Remove any quality indicators or status messages
-    const qualityIndicator = document.querySelector('.quality-indicator');
-    if (qualityIndicator) qualityIndicator.remove();
-
-    // Hide waiting indicator
-    hideWaitingIndicator();
+    if (connectButton) {
+        connectButton.textContent = 'Connect';
+        connectButton.disabled = false;
+        connectButton.classList.remove('loading');
+    }
 }
+
 
 function setupUIControls() {
     const muteButton = document.getElementById('muteAudio');
