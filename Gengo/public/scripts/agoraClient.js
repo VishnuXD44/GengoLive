@@ -108,14 +108,6 @@ class AgoraClient {
                 codec: 'vp8'
             });
             
-            // Add network quality monitoring
-            this.client.on('network-quality', (stats) => {
-                // Update the UI with quality information
-                this.updateNetworkQualityIndicator(
-                    Math.min(stats.downlinkNetworkQuality, stats.uplinkNetworkQuality)
-                );
-            });
-            
             // Create local audio and video tracks
             const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
             
@@ -173,25 +165,7 @@ class AgoraClient {
     }
 
     updateNetworkQualityIndicator(level) {
-        const quality = {
-            0: { class: 'poor', text: 'Poor Connection' },
-            1: { class: 'poor', text: 'Poor Connection' },
-            2: { class: 'fair', text: 'Fair Connection' },
-            3: { class: 'fair', text: 'Fair Connection' },
-            4: { class: 'good', text: 'Good Connection' },
-            5: { class: 'good', text: 'Excellent Connection' }
-        }[level] || { class: 'unknown', text: 'Unknown Quality' };
-
-        let indicator = document.querySelector('.quality-indicator');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.className = `quality-indicator ${quality.class}`;
-            document.querySelector('.video-container').appendChild(indicator);
-        } else {
-            indicator.className = `quality-indicator ${quality.class}`;
-        }
-        
-        indicator.textContent = quality.text;
+        // Leave this empty or remove it
     }
 
     toggleAudio() {
