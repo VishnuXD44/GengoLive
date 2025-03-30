@@ -354,9 +354,18 @@ html, body {
 }
 
 .feature-value-card h3 {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 600;
     margin: 1rem 0;
+    color: var(--dark);
+}
+
+.feature-value-card p {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--neutral-700);
 }
 
 /* Team Cards */
@@ -852,15 +861,19 @@ html, body {
 }
 
 .features-values-header h2 {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 1.5rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
     color: var(--dark);
     margin-bottom: 1rem;
+    font-weight: 700;
 }
 
 .features-values-header p {
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.2rem;
     color: var(--neutral-700);
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 /* Responsive Design */
