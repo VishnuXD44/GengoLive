@@ -1,10 +1,11 @@
 /* Video container layout fixes */
 .video-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
     max-width: 1200px;
-    margin: 0 auto;
+    width: 95%;
+    margin: 2rem auto;
     padding: 20px;
     background: #f8f9fa;
     border-radius: 12px;
@@ -13,16 +14,22 @@
 
 .video-wrapper {
     position: relative;
+    width: 100%;
     aspect-ratio: 16/9;
-    background: #000;
+    background: var(--neutral-200);
     border-radius: 8px;
     overflow: hidden;
+    min-height: 240px;
+    max-height: 70vh;
 }
 
 .video-wrapper video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 /* Role labels */
@@ -1051,15 +1058,22 @@ html, body {
 
 .video-wrapper {
     position: relative;
+    width: 100%;
     aspect-ratio: 16/9;
     background: var(--neutral-200);
+    border-radius: 8px;
     overflow: hidden;
+    min-height: 240px;
+    max-height: 70vh;
 }
 
 .video-wrapper video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .video-label {
