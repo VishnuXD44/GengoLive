@@ -56,6 +56,10 @@
                 <option value="french">French</option>
                 <option value="mandarin">Mandarin</option>
                 <option value="korean">Korean</option>
+                <option value="german">German</option>
+                <option value="italian">Italian</option>
+                <option value="portuguese">Portuguese</option>
+                <option value="more">And more...</option>
             </select>
         </div>
         
@@ -120,6 +124,15 @@
     </script>
 
     <script>
+        // Update copyright year
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update any elements with class 'current-year'
+            const yearElements = document.querySelectorAll('.current-year');
+            yearElements.forEach(el => {
+                el.textContent = '2025';
+            });
+        });
+
         // Font loading detection
         document.fonts.ready.then(() => {
             document.documentElement.classList.add('fonts-loaded');
