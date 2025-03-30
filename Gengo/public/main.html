@@ -100,66 +100,32 @@
     </button>
 </div>
 
+<!-- Load dependencies first -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+<script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 
-    <!-- Load dependencies first -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
-    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    
-    <!-- Then load our bundles in dependency order -->
-    <script defer src="/scripts/contentMonitor.bundle.js"></script>
-    <script defer src="/scripts/agoraClient.bundle.js"></script>
-    <script defer src="/scripts/main.bundle.js"></script>
+<!-- Then load our bundles in dependency order -->
+<script defer src="/scripts/contentMonitor.bundle.js"></script>
+<script defer src="/scripts/agoraClient.bundle.js"></script>
+<script defer src="/scripts/main.bundle.js"></script>
 
-    <!-- Navbar scroll effect -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const navbar = document.querySelector('.navbar');
-            window.addEventListener('scroll', () => {
-                navbar.classList.toggle('scrolled', window.scrollY > 50);
-            });
+<!-- Navbar scroll effect -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const navbar = document.querySelector('.navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
         });
-    </script>
+    });
+</script>
 
-    <script>
-        // Update copyright year
-        document.addEventListener('DOMContentLoaded', () => {
-            // Update any elements with class 'current-year'
-            const yearElements = document.querySelectorAll('.current-year');
-            yearElements.forEach(el => {
-                el.textContent = '2025';
-            });
-        });
-
-        // Font loading detection
-        document.fonts.ready.then(() => {
-            document.documentElement.classList.add('fonts-loaded');
-        });
-    </script>
-
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-logo">
-                <h3>Gengo</h3>
-                <p>Connect. Learn. Grow.</p>
-            </div>
-            <div class="footer-links">
-                <div class="footer-column">
-                    <h4>Languages</h4>
-                    <a href="#">English</a>
-                    <a href="#">Spanish</a>
-                    <a href="#">Japanese</a>
-                    <a href="#">French</a>
-                    <a href="#">Mandarin</a>
-                    <a href="#">and more...</a>
-                </div>
-                <!-- ... rest of the footer content ... -->
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; <span class="current-year">2025</span> Gengo. All rights reserved.</p>
-        </div>
-    </footer>
+<script>
+    // Font loading detection
+    document.fonts.ready.then(() => {
+        document.documentElement.classList.add('fonts-loaded');
+    });
+</script>
 </body>
 </html>
