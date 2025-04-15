@@ -8,6 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles2.css">
     <style>
         /* Add this to ensure fonts are loaded before use */
         body {
@@ -19,19 +22,16 @@
             opacity: 1;
         }
     </style>
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/styles2.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-   <nav class="navbar">
-    <div class="nav-links">
-        <a href="/"><i class="fas fa-home"></i><span>Home</span></a>
-        <a href="/main" class="active"><i class="fas fa-comments"></i><span>Practice</span></a>
-        <a href="/about"><i class="fas fa-info-circle"></i><span>About</span></a>
-        <a href="/Contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
-    </div>
-</nav>
+    <nav class="navbar">
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="/main" class="active"><i class="fas fa-comments"></i><span>Practice</span></a>
+            <a href="/about"><i class="fas fa-info-circle"></i><span>About</span></a>
+            <a href="/Contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
+        </div>
+    </nav>
 
     <!-- Loading indicator -->
     <div id="loadingIndicator" class="loading-indicator hidden">
@@ -46,86 +46,80 @@
     </div>
 
     <div class="selection-container">
-        <h1>Choose Your Session</h1>
-        <div class="language-selection">
-            <label for="language">Choose Language:</label>
-            <select id="language">
-                <option value="english">English</option>
-                <option value="spanish">Spanish</option>
-                <option value="japanese">Japanese</option>
-                <option value="french">French</option>
-                <option value="mandarin">Mandarin</option>
-                <option value="korean">Korean</option>
-                <option value="german">German</option>
-                <option value="italian">Italian</option>
-                <option value="portuguese">Portuguese</option>
-            </select>
-        </div>
-        
-        <div class="role-selection">
-            <label for="role">Choose Role:</label>
-            <select id="role">
-                <option value="practice">Practice</option>
-                <option value="coach">Coach</option>
-            </select>
+        <h1 class="section-heading">Choose Your Session</h1>
+        <div class="selection-grid">
+            <div class="language-selection">
+                <label for="language">Choose Language:</label>
+                <select id="language" class="styled-select">
+                    <option value="english">English</option>
+                    <option value="spanish">Spanish</option>
+                    <option value="japanese">Japanese</option>
+                    <option value="french">French</option>
+                    <option value="mandarin">Mandarin</option>
+                    <option value="korean">Korean</option>
+                    <option value="german">German</option>
+                    <option value="italian">Italian</option>
+                    <option value="portuguese">Portuguese</option>
+                </select>
+            </div>
+            
+            <div class="role-selection">
+                <label for="role">Choose Role:</label>
+                <select id="role" class="styled-select">
+                    <option value="practice">Practice</option>
+                    <option value="coach">Coach</option>
+                </select>
+            </div>
         </div>
         
         <button id="connect" class="connect-button">
             <i class="fas fa-video"></i>
-            Start Session
+            <span>Start Session</span>
         </button>
     </div>
 
-   <div class="video-container" style="display: none;">
-    <div class="video-wrapper" data-role="you">
-        <video id="localVideo" autoplay muted playsinline></video>
+    <div class="video-container" style="display: none;">
+        <div class="video-wrapper" data-role="you">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="video-label">You</div>
+        </div>
+        <div class="video-wrapper" data-role="partner">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div class="video-label">Partner</div>
+        </div>
     </div>
-    <div class="video-wrapper" data-role="partner">
-        <video id="remoteVideo" autoplay playsinline></video>
+
+    <div class="video-controls" style="display: none;">
+        <button id="muteAudio" class="control-button">
+            <i class="fas fa-microphone"></i>
+            <span>Mute Audio</span>
+        </button>
+        <button id="hideVideo" class="control-button">
+            <i class="fas fa-video"></i>
+            <span>Hide Video</span>
+        </button>
+        <button id="leave" class="control-button leave">
+            <i class="fas fa-phone-slash"></i>
+            <span>Leave Call</span>
+        </button>
     </div>
-</div>
 
-<div class="video-controls" style="display: none;">
-    <button id="muteAudio" class="control-button">
-        <i class="fas fa-microphone"></i>
-        <span>Mute Audio</span>
-    </button>
-    <button id="hideVideo" class="control-button">
-        <i class="fas fa-video"></i>
-        <span>Hide Video</span>
-    </button>
-    <button id="leave" class="control-button leave">
-        <i class="fas fa-phone-slash"></i>
-        <span>Leave Call</span>
-    </button>
-</div>
+    <!-- Load dependencies first -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
-<!-- Load dependencies first -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
-<script src="https://unpkg.com/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
-<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.17.2.js"></script>
-<script src="/socket.io/socket.io.js"></script>
+    <!-- Then load our bundles in dependency order -->
+    <script defer src="/scripts/contentMonitor.bundle.js"></script>
+    <script defer src="/scripts/agoraClient.bundle.js"></script>
+    <script defer src="/scripts/main.bundle.js"></script>
 
-<!-- Then load our bundles in dependency order -->
-<script defer src="/scripts/contentMonitor.bundle.js"></script>
-<script defer src="/scripts/agoraClient.bundle.js"></script>
-<script defer src="/scripts/main.bundle.js"></script>
-
-<!-- Navbar scroll effect -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const navbar = document.querySelector('.navbar');
-        window.addEventListener('scroll', () => {
-            navbar.classList.toggle('scrolled', window.scrollY > 50);
+    <!-- Font loading detection -->
+    <script>
+        document.fonts.ready.then(() => {
+            document.documentElement.classList.add('fonts-loaded');
         });
-    });
-</script>
-
-<script>
-    // Font loading detection
-    document.fonts.ready.then(() => {
-        document.documentElement.classList.add('fonts-loaded');
-    });
-</script>
+    </script>
 </body>
 </html>
