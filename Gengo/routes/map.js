@@ -12,7 +12,14 @@ router.get('/config', (req, res) => {
         };
 
         if (!config.accessToken) {
-            throw new Error('Mapbox access token is not configured');
+            // Return a response indicating Mapbox features are unavailable
+            return res.status(503).json({
+                error: 'Mapbox features temporarily unavailable',
+                message: 'Map functionality is currently disabled. Please try again later.',
+                fallback: {
+                    message: 'Interactive map features are currently unavailable. Basic flashcard functionality remains accessible.'
+                }
+            });
         }
 
         res.json(config);
@@ -20,6 +27,7 @@ router.get('/config', (req, res) => {
         console.error('Error providing map configuration:', error);
         res.status(500).json({
             error: 'Failed to provide map configuration',
+            message: 'An error occurred while configuring the map.',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
