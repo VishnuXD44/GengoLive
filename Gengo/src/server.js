@@ -5,6 +5,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const agoraTokenRouter = require('./routes/agoraToken');
 const flashcardsRouter = require('./routes/flashcards');
+const mapRouter = require('./routes/map');
 
 // Verify required environment variables
 const requiredEnvVars = [
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use(express.static('dist'));  // Updated to serve from dist directory
 app.use('/api', agoraTokenRouter);
 app.use('/api/flashcards', flashcardsRouter);
+app.use('/api/map', mapRouter);
 
 // Add this middleware to handle clean URLs without .html extension
 app.get('/:page', (req, res, next) => {

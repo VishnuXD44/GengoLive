@@ -13,15 +13,27 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/styles2.css">
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: var(--light);
+        }
+
         .learn-container {
             padding: 2rem;
             max-width: 1200px;
             margin: 0 auto;
+            margin-top: 60px; /* Account for fixed navbar */
         }
 
         .learn-header {
             text-align: center;
             margin-bottom: 2rem;
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
         }
 
         .learn-title {
@@ -34,21 +46,23 @@
         .learn-subtitle {
             font-size: 1.2rem;
             color: var(--gray-600);
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
+            line-height: 1.6;
         }
 
         .map-section {
-            background: var(--light);
+            background: white;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
-            padding: 2rem;
+            padding: 1.5rem;
             margin-bottom: 2rem;
+            position: relative;
         }
 
         #map {
             width: 100%;
-            height: 500px;
+            height: 600px;
             border-radius: var(--radius-md);
             margin-bottom: 1rem;
         }
@@ -59,11 +73,18 @@
             background: var(--primary-light);
             border-radius: var(--radius-md);
             margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--dark);
+        }
+
+        .map-instructions i {
+            margin-right: 0.5rem;
+            color: var(--primary);
         }
 
         .flashcard-section {
             display: none;
-            background: var(--light);
+            background: white;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             padding: 2rem;
@@ -75,13 +96,13 @@
             flex-wrap: wrap;
             gap: 1.5rem;
             justify-content: center;
+            padding: 1rem;
         }
 
         .flashcard {
             background: white;
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-sm);
-            padding: 1.5rem;
             width: 300px;
             height: 200px;
             perspective: 1000px;
@@ -91,6 +112,7 @@
 
         .flashcard:hover {
             transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
         }
 
         .flashcard-inner {
@@ -115,7 +137,9 @@
             align-items: center;
             justify-content: center;
             font-size: 1.2rem;
-            padding: 1rem;
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            background: white;
         }
 
         .flashcard-back {
@@ -133,6 +157,7 @@
             font-size: 0.8rem;
             background: var(--primary);
             color: white;
+            text-transform: capitalize;
         }
 
         .flashcard-prompt {
@@ -147,19 +172,32 @@
             transform: translate(-50%, -50%);
             z-index: 1000;
             box-shadow: var(--shadow-lg);
+            display: none;
         }
 
         .prompt-header {
             margin-bottom: 1.5rem;
         }
 
+        .prompt-header h2 {
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            font-family: 'Playfair Display', serif;
+        }
+
         .prompt-input {
             width: 100%;
-            padding: 0.8rem;
+            padding: 1rem;
             border: 2px solid var(--primary);
             border-radius: var(--radius-md);
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
             font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: var(--primary-dark);
         }
 
         .prompt-buttons {
@@ -186,20 +224,42 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 1000;
+            background: white;
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            text-align: center;
         }
 
         .spinner {
             width: 50px;
             height: 50px;
-            border: 5px solid var(--light);
+            border: 5px solid var(--primary-light);
             border-top: 5px solid var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .learn-container {
+                padding: 1rem;
+            }
+
+            #map {
+                height: 400px;
+            }
+
+            .flashcard {
+                width: 100%;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
@@ -237,7 +297,7 @@
 
     <div class="overlay"></div>
     
-    <div class="flashcard-prompt" style="display: none;">
+    <div class="flashcard-prompt">
         <div class="prompt-header">
             <h2>Create Flashcards for <span class="location-name"></span></h2>
             <p>What would you like to learn about this location?</p>
@@ -252,50 +312,80 @@
 
     <div class="loading-spinner">
         <div class="spinner"></div>
+        <p>Generating flashcards...</p>
     </div>
 
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
     <script>
-        // Initialize map with environment variables
-        mapboxgl.accessToken = process.env.MAPBOX_ACCESS_TOKEN;
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: process.env.MAPBOX_STYLE,
-            center: JSON.parse(process.env.MAPBOX_DEFAULT_CENTER),
-            zoom: parseInt(process.env.MAPBOX_DEFAULT_ZOOM)
-        });
+        // Initialize map with configuration from server
+        async function initializeMap() {
+            try {
+                const response = await fetch('/api/map/config');
+                const config = await response.json();
+                
+                mapboxgl.accessToken = config.accessToken;
+                const map = new mapboxgl.Map({
+                    container: 'map',
+                    style: config.style,
+                    center: config.center,
+                    zoom: config.zoom,
+                    minZoom: 1.5
+                });
 
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl());
+                // Add navigation controls
+                map.addControl(new mapboxgl.NavigationControl());
+
+                return map;
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                document.getElementById('map').innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <i class="fas fa-map-marked-alt" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                        <p>Failed to load the map. Please try refreshing the page.</p>
+                    </div>
+                `;
+                throw error;
+            }
+        }
 
         let selectedLocation = null;
 
-        // Handle map clicks
-        map.on('click', async (e) => {
-            try {
-                const response = await fetch(
-                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${e.lngLat.lng},${e.lngLat.lat}.json?access_token=${mapboxgl.accessToken}`
-                );
-                const data = await response.json();
+        // Initialize map and set up event handlers
+        initializeMap().then(map => {
+            // Handle map clicks
+            map.on('click', async (e) => {
+                try {
+                    const response = await fetch(
+                        `https://api.mapbox.com/geocoding/v5/mapbox.places/${e.lngLat.lng},${e.lngLat.lat}.json?access_token=${mapboxgl.accessToken}`
+                    );
+                    const data = await response.json();
 
-                const place = data.features.find(f => 
-                    f.place_type.includes('country') || 
-                    f.place_type.includes('region') || 
-                    f.place_type.includes('city')
-                );
+                    const place = data.features.find(f => 
+                        f.place_type.includes('country') || 
+                        f.place_type.includes('region') || 
+                        f.place_type.includes('city')
+                    );
 
-                if (place) {
-                    selectedLocation = {
-                        name: place.text,
-                        coordinates: e.lngLat,
-                        type: place.place_type[0]
-                    };
-                    showPrompt(selectedLocation.name);
+                    if (place) {
+                        selectedLocation = {
+                            name: place.text,
+                            coordinates: e.lngLat,
+                            type: place.place_type[0]
+                        };
+                        showPrompt(selectedLocation.name);
+                    }
+                } catch (error) {
+                    console.error('Error getting location info:', error);
+                    alert('Failed to get location information. Please try again.');
                 }
-            } catch (error) {
-                console.error('Error getting location info:', error);
-                alert('Failed to get location information. Please try again.');
-            }
+            });
+
+            // Ensure map resizes properly
+            window.addEventListener('resize', () => {
+                map.resize();
+            });
+        }).catch(error => {
+            console.error('Failed to initialize map:', error);
         });
 
         function showPrompt(locationName) {
@@ -374,6 +464,12 @@
             });
 
             document.querySelector('.flashcard-section').style.display = 'block';
+            
+            // Scroll to flashcards
+            document.querySelector('.flashcard-section').scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
         }
 
         function isValidPrompt(prompt) {
@@ -395,5 +491,4 @@
         });
     </script>
 </body>
-</html> 
 </html> 
