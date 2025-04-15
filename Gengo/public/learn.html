@@ -206,6 +206,40 @@
         </section>
     </main>
 
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <h3>Gengo</h3>
+                <p>Connect. Learn. Grow.</p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Languages</h4>
+                    <a href="/main?lang=english">English</a>
+                    <a href="/main?lang=spanish">Spanish</a>
+                    <a href="/main?lang=japanese">Japanese</a>
+                    <a href="/main?lang=french">French</a>
+                    <a href="/main?lang=mandarin">Mandarin</a>
+                    <a href="/main">View All</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <a href="/about">About Us</a>
+                    <a href="/contact">Contact</a>
+                    <a href="/privacy">Privacy Policy</a>
+                    <a href="/terms">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; <span class="current-year">2024</span> Gengo. All rights reserved.</p>
+        </div>
+    </footer>
+
     <script type="module" src="scripts/learn.js"></script>
+    <script>
+        // Update copyright year
+        document.querySelector('.current-year').textContent = new Date().getFullYear();
+    </script>
 </body>
 </html> 
