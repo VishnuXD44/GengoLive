@@ -4,6 +4,8 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 const agoraTokenRouter = require('./routes/agoraToken');
+const flashcardsRouter = require('./routes/flashcards');
+const mapRouter = require('./routes/map');
 
 // Verify required environment variables
 const requiredEnvVars = [
@@ -25,6 +27,8 @@ const io = socketIO(server);
 app.use(express.json());
 app.use(express.static('dist'));  // Updated to serve from dist directory
 app.use('/api', agoraTokenRouter);
+app.use('/api/flashcards', flashcardsRouter);
+app.use('/api/map', mapRouter);
 
 // Add this middleware to handle clean URLs without .html extension
 app.get('/:page', (req, res, next) => {
@@ -164,6 +168,11 @@ setInterval(() => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    if (process.env.MAPBOX_ACCESS_TOKEN) {
+        console.log('Mapbox functionality enabled');
+    } else {
+        console.warn('Warning: MAPBOX_ACCESS_TOKEN not set, map features will be limited');
+    }
 });
 
 module.exports = { app, server, io };
