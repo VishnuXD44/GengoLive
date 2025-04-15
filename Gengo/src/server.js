@@ -6,11 +6,15 @@ const path = require('path');
 const agoraTokenRouter = require('./routes/agoraToken');
 const flashcardsRouter = require('./routes/flashcards');
 const mapRouter = require('./routes/map');
+const authRouter = require('./routes/auth');
 
 // Verify required environment variables
 const requiredEnvVars = [
     'AGORA_APP_ID',
-    'AGORA_APP_CERTIFICATE'
+    'AGORA_APP_CERTIFICATE',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'DEEPSEEK_API_KEY'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -29,6 +33,7 @@ app.use(express.static('dist'));  // Updated to serve from dist directory
 app.use('/api', agoraTokenRouter);
 app.use('/api/flashcards', flashcardsRouter);
 app.use('/api/map', mapRouter);
+app.use('/api/auth', authRouter);
 
 // Add this middleware to handle clean URLs without .html extension
 app.get('/:page', (req, res, next) => {

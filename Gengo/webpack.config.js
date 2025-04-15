@@ -12,7 +12,10 @@ module.exports = {
     entry: {
         main: './public/scripts/main.js',
         'agoraClient': './public/scripts/agoraClient.js',
-        'contentMonitor': './public/scripts/contentMonitor.js'
+        'contentMonitor': './public/scripts/contentMonitor.js',
+        'learn': './public/scripts/learn.js',
+        'auth': './public/scripts/auth.js',
+        'flashcardManager': './public/scripts/flashcardManager.js'
     },
     output: {
         filename: 'scripts/[name].bundle.js',
@@ -78,7 +81,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/learn.html',
             filename: 'learn.html',
-            chunks: ['main'],
+            chunks: ['learn', 'auth', 'flashcardManager'],
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
@@ -125,7 +128,9 @@ module.exports = {
             'process.env.MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN || ''),
             'process.env.MAPBOX_STYLE': JSON.stringify(process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'),
             'process.env.MAPBOX_DEFAULT_CENTER': JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
-            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2')
+            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2'),
+            'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || ''),
+            'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
         })
     ],
     resolve: {
