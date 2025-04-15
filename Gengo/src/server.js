@@ -4,25 +4,17 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 const agoraTokenRouter = require('./routes/agoraToken');
-const flashcardsRouter = require('./routes/flashcards');
-const mapRouter = require('./routes/map');
 
-// Environment variable validation with defaults
-const envConfig = {
-    AGORA_APP_ID: process.env.AGORA_APP_ID || '',
-    AGORA_APP_CERTIFICATE: process.env.AGORA_APP_CERTIFICATE || '',
-    MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN || '',
-    PORT: process.env.PORT || 3000
-};
+// Verify required environment variables
+const requiredEnvVars = [
+    'AGORA_APP_ID',
+    'AGORA_APP_CERTIFICATE'
+];
 
-// Log missing environment variables as warnings instead of crashing
-const missingEnvVars = Object.entries(envConfig)
-    .filter(([key, value]) => !value && key !== 'PORT')
-    .map(([key]) => key);
-
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingEnvVars.length > 0) {
-    console.warn('Warning: Missing environment variables:', missingEnvVars.join(', '));
-    console.warn('Some features may be limited or unavailable');
+    console.error('Missing required environment variables:', missingEnvVars.join(', '));
+    process.exit(1);
 }
 
 const app = express();
@@ -31,48 +23,22 @@ const io = socketIO(server);
 
 // Middleware
 app.use(express.json());
+app.use(express.static('dist'));  // Updated to serve from dist directory
+app.use('/api', agoraTokenRouter);
 
-// Serve static files from both dist and public directories
-app.use(express.static('dist'));
-app.use(express.static('public'));
-
-// API routes
-if (envConfig.AGORA_APP_ID && envConfig.AGORA_APP_CERTIFICATE) {
-    app.use('/api', agoraTokenRouter);
-}
-app.use('/api/flashcards', flashcardsRouter);
-app.use('/api/map', mapRouter);
-
-// Handle clean URLs without .html extension
+// Add this middleware to handle clean URLs without .html extension
 app.get('/:page', (req, res, next) => {
     const page = req.params.page;
+    // Skip for files that already have extensions or API routes
     if (page.includes('.') || page === 'api') {
         return next();
     }
     
-    // Try dist directory first, then public
+    // Try to serve the HTML file
     res.sendFile(path.join(__dirname, '../dist', `${page}.html`), err => {
         if (err) {
-            res.sendFile(path.join(__dirname, '../public', `${page}.html`), err => {
-                if (err) {
-                    next();
-                }
-            });
+            next(); // If file doesn't exist, continue to next middleware
         }
-    });
-});
-
-// Serve index.html for root path
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
 
@@ -195,9 +161,9 @@ setInterval(() => {
 }, 60000); // Check every minute
 
 // Start server
-server.listen(envConfig.PORT, () => {
-    console.log(`Server running on port ${envConfig.PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 
 module.exports = { app, server, io };
