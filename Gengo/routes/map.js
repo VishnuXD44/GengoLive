@@ -4,6 +4,16 @@ const router = express.Router();
 // Endpoint to provide map configuration
 router.get('/config', (req, res) => {
     try {
+        // Validate environment variables are present
+        if (!process.env.MAPBOX_ACCESS_TOKEN) {
+            console.error('Mapbox access token is not configured');
+            return res.status(400).json({
+                error: 'Configuration Error',
+                message: 'Map service is not properly configured. Please check your environment variables.',
+                details: process.env.NODE_ENV === 'development' ? 'Missing MAPBOX_ACCESS_TOKEN' : undefined
+            });
+        }
+
         const config = {
             accessToken: process.env.MAPBOX_ACCESS_TOKEN,
             style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11',
@@ -11,23 +21,12 @@ router.get('/config', (req, res) => {
             zoom: parseInt(process.env.MAPBOX_DEFAULT_ZOOM || '2')
         };
 
-        if (!config.accessToken) {
-            // Return a response indicating Mapbox features are unavailable
-            return res.status(503).json({
-                error: 'Mapbox features temporarily unavailable',
-                message: 'Map functionality is currently disabled. Please try again later.',
-                fallback: {
-                    message: 'Interactive map features are currently unavailable. Basic flashcard functionality remains accessible.'
-                }
-            });
-        }
-
         res.json(config);
     } catch (error) {
         console.error('Error providing map configuration:', error);
         res.status(500).json({
-            error: 'Failed to provide map configuration',
-            message: 'An error occurred while configuring the map.',
+            error: 'Server Error',
+            message: 'Failed to provide map configuration',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
