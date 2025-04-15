@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Supabase environment variables are not set');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 class AuthHandler {
     constructor() {
@@ -15,17 +19,23 @@ class AuthHandler {
 
     // Initialize auth state
     async init() {
-        const { data: { session } } = await this.supabase.auth.getSession();
-        if (session) {
-            this.currentUser = session.user;
-            this.notifyListeners();
-        }
+        try {
+            const { data: { session }, error } = await this.supabase.auth.getSession();
+            if (error) throw error;
 
-        // Listen for auth state changes
-        this.supabase.auth.onAuthStateChange((event, session) => {
-            this.currentUser = session?.user || null;
-            this.notifyListeners();
-        });
+            if (session) {
+                this.currentUser = session.user;
+                this.notifyListeners();
+            }
+
+            // Listen for auth state changes
+            this.supabase.auth.onAuthStateChange((event, session) => {
+                this.currentUser = session?.user || null;
+                this.notifyListeners();
+            });
+        } catch (error) {
+            console.error('Error initializing auth:', error);
+        }
     }
 
     // Sign in with email and password

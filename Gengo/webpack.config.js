@@ -9,13 +9,12 @@ const webpack = require('webpack');
 require('dotenv').config();
 
 module.exports = {
+    mode: process.env.NODE_ENV || 'development',
     entry: {
         main: './public/scripts/main.js',
         'agoraClient': './public/scripts/agoraClient.js',
         'contentMonitor': './public/scripts/contentMonitor.js',
-        'learn': './public/scripts/learn.js',
-        'auth': './public/scripts/auth.js',
-        'flashcardManager': './public/scripts/flashcardManager.js'
+        'learn': './public/scripts/learn.js'
     },
     output: {
         filename: 'scripts/[name].bundle.js',
@@ -25,7 +24,7 @@ module.exports = {
         globalObject: 'this'
     },
     experiments: {
-        outputModule: false,
+        outputModule: true,
     },
     module: {
         rules: [
@@ -35,7 +34,19 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env']
+                        presets: [
+                            ['@babel/preset-env', {
+                                targets: {
+                                    browsers: ['last 2 versions', 'not dead']
+                                },
+                                modules: false,
+                                useBuiltIns: 'usage',
+                                corejs: 3
+                            }]
+                        ],
+                        plugins: [
+                            '@babel/plugin-transform-runtime'
+                        ]
                     },
                 },
             },
@@ -81,7 +92,7 @@ module.exports = {
         new HtmlWebpackPlugin({
             template: './public/learn.html',
             filename: 'learn.html',
-            chunks: ['learn', 'auth', 'flashcardManager'],
+            chunks: ['learn'],
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
@@ -122,22 +133,34 @@ module.exports = {
             ],
         }),
         new Dotenv({
-            systemvars: true // Load all system variables as well
+            systemvars: true, // Load all system variables
+            safe: true // Load .env.example variables if .env is missing
         }),
         new webpack.DefinePlugin({
-            'process.env.MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN || ''),
-            'process.env.MAPBOX_STYLE': JSON.stringify(process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'),
-            'process.env.MAPBOX_DEFAULT_CENTER': JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
-            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2'),
-            'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || ''),
-            'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || '')
+            'process.env': {
+                NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+                MAPBOX_ACCESS_TOKEN: JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN || ''),
+                MAPBOX_STYLE: JSON.stringify(process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'),
+                MAPBOX_DEFAULT_CENTER: JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
+                MAPBOX_DEFAULT_ZOOM: JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2'),
+                SUPABASE_URL: JSON.stringify(process.env.SUPABASE_URL || ''),
+                SUPABASE_ANON_KEY: JSON.stringify(process.env.SUPABASE_ANON_KEY || ''),
+                AUTH_REQUIRE_INVITE: JSON.stringify(process.env.AUTH_REQUIRE_INVITE || 'true')
+            }
         })
     ],
     resolve: {
-        extensions: ['.js']
+        extensions: ['.js'],
+        fallback: {
+            "buffer": require.resolve("buffer/"),
+            "crypto": require.resolve("crypto-browserify"),
+            "stream": require.resolve("stream-browserify"),
+            "util": require.resolve("util/"),
+            "process": require.resolve("process/browser")
+        }
     },
     devServer: {
-        port: 9000,
+        port: process.env.PORT || 9000,
         static: {
             directory: path.join(__dirname, 'dist'),
         },
@@ -149,16 +172,35 @@ module.exports = {
             ]
         },
         proxy: {
-            '/api': 'http://localhost:3000',
+            '/api': process.env.API_URL || 'http://localhost:3000',
             '/socket.io': {
-                target: 'http://localhost:3000',
+                target: process.env.API_URL || 'http://localhost:3000',
                 ws: true
             }
         }
     },
     optimization: {
         splitChunks: {
-            chunks: 'all'
+            chunks: 'all',
+            minSize: 20000,
+            maxSize: 244000,
+            minChunks: 1,
+            maxAsyncRequests: 30,
+            maxInitialRequests: 30,
+            automaticNameDelimiter: '~',
+            enforceSizeThreshold: 50000,
+            cacheGroups: {
+                defaultVendors: {
+                    test: /[\\/]node_modules[\\/]/,
+                    priority: -10,
+                    reuseExistingChunk: true
+                },
+                default: {
+                    minChunks: 2,
+                    priority: -20,
+                    reuseExistingChunk: true
+                }
+            }
         }
     }
 };
