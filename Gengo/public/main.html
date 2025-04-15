@@ -115,43 +115,11 @@
     <script defer src="/scripts/agoraClient.bundle.js"></script>
     <script defer src="/scripts/main.bundle.js"></script>
 
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-logo">
-                <h3>Gengo</h3>
-                <p>Connect. Learn. Grow.</p>
-            </div>
-            <div class="footer-links">
-                <div class="footer-column">
-                    <h4>Languages</h4>
-                    <a href="/main?lang=english">English</a>
-                    <a href="/main?lang=spanish">Spanish</a>
-                    <a href="/main?lang=japanese">Japanese</a>
-                    <a href="/main?lang=french">French</a>
-                    <a href="/main?lang=mandarin">Mandarin</a>
-                    <a href="/main">View All</a>
-                </div>
-                <div class="footer-column">
-                    <h4>Company</h4>
-                    <a href="/about">About Us</a>
-                    <a href="/contact">Contact</a>
-                    <a href="/privacy">Privacy Policy</a>
-                    <a href="/terms">Terms of Service</a>
-                </div>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; <span class="current-year">2024</span> Gengo. All rights reserved.</p>
-        </div>
-    </footer>
-
     <!-- Font loading detection -->
     <script>
         document.fonts.ready.then(() => {
             document.documentElement.classList.add('fonts-loaded');
         });
-        // Update copyright year
-        document.querySelector('.current-year').textContent = new Date().getFullYear();
     </script>
 </body>
 </html>
