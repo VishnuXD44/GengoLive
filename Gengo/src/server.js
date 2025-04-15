@@ -38,6 +38,12 @@ app.get('/:page', (req, res, next) => {
         return next();
     }
     
+    // List of valid pages
+    const validPages = ['about', 'contact', 'main', 'learn', 'privacy', 'terms'];
+    if (!validPages.includes(page.toLowerCase())) {
+        return next();
+    }
+    
     // Try to serve the HTML file
     res.sendFile(path.join(__dirname, '../dist', `${page}.html`), err => {
         if (err) {

@@ -87,6 +87,18 @@ module.exports = {
             chunks: ['main'],
             favicon: './favicon.ico'
         }),
+        new HtmlWebpackPlugin({
+            template: './public/privacy.html',
+            filename: 'privacy.html',
+            chunks: ['main'],
+            favicon: './favicon.ico'
+        }),
+        new HtmlWebpackPlugin({
+            template: './public/terms.html',
+            filename: 'terms.html',
+            chunks: ['main'],
+            favicon: './favicon.ico'
+        }),
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'public/assets', to: 'assets' },
@@ -127,7 +139,7 @@ module.exports = {
         hot: true,
         historyApiFallback: {
             rewrites: [
-                { from: /^\/(about|Contact|main|learn)$/, to: context => `/${context.match[1]}.html` },
+                { from: /^\/(about|Contact|main|learn|privacy|terms)$/, to: context => `/${context.match[1]}.html` },
                 { from: /./, to: '/index.html' }
             ]
         },
