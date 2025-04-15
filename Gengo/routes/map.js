@@ -3,7 +3,16 @@ const router = express.Router();
 
 // Endpoint to provide map configuration
 router.get('/config', (req, res) => {
+    console.log('Map config endpoint called');
     try {
+        // Log environment variables (safely)
+        console.log('Environment check:', {
+            hasMapboxToken: !!process.env.MAPBOX_ACCESS_TOKEN,
+            hasStyle: !!process.env.MAPBOX_STYLE,
+            hasCenter: !!process.env.MAPBOX_DEFAULT_CENTER,
+            hasZoom: !!process.env.MAPBOX_DEFAULT_ZOOM
+        });
+
         // Validate environment variables are present
         if (!process.env.MAPBOX_ACCESS_TOKEN) {
             console.error('Mapbox access token is not configured');
@@ -14,13 +23,31 @@ router.get('/config', (req, res) => {
             });
         }
 
+        // Parse center coordinates with error handling
+        let center;
+        try {
+            center = JSON.parse(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]');
+        } catch (parseError) {
+            console.error('Error parsing center coordinates:', parseError);
+            center = [0, 20]; // fallback to default
+        }
+
         const config = {
             accessToken: process.env.MAPBOX_ACCESS_TOKEN,
             style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11',
-            center: JSON.parse(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
+            center: center,
             zoom: parseInt(process.env.MAPBOX_DEFAULT_ZOOM || '2')
         };
 
+        console.log('Sending map config:', {
+            style: config.style,
+            center: config.center,
+            zoom: config.zoom,
+            hasToken: !!config.accessToken
+        });
+
+        // Set proper headers
+        res.setHeader('Content-Type', 'application/json');
         res.json(config);
     } catch (error) {
         console.error('Error providing map configuration:', error);
