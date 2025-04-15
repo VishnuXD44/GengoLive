@@ -17,6 +17,7 @@ async function startVideoCall(language, role) {
             await agoraVideo.checkPermissions();
         } catch (error) {
             console.error('Permission error:', error);
+            showMessage('Camera or microphone permission denied', 'error');
             return;
         }
 
@@ -30,7 +31,8 @@ async function startVideoCall(language, role) {
 
         // Add loading state to connect button
         const connectButton = document.getElementById('connect');
-        connectButton.classList.add('loading');
+        connectButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Connecting...</span>';
+        connectButton.disabled = true;
 
         // Show waiting indicator
         showWaitingIndicator();
@@ -42,12 +44,16 @@ async function startVideoCall(language, role) {
         console.error('Error starting video call:', error);
         updateState('idle');
         
-        // Remove loading state from connect button
+        // Reset connect button
         const connectButton = document.getElementById('connect');
-        connectButton.classList.remove('loading');
+        connectButton.innerHTML = '<i class="fas fa-video"></i><span>Start Session</span>';
+        connectButton.disabled = false;
 
         // Hide waiting indicator
         hideWaitingIndicator();
+        
+        // Show error message
+        showMessage('Failed to start video call', 'error');
     }
 }
 
@@ -318,42 +324,35 @@ function updateUI(state) {
     }
 }
 
-// Update waiting indicator to be integrated into the UI
+// Function to show waiting indicator
 function showWaitingIndicator() {
-    const connectButton = document.getElementById('connect');
-    if (connectButton) {
-        connectButton.innerHTML = `
-            <span class="spinner-small"></span>
-            <span>Waiting...</span>
-        `;
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.remove('hidden');
     }
 }
 
+// Function to hide waiting indicator
 function hideWaitingIndicator() {
-    const connectButton = document.getElementById('connect');
-    if (connectButton) {
-        connectButton.innerHTML = 'Connect';
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.add('hidden');
     }
 }
 
-// Update the showMessage function to use a fixed status bar
+// Function to show status messages
 function showMessage(message, type = 'info') {
-    const statusBar = document.getElementById('status-bar') || (() => {
-        const bar = document.createElement('div');
-        bar.id = 'status-bar';
-        bar.className = 'status-bar';
-        document.body.appendChild(bar);
-        return bar;
-    })();
-
-    statusBar.textContent = message;
-    statusBar.className = `status-bar ${type}`;
+    const statusBar = document.getElementById('status-bar');
+    const statusMessage = statusBar.querySelector('.status-message');
     
-    // Only show for errors
-    if (type === 'error') {
-        statusBar.style.display = 'block';
+    if (statusBar && statusMessage) {
+        statusMessage.textContent = message;
+        statusBar.className = `status-bar ${type}`;
+        statusBar.classList.add('show');
+        
+        // Hide after 5 seconds
         setTimeout(() => {
-            statusBar.style.display = 'none';
+            statusBar.classList.remove('show');
         }, 5000);
     }
 }
