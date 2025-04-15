@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gengo - Learn</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles2.css">
+    <style>
+        #map {
+            width: 100%;
+            height: 70vh;
+            margin-top: 4rem;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem;
+            margin: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1;
+            max-width: 300px;
+        }
+
+        .flashcard-prompt {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--light);
+            padding: 2rem;
+            border: 4px solid var(--primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .flashcard-prompt h2 {
+            margin-bottom: 1rem;
+            color: var(--dark);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .flashcard-prompt input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 2px solid var(--primary);
+            border-radius: var(--radius-md);
+        }
+
+        .flashcard-prompt .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i><span>Home</span></a>
+            <a href="/main"><i class="fas fa-comments"></i><span>Practice</span></a>
+            <a href="/about"><i class="fas fa-info-circle"></i><span>About</span></a>
+            <a href="/learn" class="active"><i class="fas fa-graduation-cap"></i><span>Learn</span></a>
+        </div>
+    </nav>
+
+    <div class="map-container">
+        <div class="map-overlay">
+            <h3>Click on any location to create location-specific flashcards!</h3>
+            <p>Learn travel phrases, cultural etiquette, and essential vocabulary for your destination.</p>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <div class="overlay"></div>
+    <div class="flashcard-prompt">
+        <h2>Create Flashcards for <span class="location-name"></span></h2>
+        <p>What would you like to learn about this location?</p>
+        <input type="text" id="flashcard-prompt" placeholder="e.g., ordering food, basic greetings, train station phrases">
+        <div class="buttons">
+            <button class="btn btn-secondary" onclick="closePrompt()">Cancel</button>
+            <button class="btn btn-primary" onclick="generateFlashcards()">Generate</button>
+        </div>
+    </div>
+
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    <script>
+        // Load environment variables from webpack
+        const MAPBOX_CONFIG = {
+            accessToken: process.env.MAPBOX_ACCESS_TOKEN,
+            style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11',
+            defaultCenter: JSON.parse(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
+            defaultZoom: parseInt(process.env.MAPBOX_DEFAULT_ZOOM || '2')
+        };
+
+        // Initialize map
+        mapboxgl.accessToken = MAPBOX_CONFIG.accessToken;
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: MAPBOX_CONFIG.style,
+            center: MAPBOX_CONFIG.defaultCenter,
+            zoom: MAPBOX_CONFIG.defaultZoom
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Store the clicked location
+        let selectedLocation = null;
+
+        // Handle map clicks
+        map.on('click', async (e) => {
+            try {
+                // Get location information from coordinates
+                const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${e.lngLat.lng},${e.lngLat.lat}.json?access_token=${mapboxgl.accessToken}`);
+                const data = await response.json();
+
+                // Get the most relevant place name
+                const place = data.features.find(f => 
+                    f.place_type.includes('country') || 
+                    f.place_type.includes('region') || 
+                    f.place_type.includes('city')
+                );
+
+                if (place) {
+                    selectedLocation = {
+                        name: place.text,
+                        coordinates: e.lngLat,
+                        type: place.place_type[0]
+                    };
+                    showPrompt(selectedLocation.name);
+                }
+            } catch (error) {
+                console.error('Error getting location info:', error);
+            }
+        });
+
+        function showPrompt(locationName) {
+            document.querySelector('.location-name').textContent = locationName;
+            document.querySelector('.overlay').style.display = 'block';
+            document.querySelector('.flashcard-prompt').style.display = 'block';
+        }
+
+        function closePrompt() {
+            document.querySelector('.overlay').style.display = 'none';
+            document.querySelector('.flashcard-prompt').style.display = 'none';
+            document.querySelector('#flashcard-prompt').value = '';
+        }
+
+        async function generateFlashcards() {
+            const prompt = document.querySelector('#flashcard-prompt').value;
+            
+            // Validate prompt content
+            if (!isValidPrompt(prompt)) {
+                alert('Please enter a travel or language learning related prompt.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/flashcards/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt,
+                        location: selectedLocation
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to generate flashcards');
+
+                const data = await response.json();
+                closePrompt();
+                // Handle the generated flashcards (we'll implement this later)
+                console.log('Generated flashcards:', data);
+            } catch (error) {
+                console.error('Error generating flashcards:', error);
+                alert('Failed to generate flashcards. Please try again.');
+            }
+        }
+
+        function isValidPrompt(prompt) {
+            // List of allowed topics
+            const allowedTopics = [
+                'travel', 'food', 'restaurant', 'hotel', 'transportation',
+                'greeting', 'shopping', 'direction', 'emergency', 'culture',
+                'basic', 'phrase', 'vocabulary', 'language', 'learning'
+            ];
+
+            // Convert prompt to lowercase for checking
+            const lowerPrompt = prompt.toLowerCase();
+            
+            // Check if the prompt contains any allowed topics
+            return allowedTopics.some(topic => lowerPrompt.includes(topic));
+        }
+    </script>
+</body>
+</html> 

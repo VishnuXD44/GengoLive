@@ -3,6 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const Dotenv = require('dotenv-webpack');
+const webpack = require('webpack');
 
 module.exports = {
     entry: {
@@ -96,7 +97,13 @@ module.exports = {
                 }
             ],
         }),
-        new Dotenv()
+        new Dotenv(),
+        new webpack.DefinePlugin({
+            'process.env.MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN),
+            'process.env.MAPBOX_STYLE': JSON.stringify(process.env.MAPBOX_STYLE),
+            'process.env.MAPBOX_DEFAULT_CENTER': JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER),
+            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM)
+        })
     ],
     resolve: {
         extensions: ['.js']
