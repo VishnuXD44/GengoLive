@@ -5,6 +5,9 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const Dotenv = require('dotenv-webpack');
 const webpack = require('webpack');
 
+// Load environment variables for DefinePlugin
+require('dotenv').config();
+
 module.exports = {
     entry: {
         main: './public/scripts/main.js',
@@ -73,6 +76,12 @@ module.exports = {
             favicon: './favicon.ico'
         }),
         new HtmlWebpackPlugin({
+            template: './public/learn.html',
+            filename: 'learn.html',
+            chunks: ['main'],
+            favicon: './favicon.ico'
+        }),
+        new HtmlWebpackPlugin({
             template: './public/Contact.html',
             filename: 'Contact.html',
             chunks: ['main'],
@@ -97,12 +106,14 @@ module.exports = {
                 }
             ],
         }),
-        new Dotenv(),
+        new Dotenv({
+            systemvars: true // Load all system variables as well
+        }),
         new webpack.DefinePlugin({
-            'process.env.MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN),
-            'process.env.MAPBOX_STYLE': JSON.stringify(process.env.MAPBOX_STYLE),
-            'process.env.MAPBOX_DEFAULT_CENTER': JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER),
-            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM)
+            'process.env.MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN || ''),
+            'process.env.MAPBOX_STYLE': JSON.stringify(process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'),
+            'process.env.MAPBOX_DEFAULT_CENTER': JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
+            'process.env.MAPBOX_DEFAULT_ZOOM': JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2')
         })
     ],
     resolve: {
@@ -116,7 +127,7 @@ module.exports = {
         hot: true,
         historyApiFallback: {
             rewrites: [
-                { from: /^\/(about|Contact|main)$/, to: context => `/${context.match[1]}.html` },
+                { from: /^\/(about|Contact|main|learn)$/, to: context => `/${context.match[1]}.html` },
                 { from: /./, to: '/index.html' }
             ]
         },
