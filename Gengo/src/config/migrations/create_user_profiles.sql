@@ -79,27 +79,30 @@ CREATE POLICY "Users can delete their own flashcards"
     ON user_flashcards FOR DELETE
     USING (auth.uid() = user_id);
 
--- Create functions for updating timestamps
+-- Create function for updating timestamps with explicit search path
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql AS $$
 BEGIN
     NEW.updated_at = TIMEZONE('utc'::text, NOW());
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$;
 
 -- Create triggers for updating timestamps
 CREATE TRIGGER update_user_profiles_updated_at
     BEFORE UPDATE ON user_profiles
     FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_user_progress_updated_at
     BEFORE UPDATE ON user_progress
     FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_user_flashcards_updated_at
     BEFORE UPDATE ON user_flashcards
     FOR EACH ROW
-    EXECUTE PROCEDURE update_updated_at_column(); 
+    EXECUTE FUNCTION update_updated_at_column(); 
