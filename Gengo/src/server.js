@@ -7,6 +7,7 @@ const agoraTokenRouter = require('./routes/agoraToken');
 const flashcardsRouter = require('./routes/flashcards');
 const mapRouter = require('./routes/map');
 const authRouter = require('./routes/auth');
+const languageRouter = require('./routes/language');
 
 // Verify required environment variables
 const requiredEnvVars = [
@@ -14,7 +15,8 @@ const requiredEnvVars = [
     'AGORA_APP_CERTIFICATE',
     'SUPABASE_URL',
     'SUPABASE_ANON_KEY',
-    'DEEPSEEK_API_KEY'
+    'DEEPSEEK_API_KEY',
+    'MAPBOX_ACCESS_TOKEN'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -34,6 +36,7 @@ app.use('/api', agoraTokenRouter);
 app.use('/api/flashcards', flashcardsRouter);
 app.use('/api/map', mapRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/language', languageRouter);
 
 // Add this middleware to handle clean URLs without .html extension
 app.get('/:page', (req, res, next) => {

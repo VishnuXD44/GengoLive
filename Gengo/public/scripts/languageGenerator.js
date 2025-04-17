@@ -1,6 +1,6 @@
 class LanguageGenerator {
     constructor() {
-        this.API_URL = '/api/generate'; // You'll need to set up this endpoint on your server
+        this.API_URL = '/api/language/generate';
     }
 
     async generatePhrases(query, language, country) {
@@ -15,10 +15,15 @@ class LanguageGenerator {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to generate phrases');
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to generate phrases');
             }
 
             const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to generate phrases');
+            }
+
             return this.parseResponse(data.response);
         } catch (error) {
             console.error('Error generating phrases:', error);
@@ -37,18 +42,27 @@ class LanguageGenerator {
     }
 
     parseResponse(response) {
-        // Split the response into lines and parse each phrase
-        const lines = response.split('\n').filter(line => line.trim());
-        
-        return lines.map(line => {
-            const [english, native, pronunciation] = line.split('|').map(s => s.trim());
-            return {
-                front: english,
-                back: `${native}\n\nPronunciation: ${pronunciation}`,
-                native: native,
-                pronunciation: pronunciation
-            };
-        });
+        try {
+            // Split the response into lines and parse each phrase
+            const lines = response.split('\n').filter(line => line.trim() && line.includes('|'));
+            
+            return lines.map(line => {
+                const [english, native, pronunciation] = line.split('|').map(s => s.trim());
+                if (!english || !native || !pronunciation) {
+                    console.warn('Invalid phrase format:', line);
+                    return null;
+                }
+                return {
+                    front: english,
+                    back: `${native}\n\nPronunciation: ${pronunciation}`,
+                    native: native,
+                    pronunciation: pronunciation
+                };
+            }).filter(phrase => phrase !== null);
+        } catch (error) {
+            console.error('Error parsing response:', error);
+            throw new Error('Failed to parse generated phrases');
+        }
     }
 }
 
