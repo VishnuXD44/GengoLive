@@ -1,15 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 import authHandler from './auth.js';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-);
+// Initialize Supabase client with environment variables
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const defaultCategory = process.env.DEFAULT_FLASHCARD_CATEGORY || 'greetings';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Supabase environment variables are not set');
+    throw new Error('Supabase configuration is missing. Please check your environment variables.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 class FlashcardManager {
     constructor() {
         this.supabase = supabase;
         this.currentUser = null;
+        this.defaultCategory = defaultCategory;
         
         // Listen for auth state changes
         authHandler.onAuthStateChange((user) => {

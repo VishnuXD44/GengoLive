@@ -10,10 +10,16 @@ class AgoraClient {
         this.hasPermissions = false;
         
         // Store connection parameters for potential reconnection
-        this.appId = null;
+        this.appId = process.env.AGORA_APP_ID;
         this.token = null;
         this.channelName = null;
         this.uid = null;
+        
+        // Validate Agora configuration
+        if (!this.appId) {
+            console.error('Agora App ID is not set');
+            throw new Error('Agora configuration is missing. Please check your environment variables.');
+        }
         
         // Try to initialize content monitor
         try {

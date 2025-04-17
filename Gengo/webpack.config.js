@@ -133,19 +133,30 @@ module.exports = {
             ],
         }),
         new Dotenv({
-            systemvars: true, // Load all system variables
-            safe: true // Load .env.example variables if .env is missing
+            path: path.resolve(__dirname, '.env'),
+            systemvars: true,
+            safe: true,
+            defaults: true,
+            expand: true
         }),
         new webpack.DefinePlugin({
             'process.env': {
                 NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+                AGORA_APP_ID: JSON.stringify(process.env.AGORA_APP_ID || ''),
+                AGORA_APP_CERTIFICATE: JSON.stringify(process.env.AGORA_APP_CERTIFICATE || ''),
+                AGORA_CUSTOMER_ID: JSON.stringify(process.env.AGORA_CUSTOMER_ID || ''),
+                AGORA_CUSTOMER_SECRET: JSON.stringify(process.env.AGORA_CUSTOMER_SECRET || ''),
+                AGORA_REGION: JSON.stringify(process.env.AGORA_REGION || 'na'),
+                AGORA_LOG_LEVEL: JSON.stringify(process.env.AGORA_LOG_LEVEL || 'info'),
                 MAPBOX_ACCESS_TOKEN: JSON.stringify(process.env.MAPBOX_ACCESS_TOKEN || ''),
                 MAPBOX_STYLE: JSON.stringify(process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11'),
                 MAPBOX_DEFAULT_CENTER: JSON.stringify(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
                 MAPBOX_DEFAULT_ZOOM: JSON.stringify(process.env.MAPBOX_DEFAULT_ZOOM || '2'),
                 SUPABASE_URL: JSON.stringify(process.env.SUPABASE_URL || ''),
                 SUPABASE_ANON_KEY: JSON.stringify(process.env.SUPABASE_ANON_KEY || ''),
-                AUTH_REQUIRE_INVITE: JSON.stringify(process.env.AUTH_REQUIRE_INVITE || 'true')
+                DEEPSEEK_API_KEY: JSON.stringify(process.env.DEEPSEEK_API_KEY || ''),
+                AUTH_REQUIRE_INVITE: JSON.stringify(process.env.AUTH_REQUIRE_INVITE || 'true'),
+                DEFAULT_FLASHCARD_CATEGORY: JSON.stringify(process.env.DEFAULT_FLASHCARD_CATEGORY || 'greetings')
             }
         })
     ],

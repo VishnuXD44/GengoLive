@@ -6,7 +6,15 @@ let socket = null;
 
 // Initialize Agora Video client
 const initializeAgoraVideo = () => {
-    agoraVideo = new window.AgoraClient();
+    try {
+        if (!process.env.AGORA_APP_ID) {
+            throw new Error('Agora App ID is not configured');
+        }
+        agoraVideo = new window.AgoraClient();
+    } catch (error) {
+        console.error('Failed to initialize Agora client:', error);
+        showMessage('Failed to initialize video chat. Please try again later.', 'error');
+    }
 };
 
 // Update the startVideoCall function
@@ -72,7 +80,8 @@ function setupSocketListeners() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     identity: `${role}-${Date.now()}`,
-                    room: currentRoom
+                    room: currentRoom,
+                    appId: process.env.AGORA_APP_ID
                 })
             });
             
