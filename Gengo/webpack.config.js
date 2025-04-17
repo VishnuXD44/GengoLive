@@ -28,7 +28,7 @@ module.exports = {
         globalObject: 'this'
     },
     experiments: {
-        outputModule: true,
+        // Remove outputModule as it's causing issues
     },
     module: {
         rules: [
@@ -39,20 +39,13 @@ module.exports = {
                     loader: 'babel-loader',
                     options: {
                         presets: [
-                            ['@babel/preset-env', {
-                                targets: {
-                                    browsers: ['last 2 versions', 'not dead']
-                                },
-                                modules: false,
-                                useBuiltIns: 'usage',
-                                corejs: 3
-                            }]
+                            '@babel/preset-env'
                         ],
                         plugins: [
                             '@babel/plugin-transform-runtime'
                         ]
-                    },
-                },
+                    }
+                }
             },
             {
                 test: /\.css$/,
