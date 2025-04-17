@@ -4,15 +4,18 @@ const fetch = require('node-fetch');
 
 router.post('/generate', async (req, res) => {
     try {
+        console.log('Received generate request:', req.body);
         const { prompt } = req.body;
 
         if (!prompt) {
+            console.warn('Missing prompt in request');
             return res.status(400).json({ 
                 success: false,
                 error: 'Prompt is required' 
             });
         }
 
+        console.log('Sending request to Deepseek API with prompt:', prompt);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -36,17 +39,30 @@ router.post('/generate', async (req, res) => {
             })
         });
 
+        console.log('Deepseek API response status:', response.status);
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            console.error('Deepseek API error:', errorData);
+            console.error('Deepseek API error response:', errorData);
             throw new Error('Failed to generate response from Deepseek API');
         }
 
         const data = await response.json();
-        return res.json({ 
+        console.log('Deepseek API response data:', {
+            status: data.status,
+            messageContent: data.choices?.[0]?.message?.content?.substring(0, 100) + '...'
+        });
+
+        const responseData = { 
             success: true,
             response: data.choices[0].message.content 
+        };
+        console.log('Sending response to client:', {
+            success: responseData.success,
+            responsePreview: responseData.response.substring(0, 100) + '...'
         });
+
+        return res.json(responseData);
 
     } catch (error) {
         console.error('Language generation error:', error);
