@@ -15,6 +15,7 @@ class LearnPage {
         this.progressBar = document.getElementById('progressBar');
         this.authSection = document.getElementById('authSection');
         this.learnSection = document.getElementById('learnSection');
+        this.loadingIndicator = document.getElementById('loadingIndicator');
 
         this.init();
     }
@@ -78,17 +79,38 @@ class LearnPage {
     async loadFlashcards() {
         if (!this.isAuthenticated || !this.currentCategory) return;
 
-        const result = await flashcardManager.getFlashcards(this.currentCategory);
-        if (result.success) {
-            this.flashcards = result.flashcards;
-            this.renderFlashcards();
-        } else {
-            this.showError(result.error);
+        try {
+            // Show loading indicator
+            this.loadingIndicator?.classList.remove('hidden');
+            this.flashcardContainer.innerHTML = ''; // Clear existing cards
+
+            const result = await flashcardManager.getFlashcards(this.currentCategory);
+            if (result.success) {
+                this.flashcards = result.flashcards;
+                this.renderFlashcards();
+                this.updateProgress();
+            } else {
+                this.showError(result.error || 'Failed to load flashcards. Please try again.');
+            }
+        } catch (error) {
+            this.showError('An error occurred while loading flashcards. Please try again.');
+            console.error('Flashcard loading error:', error);
+        } finally {
+            // Hide loading indicator
+            this.loadingIndicator?.classList.add('hidden');
         }
     }
 
     renderFlashcards() {
         if (!this.flashcardContainer) return;
+
+        if (!this.flashcards.length) {
+            this.flashcardContainer.innerHTML = `
+                <div class="no-flashcards">
+                    <p>No flashcards available for this category yet.</p>
+                </div>`;
+            return;
+        }
 
         this.flashcardContainer.innerHTML = '';
         

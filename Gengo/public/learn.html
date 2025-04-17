@@ -502,13 +502,17 @@
 
                 <div class="category-selection">
                     <label for="categorySelect">Choose Category:</label>
-                    <select id="categorySelect">
+                    <select id="categorySelect" class="styled-select">
                         <option value="">Select a category</option>
                         <option value="greetings">Greetings</option>
                         <option value="food">Food & Dining</option>
                         <option value="transportation">Transportation</option>
                         <option value="emergency">Emergency</option>
                     </select>
+                    <div id="loadingIndicator" class="loading-indicator hidden">
+                        <div class="spinner"></div>
+                        <span>Loading flashcards...</span>
+                    </div>
                 </div>
 
                 <div class="progress-container">
