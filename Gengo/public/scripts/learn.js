@@ -1,21 +1,17 @@
 import authHandler from './auth.js';
-import flashcardManager from './flashcardManager.js';
+import mapManager from './mapManager.js';
+import languageGenerator from './languageGenerator.js';
 
 class LearnPage {
     constructor() {
         this.currentUser = null;
         this.flashcards = [];
-        this.currentCategory = null;
         this.isAuthenticated = false;
-
-        // DOM Elements
-        this.loginForm = document.getElementById('loginForm');
+        this.loadingIndicator = document.getElementById('loadingIndicator');
         this.flashcardContainer = document.getElementById('flashcardContainer');
-        this.categorySelect = document.getElementById('categorySelect');
-        this.progressBar = document.getElementById('progressBar');
         this.authSection = document.getElementById('authSection');
         this.learnSection = document.getElementById('learnSection');
-        this.loadingIndicator = document.getElementById('loadingIndicator');
+        this.loginForm = document.getElementById('loginForm');
 
         this.init();
     }
@@ -52,52 +48,42 @@ class LearnPage {
             }
         });
 
-        // Category selection
-        this.categorySelect?.addEventListener('change', () => {
-            this.currentCategory = this.categorySelect.value;
-            if (this.currentCategory) {
-                this.loadFlashcards();
-            } else {
-                this.flashcardContainer.innerHTML = '';
-            }
-        });
-
         // Sign out button
         const signOutBtn = document.getElementById('signOutBtn');
         signOutBtn?.addEventListener('click', async () => {
             try {
                 await authHandler.signOut();
-                this.currentCategory = null;
-                this.flashcards = [];
                 this.updateUI();
             } catch (error) {
                 this.showError('Failed to sign out. Please try again.');
             }
         });
+
+        // Listen for flashcard generation requests
+        document.addEventListener('generateFlashcards', async (e) => {
+            const { query, language, country } = e.detail;
+            await this.generateFlashcards(query, language, country);
+        });
     }
 
-    async loadFlashcards() {
-        if (!this.isAuthenticated || !this.currentCategory) return;
+    async generateFlashcards(query, language, country) {
+        if (!this.isAuthenticated) return;
 
         try {
-            // Show loading indicator
-            this.loadingIndicator?.classList.remove('hidden');
-            this.flashcardContainer.innerHTML = ''; // Clear existing cards
+            // Show loading state
+            this.showLoading(true);
+            this.flashcardContainer.innerHTML = '';
 
-            const result = await flashcardManager.getFlashcards(this.currentCategory);
-            if (result.success) {
-                this.flashcards = result.flashcards;
-                this.renderFlashcards();
-                this.updateProgress();
-            } else {
-                this.showError(result.error || 'Failed to load flashcards. Please try again.');
-            }
+            // Generate phrases using the language generator
+            const phrases = await languageGenerator.generatePhrases(query, language, country);
+            this.flashcards = phrases;
+            this.renderFlashcards();
+
         } catch (error) {
-            this.showError('An error occurred while loading flashcards. Please try again.');
-            console.error('Flashcard loading error:', error);
+            this.showError('Failed to generate flashcards. Please try again.');
+            console.error('Flashcard generation error:', error);
         } finally {
-            // Hide loading indicator
-            this.loadingIndicator?.classList.add('hidden');
+            this.showLoading(false);
         }
     }
 
@@ -107,7 +93,7 @@ class LearnPage {
         if (!this.flashcards.length) {
             this.flashcardContainer.innerHTML = `
                 <div class="no-flashcards">
-                    <p>No flashcards available for this category yet.</p>
+                    <p>No flashcards available. Try selecting a location on the map.</p>
                 </div>`;
             return;
         }
@@ -120,10 +106,10 @@ class LearnPage {
             card.innerHTML = `
                 <div class="flashcard-inner">
                     <div class="flashcard-front">
-                        <p>${flashcard.front || flashcard.front_text}</p>
+                        <p>${flashcard.front}</p>
                     </div>
                     <div class="flashcard-back">
-                        <p>${flashcard.back || flashcard.back_text}</p>
+                        <p>${flashcard.back}</p>
                     </div>
                 </div>
             `;
@@ -137,42 +123,25 @@ class LearnPage {
         });
     }
 
-    async updateProgress() {
-        if (!this.isAuthenticated || !this.currentCategory) return;
-
-        const result = await flashcardManager.getUserProgress(this.currentCategory);
-        if (result.success && result.progress.length > 0) {
-            const progress = result.progress[0];
-            this.updateProgressBar(progress);
-        }
-    }
-
-    updateProgressBar(progress) {
-        if (!this.progressBar) return;
-
-        const percentage = (progress.completed_cards / progress.total_cards) * 100;
-        this.progressBar.style.width = `${percentage}%`;
-        this.progressBar.setAttribute('aria-valuenow', percentage);
-    }
-
     updateUI() {
         if (this.isAuthenticated) {
             this.authSection?.classList.add('hidden');
             this.learnSection?.classList.remove('hidden');
             
-            // Set default category to greetings if none selected
-            if (!this.currentCategory) {
-                this.currentCategory = 'greetings';
-                if (this.categorySelect) {
-                    this.categorySelect.value = 'greetings';
-                }
+            // Initialize map
+            const mapContainer = document.getElementById('mapContainer');
+            if (mapContainer) {
+                mapManager.init(mapContainer);
             }
-            
-            this.loadFlashcards();
-            this.updateProgress();
         } else {
             this.authSection?.classList.remove('hidden');
             this.learnSection?.classList.add('hidden');
+        }
+    }
+
+    showLoading(show) {
+        if (this.loadingIndicator) {
+            this.loadingIndicator.classList.toggle('hidden', !show);
         }
     }
 
