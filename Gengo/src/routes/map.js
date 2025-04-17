@@ -1,34 +1,17 @@
 const express = require('express');
 const router = express.Router();
 
-// Endpoint to provide map configuration
+// Endpoint to get Mapbox token
 router.get('/config', (req, res) => {
     try {
-        // Validate environment variables are present
-        if (!process.env.MAPBOX_ACCESS_TOKEN) {
-            console.error('Mapbox access token is not configured');
-            return res.status(400).json({
-                error: 'Configuration Error',
-                message: 'Map service is not properly configured. Please check your environment variables.',
-                details: process.env.NODE_ENV === 'development' ? 'Missing MAPBOX_ACCESS_TOKEN' : undefined
-            });
+        const token = process.env.MAPBOX_ACCESS_TOKEN;
+        if (!token) {
+            throw new Error('Mapbox token not configured');
         }
-
-        const config = {
-            accessToken: process.env.MAPBOX_ACCESS_TOKEN,
-            style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11',
-            center: JSON.parse(process.env.MAPBOX_DEFAULT_CENTER || '[0, 20]'),
-            zoom: parseInt(process.env.MAPBOX_DEFAULT_ZOOM || '2')
-        };
-
-        res.json(config);
+        res.json({ token });
     } catch (error) {
-        console.error('Error providing map configuration:', error);
-        res.status(500).json({
-            error: 'Server Error',
-            message: 'Failed to provide map configuration',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        console.error('Mapbox config error:', error);
+        res.status(500).json({ error: 'Failed to get Mapbox configuration' });
     }
 });
 

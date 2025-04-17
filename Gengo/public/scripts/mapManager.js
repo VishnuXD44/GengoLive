@@ -10,7 +10,7 @@ class MapManager {
     async init(container) {
         try {
             // Get the Mapbox token from the server
-            const response = await fetch('/api/config/mapbox');
+            const response = await fetch('/api/map/config');
             const { token } = await response.json();
             
             if (!token) {
@@ -101,7 +101,7 @@ class MapManager {
     async getCountryInfo(lat, lng) {
         try {
             // Get the token from the server for this request
-            const tokenResponse = await fetch('/api/config/mapbox');
+            const tokenResponse = await fetch('/api/map/config');
             const { token } = await tokenResponse.json();
 
             if (!token) {
