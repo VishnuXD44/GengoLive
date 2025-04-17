@@ -41,21 +41,37 @@ class LearnPage {
             const email = e.target.email.value;
             const password = e.target.password.value;
             
-            const result = await authHandler.signIn(email, password);
-            if (!result.success) {
-                this.showError(result.error);
+            try {
+                const result = await authHandler.signIn(email, password);
+                if (!result.success) {
+                    this.showError(result.error);
+                }
+            } catch (error) {
+                this.showError('Failed to sign in. Please try again.');
             }
         });
 
         // Category selection
         this.categorySelect?.addEventListener('change', () => {
             this.currentCategory = this.categorySelect.value;
-            this.loadFlashcards();
+            if (this.currentCategory) {
+                this.loadFlashcards();
+            } else {
+                this.flashcardContainer.innerHTML = '';
+            }
         });
 
         // Sign out button
-        document.getElementById('signOutBtn')?.addEventListener('click', () => {
-            authHandler.signOut();
+        const signOutBtn = document.getElementById('signOutBtn');
+        signOutBtn?.addEventListener('click', async () => {
+            try {
+                await authHandler.signOut();
+                this.currentCategory = null;
+                this.flashcards = [];
+                this.updateUI();
+            } catch (error) {
+                this.showError('Failed to sign out. Please try again.');
+            }
         });
     }
 

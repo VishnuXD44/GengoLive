@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Learn - Gengo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles2.css">
     <style>
@@ -470,8 +474,8 @@
         <!-- Authentication Section -->
         <section id="authSection" class="auth-section">
             <div class="auth-card">
-                <h2><b>Welcome,</b></h2>
-                <p class="subtitle">sign in to continue</p>
+                <h2>Welcome</h2>
+                <p class="subtitle">Sign in to continue your learning journey</p>
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
                         <input type="email" id="email" name="email" placeholder="Email" required>
@@ -479,7 +483,7 @@
                     <div class="form-group">
                         <input type="password" id="password" name="password" placeholder="Password" required>
                     </div>
-                    <button type="submit" class="btn-primary">Let&#96;s go &rarr;</button>
+                    <button type="submit" class="btn-primary">Let's Begin <i class="fas fa-arrow-right"></i></button>
                 </form>
                 <div id="errorMessage" class="error-message hidden"></div>
             </div>
@@ -490,7 +494,10 @@
             <div class="learn-container">
                 <div class="learn-header">
                     <h2>Flashcards</h2>
-                    <button id="signOutBtn" class="btn-secondary">Sign Out</button>
+                    <button id="signOutBtn" class="btn-secondary">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Sign Out</span>
+                    </button>
                 </div>
 
                 <div class="category-selection">
