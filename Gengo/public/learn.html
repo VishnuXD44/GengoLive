@@ -15,81 +15,195 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 60vh;
-            background: #f4f4ed;
+            min-height: 80vh;
+            background: var(--light);
+            padding: 2rem 1rem;
         }
 
         .auth-card {
-            background: #b3e0f7;
-            border-radius: 10px;
-            box-shadow: 4px 4px 0 #222;
-            padding: 2.5rem 2rem 2rem 2rem;
-            max-width: 350px;
+            background: var(--light);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: 3rem 2.5rem;
+            max-width: 400px;
             width: 100%;
             margin: 2rem auto;
-            border: 2px solid #222;
+            border: 4px solid var(--primary);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .auth-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
         }
 
         .auth-card h2 {
-            margin: 0 0 0.5rem 0;
-            font-size: 2rem;
+            margin: 0 0 0.75rem 0;
+            font-size: 2.5rem;
             font-weight: bold;
+            color: var(--dark);
+            text-align: center;
+            font-family: 'Playfair Display', serif;
         }
 
         .auth-card .subtitle {
-            color: #666;
-            margin-bottom: 1.5rem;
+            color: var(--neutral-700);
+            margin-bottom: 2rem;
             font-size: 1.1rem;
+            text-align: center;
+            line-height: 1.6;
         }
 
         .auth-form .form-group {
-            margin-bottom: 1.2rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .auth-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+            font-weight: 600;
+            font-size: 0.9rem;
         }
 
         .auth-form input[type="email"],
         .auth-form input[type="password"] {
             width: 100%;
-            padding: 0.9rem 1rem;
-            border: none;
-            border-radius: 8px;
-            background: #fdfbe6;
+            padding: 1rem 1.2rem;
+            border: 4px solid var(--primary);
+            border-radius: var(--radius-md);
+            background: var(--light);
             font-size: 1.1rem;
-            box-shadow: 4px 4px 0 #222;
-            margin-bottom: 0.5rem;
-            outline: none;
-            transition: box-shadow 0.2s;
+            color: var(--dark);
+            transition: all 0.3s ease;
         }
 
         .auth-form input[type="email"]:focus,
         .auth-form input[type="password"]:focus {
-            box-shadow: 2px 2px 0 #222;
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-2px);
+        }
+
+        .auth-form input[type="email"]::placeholder,
+        .auth-form input[type="password"]::placeholder {
+            color: var(--neutral-400);
         }
 
         .btn-primary {
             width: 100%;
-            padding: 0.9rem 0;
-            background: #fdfbe6;
-            color: #222;
+            padding: 1.2rem 0;
+            background: var(--primary);
+            color: var(--light);
             font-size: 1.2rem;
             font-weight: 600;
             border: none;
-            border-radius: 8px;
-            box-shadow: 4px 4px 0 #222;
+            border-radius: var(--radius-md);
             cursor: pointer;
-            margin-top: 1rem;
-            transition: box-shadow 0.2s, background 0.2s;
+            margin-top: 1.5rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .btn-primary:hover {
-            background: #ffe;
-            box-shadow: 2px 2px 0 #222;
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .error-message {
-            color: #b00020;
-            margin-top: 1rem;
+            color: var(--primary);
+            margin-top: 1.5rem;
             font-size: 1rem;
             text-align: center;
+            padding: 1rem;
+            background: var(--light);
+            border: 2px solid var(--primary);
+            border-radius: var(--radius-md);
+            line-height: 1.5;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .auth-section {
+                min-height: 70vh;
+                padding: 1rem;
+            }
+
+            .auth-card {
+                padding: 2rem 1.5rem;
+                margin: 1rem auto;
+            }
+
+            .auth-card h2 {
+                font-size: 2rem;
+            }
+
+            .auth-card .subtitle {
+                font-size: 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .auth-form input[type="email"],
+            .auth-form input[type="password"] {
+                padding: 0.9rem 1rem;
+                font-size: 1rem;
+            }
+
+            .btn-primary {
+                padding: 1rem 0;
+                font-size: 1.1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .auth-section {
+                min-height: 60vh;
+                padding: 0.5rem;
+            }
+
+            .auth-card {
+                padding: 1.5rem 1rem;
+                margin: 0.5rem auto;
+            }
+
+            .auth-card h2 {
+                font-size: 1.8rem;
+            }
+
+            .auth-card .subtitle {
+                font-size: 0.9rem;
+                margin-bottom: 1.2rem;
+            }
+
+            .auth-form .form-group {
+                margin-bottom: 1.2rem;
+            }
+
+            .auth-form label {
+                font-size: 0.8rem;
+            }
+
+            .auth-form input[type="email"],
+            .auth-form input[type="password"] {
+                padding: 0.8rem;
+                font-size: 0.9rem;
+            }
+
+            .btn-primary {
+                padding: 0.9rem 0;
+                font-size: 1rem;
+            }
+
+            .error-message {
+                font-size: 0.9rem;
+                padding: 0.8rem;
+                margin-top: 1.2rem;
+            }
         }
 
         .flashcard {
@@ -205,36 +319,6 @@
             </div>
         </section>
     </main>
-
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-logo">
-                <h3>Gengo</h3>
-                <p>Connect. Learn. Grow.</p>
-            </div>
-            <div class="footer-links">
-                <div class="footer-column">
-                    <h4>Languages</h4>
-                    <a href="/main?lang=english">English</a>
-                    <a href="/main?lang=spanish">Spanish</a>
-                    <a href="/main?lang=japanese">Japanese</a>
-                    <a href="/main?lang=french">French</a>
-                    <a href="/main?lang=mandarin">Mandarin</a>
-                    <a href="/main">View All</a>
-                </div>
-                <div class="footer-column">
-                    <h4>Company</h4>
-                    <a href="/about">About Us</a>
-                    <a href="/Contact.html">Contact</a>
-                    <a href="/privacy">Privacy Policy</a>
-                    <a href="/terms">Terms of Service</a>
-                </div>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; <span class="current-year">2024</span> Gengo. All rights reserved.</p>
-        </div>
-    </footer>
 
     <script type="module" src="scripts/learn.js"></script>
     <script>
