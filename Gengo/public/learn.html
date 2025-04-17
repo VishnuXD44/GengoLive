@@ -15,9 +15,9 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 80vh;
+            min-height: calc(100vh - 80px); /* Subtract navbar height */
             background: var(--light);
-            padding: 2rem 1rem;
+            margin-top: 80px; /* Add space for navbar */
         }
 
         .auth-card {
@@ -27,7 +27,6 @@
             padding: 3rem 2.5rem;
             max-width: 400px;
             width: 100%;
-            margin: 2rem auto;
             border: 4px solid var(--primary);
             position: relative;
             transition: all 0.3s ease;

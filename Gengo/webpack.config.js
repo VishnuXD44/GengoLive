@@ -5,8 +5,12 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const Dotenv = require('dotenv-webpack');
 const webpack = require('webpack');
 
-// Load environment variables for DefinePlugin
-require('dotenv').config();
+// Load environment variables, but don't fail if .env is missing
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.log('No .env file found, using environment variables');
+}
 
 module.exports = {
     mode: process.env.NODE_ENV || 'development',
@@ -135,9 +139,9 @@ module.exports = {
         new Dotenv({
             path: path.resolve(__dirname, '.env'),
             systemvars: true,
-            safe: true,
-            defaults: true,
-            expand: true
+            safe: false,
+            defaults: false,
+            silent: true
         }),
         new webpack.DefinePlugin({
             'process.env': {
