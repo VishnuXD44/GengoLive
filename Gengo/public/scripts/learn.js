@@ -82,10 +82,10 @@ class LearnPage {
             card.innerHTML = `
                 <div class="flashcard-inner">
                     <div class="flashcard-front">
-                        <p>${flashcard.front_text}</p>
+                        <p>${flashcard.front || flashcard.front_text}</p>
                     </div>
                     <div class="flashcard-back">
-                        <p>${flashcard.back_text}</p>
+                        <p>${flashcard.back || flashcard.back_text}</p>
                     </div>
                 </div>
             `;
@@ -121,6 +121,15 @@ class LearnPage {
         if (this.isAuthenticated) {
             this.authSection?.classList.add('hidden');
             this.learnSection?.classList.remove('hidden');
+            
+            // Set default category to greetings if none selected
+            if (!this.currentCategory) {
+                this.currentCategory = 'greetings';
+                if (this.categorySelect) {
+                    this.categorySelect.value = 'greetings';
+                }
+            }
+            
             this.loadFlashcards();
             this.updateProgress();
         } else {

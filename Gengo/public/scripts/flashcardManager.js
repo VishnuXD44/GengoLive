@@ -20,9 +20,79 @@ class FlashcardManager {
         this.defaultCategory = defaultCategory;
         
         // Listen for auth state changes
-        authHandler.onAuthStateChange((user) => {
+        authHandler.onAuthStateChange(async (user) => {
             this.currentUser = user;
+            if (user) {
+                // Check if user has any flashcards
+                const { data } = await this.supabase
+                    .from('user_flashcards')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .limit(1);
+                
+                // If no flashcards exist, initialize with defaults
+                if (!data || data.length === 0) {
+                    await this.initializeDefaultFlashcards();
+                }
+            }
         });
+    }
+
+    // Initialize default flashcards for new users
+    async initializeDefaultFlashcards() {
+        if (!this.currentUser) return;
+
+        const defaultFlashcards = {
+            greetings: [
+                { front: "Hello", back: "Hello" },
+                { front: "Thank you", back: "Thank you" },
+                { front: "You're welcome", back: "You're welcome" },
+                { front: "Goodbye", back: "Goodbye" },
+                { front: "Good morning", back: "Good morning" }
+            ],
+            food: [
+                { front: "Can I have the menu?", back: "Can I have the menu?" },
+                { front: "The bill, please", back: "The bill, please" },
+                { front: "Is this dish spicy?", back: "Is this dish spicy?" },
+                { front: "I am vegetarian", back: "I am vegetarian" },
+                { front: "Water, please", back: "Water, please" }
+            ],
+            transportation: [
+                { front: "Where is the train station?", back: "Where is the train station?" },
+                { front: "How much is the fare?", back: "How much is the fare?" },
+                { front: "One ticket, please", back: "One ticket, please" },
+                { front: "When is the next train?", back: "When is the next train?" },
+                { front: "Is this the right platform?", back: "Is this the right platform?" }
+            ],
+            emergency: [
+                { front: "Help!", back: "Help!" },
+                { front: "I need a doctor", back: "I need a doctor" },
+                { front: "Where is the hospital?", back: "Where is the hospital?" },
+                { front: "Call the police", back: "Call the police" },
+                { front: "I am lost", back: "I am lost" }
+            ]
+        };
+
+        try {
+            for (const [category, cards] of Object.entries(defaultFlashcards)) {
+                const flashcardsToInsert = cards.map(card => ({
+                    user_id: this.currentUser.id,
+                    front_text: card.front,
+                    back_text: card.back,
+                    category: category,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }));
+
+                const { error } = await this.supabase
+                    .from('user_flashcards')
+                    .insert(flashcardsToInsert);
+
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error('Error initializing default flashcards:', error);
+        }
     }
 
     // Get user's flashcards for a specific category
